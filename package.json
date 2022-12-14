@@ -1,0 +1,26 @@
+{
+	"name": "aiken-site",
+	"version": "0.0.1",
+	"description": "Aiken Documentation",
+	"scripts": {
+		"dev": "next dev",
+		"build": "next build",
+		"start": "next start"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/aiken-lang/site.git"
+	},
+	"license": "Apache 2.0",
+	"dependencies": {
+		"next": "^13.0.6",
+		"nextra": "^2.0.1",
+		"nextra-theme-docs": "^2.0.1",
+		"react": "^18.2.0",
+		"react-dom": "^18.2.0"
+	},
+	"devDependencies": {
+		"@types/node": "18.11.15",
+		"typescript": "4.9.4"
+	}
+}
