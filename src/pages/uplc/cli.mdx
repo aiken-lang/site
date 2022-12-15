@@ -1,3 +1,5 @@
+import { Callout } from "nextra-theme-docs";
+
 # Command-line utilities
 
 ## Evaluation
@@ -107,15 +109,16 @@ The `--print` flag instruments the command-line to print everything on stdout
 in a readable way. Without the flag, the command creates a file `program_1.flat`
 next to `program_1.uplc`.
 
-> **Note**
->
-> `aiken uplc flat program.uplc`
->
-> and
->
-> `aiken uplc flat program.uplc --out program.flat`
->
-> are therefore equivalent.
+<Callout type="info">
+ `aiken uplc flat program.uplc`
+
+and
+
+`aiken uplc flat program.uplc --out program.flat`
+
+are therefore equivalent.
+
+</Callout>
 
 From there, one can recover a UPLC high-level syntax from a flat program using
 `unflat` as such:
