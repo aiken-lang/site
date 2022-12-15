@@ -1,27 +1,32 @@
+/** @type { import("nextra").Nextra } */
+const nextra = require("nextra");
 const { getHighlighter, BUNDLED_LANGUAGES } = require("shiki");
 
-const rehypePrettyCodeOptions = {
-  getHighlighter: (options) => {
-    return getHighlighter({
-      ...options,
-      langs: [
-        ...BUNDLED_LANGUAGES,
-        {
-          id: "aiken",
-          scopeName: "source.aiken",
-          grammar: require("./aiken.tmLanguage.json"),
-          aliases: ["ak", "aiken"],
-        },
-      ],
-    });
-  },
-};
-
-const withNextra = require("nextra")({
+const withNextra = nextra({
   theme: "nextra-theme-docs",
   themeConfig: "./theme.config.tsx",
   defaultShowCopyCode: true,
-  mdxOptions: { rehypePrettyCodeOptions },
+  readingTime: true,
+  mdxOptions: {
+    rehypePrettyCodeOptions: {
+      getHighlighter: (options) => {
+        return getHighlighter({
+          ...options,
+          langs: [
+            ...BUNDLED_LANGUAGES,
+            {
+              id: "aiken",
+              scopeName: "source.aiken",
+              grammar: require("./aiken.tmLanguage.json"),
+              aliases: ["ak", "aiken"],
+            },
+          ],
+        });
+      },
+    },
+  },
 });
 
-module.exports = withNextra();
+module.exports = withNextra({
+  images: { unoptimized: true },
+});
