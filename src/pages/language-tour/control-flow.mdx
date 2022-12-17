@@ -52,7 +52,7 @@ let answer = Yes
 
 let description =
   when answer is {
-    Yes -> "It's yes!"
+    Yes -> "It's true!"
     No -> "It's not yes."
   }
 
@@ -69,7 +69,7 @@ let some_bool = True
 
 if some_bool {
   "It's true!"
-else {
+} else {
   "It's not true."
 }
 ```
@@ -172,7 +172,7 @@ It can be useful when designing a module, type checking functions and types but
 leaving the implementation of the functions until later.
 
 ```aiken
-fn not_sure_yet() -> Int {
+fn favourite_number() -> Int {
   // The type annotations says this returns an Int, but we don't need
   // to implement it yet.
   todo
