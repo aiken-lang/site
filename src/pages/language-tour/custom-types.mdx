@@ -225,10 +225,10 @@ type MyNumber = Integer
 They are most useful for simplifying type signatures.
 
 ```aiken
-type Person = (String, Integer)
+type Person = #(String, Integer)
 
 fn create_person(name: String, age: Integer) -> Person {
-    (name, age)
+    #(name, age)
 }
 ```
 
