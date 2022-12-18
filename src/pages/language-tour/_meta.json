@@ -4,5 +4,6 @@
   "functions": "Functions",
   "custom-types": "Custom Types",
   "control-flow": "Control Flow",
-  "modules": "Modules"
+  "modules": "Modules",
+  "tests": "Tests"
 }

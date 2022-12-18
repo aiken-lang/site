@@ -1,0 +1,70 @@
+import { Callout } from "nextra-theme-docs";
+
+# Tests
+
+## Overview
+
+Aiken has first-class support for tests. And what we mean is that you can write tests in Aiken directly and execute them on-the-fly. Hence the toolkit (`aiken check`) can parse tests, collect them, run them and display a report with (hopefully) helpful details.
+
+To write a test, use the `test` keyword:
+
+```aiken
+test foo() {
+  1 + 1 == 2
+}
+```
+
+A test is a named function that takes no arguments and returns a boolean. More specifically, a test is considered _valid_ (i.e. it passes) if it returns `True`.
+
+You can write tests anywhere in an Aiken module, and they can make calls to functions and use constants all the same. However, tests cannot call other tests! If you need to re-use code between tests, create a function.
+
+<Callout>
+  At this stage, the testing framework is rudimentary -- albeit useful! Later, we're planning on introducing arguments to test functions to turn them into full-blown properties. Arguments will be randomly generated, and tests will be executed a hundred times.
+</Callout>
+
+One exciting thing about tests is that they use the same virtual machine as the one for executing contracts on-chain. Said differently, they are actual snippets of on-chain code you can run and reason about in the same context as your production code.
+
+## Test reports
+
+For example, let's write a simple function with some unit tests.
+
+```aiken filename="lib/example.ak"
+fn add_one(n: Int) -> Int {
+  n + 1
+}
+
+test add_one_1() {
+  add_one(0) == 1
+}
+
+test add_one_2() {
+  add_one(-42) == -41
+}
+```
+
+Running `aiken check` on our project gives us the following report:
+
+![](/language_tour_tests_fig_1.png)
+
+As you can see, the report group tests by module and gives you, for each test, the memory and CPU execution units needed for that test. That means tests can also be used as benchmarks if you need to experiment with different approaches and compare their execution costs.
+
+<Callout type="info">
+  Tests can be arbitrarily complex; unlike on-chain scripts, they do not have any execution limit.
+</Callout>
+
+## Automatic diffing
+
+The Aiken's test runner is (trying to be) intelligent and helpful, notably on test failures. If a test fails, the test runner will do its best to provide some information about what went wrong. This is particularly efficient if you write your tests as assertions using a binary operator (`==`, `>=`, `!=` etc..).
+
+For example, let's add a failing test to our example above:
+
+```aiken filename="lib/example.ak"
+// ... rest of the file is unchanged
+test add_one_3() {
+  add_one(1) == 1
+}
+```
+
+![](/language_tour_tests_fig_2.png)
+
+Brilliant! We get to see what both operands are evaluated to, and the test runner points us to the problem. As you can see, however, the evaluation is given in [Untyped Plutus Core (a.k.a UPLC)](http://localhost:3000/uplc) for being the actual execution language. We cover UPLC in the next section of this manual. Being able to read UPLC helps debug and understand what's really going on on-chain.
