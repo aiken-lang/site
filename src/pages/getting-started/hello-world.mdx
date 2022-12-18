@@ -1,0 +1,294 @@
+import { Callout } from "nextra-theme-docs";
+
+# Hello, World!
+
+Let's write and execute a smart-contract on Cardano in 10 minutes. Yes, you read
+that well.
+
+## Pre-requisuite
+
+We'll use `Aiken` to write the script, and
+[`Lucid`](https://github.com/spacebudz/lucid) to construct and submit the
+transaction. So make sure you have your dev environment ready for some
+TypeScript (we recommend installing
+[deno](https://deno.land/manual@v1.29.1/getting_started/installation)) and have
+Aiken installed already.
+
+If you haven't any public/private key pair available, you'll also need the
+[`cardano-cli`](https://github.com/input-output-hk/cardano-node/tree/master/cardano-cli#cardano-cli)
+to generate some credentials.
+
+## Scaffolding
+
+First, let's create a new `Aiken` project:
+
+```
+aiken new hello_world
+cd hello_world
+git init
+```
+
+This command scaffolds an Aiken project. In particular, it creates a `lib` and `validators` folders in which you can put Aiken source files.
+
+```
+./hello_world
+│
+├── README.md
+├── aiken.toml
+├── lib
+└── validators
+```
+
+## Using the standard library
+
+We'll use the [standard library](https://aiken-lang.github.io/stdlib) for writing our validator. So let's download it as part of our project:
+
+```
+curl -s https://codeload.github.com/aiken-lang/stdlib/zip/refs/heads/main --output - | tar -C lib --strip-components 2 -xf - "stdlib-main/lib/*"
+```
+
+This commands download the standard library into the `lib/` folder to make it available for our script to use.
+
+<Callout>
+Downloading dependencies is still a bit _clunky_ at the moment, but worry not, this will be integrated to the Aiken command-line soon. But for now, bear with it a little.
+</Callout>
+
+## Our first validator
+
+Let's write our first validator as `validators/hello_world.ak`:
+
+```aiken filename="validators/hello_world.ak"
+use aiken/list
+use aiken/string
+use aiken/hash.{Blake2b_224, Hash}
+use aiken/transaction.{ScriptContext}
+use aiken/transaction/credential.{VerificationKey}
+
+pub type Datum {
+  owner: Hash<Blake2b_224, VerificationKey>,
+}
+
+pub type Redeemer {
+  msg: ByteArray,
+}
+
+pub fn spend(datum: Datum, redeemer: Redeemer, context: ScriptContext) -> Bool {
+  let must_say_hello = string.from_bytearray(redeemer.msg) == "Hello, World!"
+  let must_be_signed =
+    context.transaction.extra_signatories
+    |> list.any(fn(vk) { vk == datum.owner })
+
+  must_say_hello && must_be_signed
+}
+```
+
+Our first validator is very simple. It is parameterized by a `VerificationKey` that is set when funds are sent to the contract. To be unlocked, the spender must provide a signature of the corresponding `SigningKey` of the whole transaction. In a way, it mimics the traditional public/private key signing mechanism that are common to blockchains.
+
+It's now time to build our first contract.
+
+```
+aiken build
+```
+
+This generate a few assets in the `assets` folder. In particular, we can find a `testnet.addr` containing a testnet payment address carrying our a reference to our `hello_world` contract.
+
+```
+assets
+└── hello_world
+    └── spend
+        ├── mainnet.addr
+        ├── payment_script.json
+        ├── script.cbor
+        └── testnet.addr
+```
+
+Let's see it in action!
+
+## Getting funds
+
+Before moving one, we'll need some funds, and a public/private key pair to hold them. We can create a new keypair using the `cardano-cli` via:
+
+```
+cardano-cli address key-gen --normal-key \
+  --verification-key-file key.vk \
+  --signing-key-file key.sk
+```
+
+Then, we'll need to make an address from our verification key to receive some test funds from the faucet. We can also use the `cardano-cli` for that:
+
+```
+cardano-cli address build \
+  --testnet-magic 2 \
+  --payment-verification-key-file key.vk \
+  > key.addr
+```
+
+This creates an address for the `preview` test network, and stores it in `key.addr`. Now, we can head to [the Cardano faucet](https://docs.cardano.org/cardano-testnet/tools/faucet) to get some funds on the preview network to our newly created address. Make sure to select _"Preview Testnet"_ as network.
+
+Using [CardanoScan](https://preview.cardanoscan.io/) we can watch for the faucet sending some ADA our way. This should be pretty fast.
+
+## Using the contract
+
+Now that we have some funds, we can lock them in our newly created contract. We'll use [`Lucid`](https://github.com/spacebudz/lucid) to construct and submit our transaction through Blockfrost.
+
+<Callout type="info">
+  This is only one example of possible setup using tools we love. For more tools, make sure to check out the [Cardano Developer Portal](https://developers.cardano.org/tools)!
+</Callout>
+
+### Setup
+
+First, we setup Lucid with Blockfrost as a provider. This will allow us to let Lucid handle transaction building for us, which includes managing changes. It also gives us a direct way to submit the transaction later on.
+
+```ts filename="hello-world.ts"
+import {
+  Blockfrost,
+  C,
+  Constr,
+  Data,
+  Lucid,
+  SpendingValidator,
+  TxHash,
+  fromHex,
+  fromhex,
+  toHex,
+} from "https://deno.land/x/lucid@0.8.2/mod.ts";
+import * as cbor from "https://deno.land/x/cbor@v1.4.1/index.js";
+
+
+const lucid = await Lucid.new(
+  new Blockfrost(
+    "https://cardano-preview.blockfrost.io/api/v0",
+    /* BLOCKFROST API KEY */,
+  ),
+  "Preview",
+);
+
+const privateKey = await readPrivateKey("key.sk");
+
+lucid.selectWalletFromPrivateKey(privateKey.to_bech32());
+
+const validator = await readValidator("./assets/hello_world/spend/script.cbor");
+
+
+// --- Supporting functions
+
+async function readPrivateKey(filepath: String): Promise<C.PrivateKey> {
+  const str = JSON.parse(await Deno.readTextFile(filepath)).cborHex;
+  return C.PrivateKey.from_normal_bytes(fromHex(str.substr(4)));
+}
+
+async function readValidator(filepath: String): Promise<SpendingValidator> {
+  return {
+    type: "PlutusV2",
+    script: toHex(cbor.encode(fromHex(await Deno.readTextFile(filepath)))),
+  };
+}
+```
+
+### Locking funds into the contract
+
+Here, we make our first transaction to lock funds into the contract. The datum
+must match the representation expected by the script, so this is a constructor
+with a single field that is a byte array.
+
+As value for that byte array, we provide a hash digest of our public key. This
+will be needed to unlock the funds.
+
+```ts filename="hello-world.ts"
+const datum = Data.to(new Constr(0, [privateKey.to_public().hash().to_bytes()]));
+
+const txLock = await lock(1000000, { into: validator, owner: datum });
+
+await lucid.awaitTx(txLock);
+
+console.log(`1 ADA locked into the contract
+    Tx ID: ${txLock}
+    Datum: ${datum}
+`);
+
+// --- Supporting functions
+
+async function lock(lovelace, { into, owner }): Promise<TxHash>{
+  const contractAddress = lucid.utils.validatorToAddress(into);
+
+  const tx = await lucid
+    .newTx()
+    .payToContract(contractAddress, { inline: owner }, { lovelace })
+    .complete();
+
+  const signedTx = await tx
+    .sign()
+    .complete();
+
+  return signedTx.submit();
+}
+```
+
+Now is a good moment to pause and have a look at CardanoScan. Here's [an example of an _Hello World_ transaction](https://preview.cardanoscan.io/transaction/8559f57234407204d8e9a6bf57ef6943c65ec7119eb1c2ca6224f8bad8e71c1e?tab=utxo) that we generated using this tutorial.
+
+If you notice the small icon next to the contract output address, we can even [inspect the datum](https://preview.cardanoscan.io/datumInspector?datum=d8799f581c10073fd2997d2f7dc6dadcf24966bd06b01930e5210e5de7aebf792dff):
+
+```json filename="d8799f581c10073fd2997d2f7dc6dadcf24966bd06b01930e5210e5de7aebf792dff"
+{
+   constructor: 0,
+   fields: [
+      {
+         bytes: "10073fd2997d2f7dc6dadcf24966bd06b01930e5210e5de7aebf792d"
+      }
+   ]
+}
+```
+
+### Unlocking funds from the contract
+
+Finally, as a last step: we now want to spend the UTxO that is locked by our
+`hello_world` contract.
+
+To be valid, our transaction must meet two conditions:
+
+- it must provide "Hello, World!" as a redeemer; and
+- it must be signed by the key referenced as datum (i.e the owner).
+
+<Callout type="warning">
+  Note that we need to explicitly add a signer using `.addSigner` so that it gets
+  added to the `extra_signatories` of our transaction -- and becomes accessible
+  for our script.
+</Callout>
+
+```ts filename="hello-world.ts"
+const utxo = { txHash: txLock, outputIndex: 0 };
+
+const redeemer = Data.to(new Constr(0, [new TextEncoder().encode("Hello, World!")]));
+
+const txUnlock = await unlock(utxo, { from: validator, using: redeemer });
+
+await lucid.awaitTx(txUnlock);
+
+console.log(`1 ADA recovered from the contract
+    Tx ID: ${txUnlock}
+    Redeemer: ${redeemer}
+`);
+
+// --- Supporting functions
+
+async function unlock(ref, { from, using }): Promise<TxHash> {
+  const [utxo] = await lucid.utxosByOutRef([ref]);
+
+  const tx = await lucid
+    .newTx()
+    .collectFrom([utxo], using)
+    .addSigner(await lucid.wallet.address())
+    .attachSpendingValidator(from)
+    .complete();
+
+  const signedTx = await tx
+    .sign()
+    .complete();
+
+  return signedTx.submit();
+}
+```
+
+And, tada 🎉!
+
+We can inspect our [redeeming transaction in CardanoScan](https://preview.cardanoscan.io/transaction/d3d5e828a3989691b0960d22a265c8c9ae4723134b52aa05ec0fb7d40f060392?tab=contracts) and see that it successfully executed our _Hello World_ contract.
