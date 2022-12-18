@@ -1,7 +1,32 @@
 import { DocsThemeConfig } from "nextra-theme-docs";
+import { useTheme } from 'next-themes'
 
 const config: DocsThemeConfig = {
-  logo: <span>Aiken</span>,
+  // Ideally, we'd simply use a <picture> + <source media="(prefers-color-scheme: ...)"/>,
+  // but next-themes which handles theme changes isn't handling those properly.
+  //
+  // I have no interest in fixing next-themes right now, so going the hacky way.
+  logo: () => {
+    const { resolvedTheme } = useTheme();
+    return (
+      <>
+        <img
+          style={{ height: "var(--nextra-navbar-height)" }}
+          src=
+            {
+               resolvedTheme === "light"
+               ? "https://raw.githubusercontent.com/aiken-lang/branding/main/assets/logo-dark.png"
+               : "https://raw.githubusercontent.com/aiken-lang/branding/main/assets/logo-light.png"
+            }
+        />
+      </>
+    )
+  },
+  head: (
+    <>
+        <link rel="icon" type="image/svg+xml" sizes="any" href="https://raw.githubusercontent.com/aiken-lang/branding/main/assets/icon.svg"/>
+    </>
+  ),
   project: {
     link: "https://github.com/aiken-lang/aiken",
   },
