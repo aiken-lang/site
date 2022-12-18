@@ -35,8 +35,31 @@ const config: DocsThemeConfig = {
   },
   docsRepositoryBase: "https://github.com/aiken-lang/site/blob/main",
   useNextSeoProps() {
+    const description = "Cardano smart contract language and toolchain";
     return {
-      titleTemplate: "%s – Aiken",
+      titleTemplate: "Aiken | %s",
+      description,
+      canonical: "https://aiken-lang.org/",
+      openGraph: {
+        url: "https://aiken-lang.org/",
+        title: "Aiken",
+        description,
+        images: [
+            {
+              url: 'https://raw.githubusercontent.com/aiken-lang/branding/main/assets/icon.png',
+              width: 796,
+              height: 742,
+              alt: 'Aiken',
+              type: 'image/png',
+            },
+        ],
+      },
+      siteName: "Aiken",
+      twitter: {
+        handle: '@aiken_eng',
+        site: '@aiken_eng',
+        cardType: 'summary_large_image',
+      }
     };
   },
   footer: {
