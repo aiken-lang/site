@@ -58,7 +58,7 @@ const config: DocsThemeConfig = {
       twitter: {
         handle: '@aiken_eng',
         site: '@aiken_eng',
-        cardType: 'summary_large_image',
+        cardType: 'summary',
       }
     };
   },
