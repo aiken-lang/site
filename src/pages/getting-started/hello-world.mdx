@@ -5,7 +5,7 @@ import { Callout } from "nextra-theme-docs";
 Let's write and execute a smart-contract on Cardano in 10 minutes. Yes, you read
 that well.
 
-## Pre-requisuite
+## Pre-requisites
 
 We'll use `Aiken` to write the script, and
 [`Lucid`](https://github.com/spacebudz/lucid) to construct and submit the
@@ -82,7 +82,7 @@ pub fn spend(datum: Datum, redeemer: Redeemer, context: ScriptContext) -> Bool {
 }
 ```
 
-Our first validator is very simple. It is parameterized by a `VerificationKey` that is set when funds are sent to the contract. To be unlocked, the spender must provide a signature of the corresponding `SigningKey` of the whole transaction. In a way, it mimics the traditional public/private key signing mechanism that are common to blockchains.
+Our first validator is rudimentary. It is parameterized by a `VerificationKey` that is set when funds are sent to the contract. To be unlocked, the spender must provide a signature of the corresponding `SigningKey` of the whole transaction. In a way, it mimics the traditional public/private key signing mechanism that are common to blockchains.
 
 It's now time to build our first contract.
 
