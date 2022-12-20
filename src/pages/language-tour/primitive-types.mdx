@@ -131,8 +131,8 @@ We'll see more about `Data{:ak}` when we cover custom types.
 Aiken has tuples which can be useful for grouping values. Each element in a tuple can have a different type.
 
 ```aiken
-(10, "hello") // Type is (Int, String)
-(1, 4, [0]) // Type is (Int, Int, List(Int))
+#(10, "hello") // Type is #(Int, String)
+#(1, 4, [0]) // Type is #(Int, Int, List<Int>)
 ```
 
 Long tuples (i.e. more than 3 elements) are usually discouraged. Indeed, tuples are anonymous constructors, and while they are quick and easy to use, they often impede readability. When types become more complex, one should use records instead (as we'll see later).
@@ -140,10 +140,10 @@ Long tuples (i.e. more than 3 elements) are usually discouraged. Indeed, tuples 
 Elements of a tuple can be accessed using the dot, followed by the index of the element (0-based indexing). So for example:
 
 ```aiken
-let point = (14, 42)
+let point = #(14, 42)
 let x = point.0
 let y = point.1
-(y, x) // (42, 14)
+#(y, x) // #(42, 14)
 ```
 
 ## List
@@ -154,7 +154,7 @@ Unlike tuples, all the elements of a List must be of the same type. Attempting t
 different types will result in a type error.
 
 ```aiken
-[1, 2, 3, 4]  // List(Int)
+[1, 2, 3, 4]  // List<Int>
 
 ["text", 3, 4]  // Type error!
 ```
