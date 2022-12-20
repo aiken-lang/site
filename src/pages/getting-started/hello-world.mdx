@@ -23,7 +23,7 @@ to generate some credentials.
 First, let's create a new `Aiken` project:
 
 ```
-aiken new hello_world
+aiken new aiken-lang/hello_world
 cd hello_world
 git init
 ```
@@ -36,22 +36,38 @@ This command scaffolds an Aiken project. In particular, it creates a `lib` and `
 ├── README.md
 ├── aiken.toml
 ├── lib
+│   └── aiken-lang
+│       └── hello_world
 └── validators
 ```
 
 ## Using the standard library
 
-We'll use the [standard library](https://aiken-lang.github.io/stdlib) for writing our validator. So let's download it as part of our project:
+We'll use the [standard library](https://aiken-lang.github.io/stdlib) for writing our validator. We'll need to edit the `aiken.toml` file to add it as a dependency:
+
+```toml filename="aiken.toml"
+name = "aiken-lang/hello_world"
+version = "0.0.0"
+licences = ["Apache-2.0"]
+description = "Aiken contracts for project 'aiken-lang/hello_world'"
+dependencies = [
+  { name = "aiken-lang/stdlib", version = "main", source = "github" },
+]
+```
+
+Now, running `aiken check`, we should see dependencies being downloaded. That shouldn't take long.
 
 ```
-curl -s https://codeload.github.com/aiken-lang/stdlib/zip/refs/heads/main --output - | tar -C lib --strip-components 2 -xf - "stdlib-main/lib/*"
+❯ aiken check
+    Resolving versions
+  Downloading packages
+   Downloaded 1 package in 0.91s
+    Compiling aiken-lang/stdlib main (/Users/aiken/Documents/aiken-lang/hello_world/build/packages/aiken-lang-stdlib)
+    Compiling aiken-lang/hello_world 0.0.0 (/Users/aiken/Projects/aiken-lang/hello_world)
+
+Summary
+    0 error, 0 warning(s)
 ```
-
-This commands download the standard library into the `lib/` folder to make it available for our script to use.
-
-<Callout>
-Downloading dependencies is still a bit _clunky_ at the moment, but worry not, this will be integrated to the Aiken command-line soon. But for now, bear with it a little.
-</Callout>
 
 ## Our first validator
 
