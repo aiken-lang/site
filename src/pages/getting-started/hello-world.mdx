@@ -90,7 +90,7 @@ It's now time to build our first contract.
 aiken build
 ```
 
-This generate a few assets in the `assets` folder. In particular, we can find a `testnet.addr` containing a testnet payment address carrying our a reference to our `hello_world` contract.
+This generate a few assets in the `assets` folder. In particular, we can find a `script.cbor` that contains our compiled `hello_world` spending validator.
 
 ```
 assets
@@ -184,6 +184,36 @@ async function readValidator(filepath: String): Promise<SpendingValidator> {
   };
 }
 ```
+
+<Callout>
+  If you've installed [deno](https://deno.land/manual@v1.29.1/getting_started/installation), you can run the excerpt above by executing:
+
+  ```
+  deno run --allow-net --allow-read hello_world.ts
+  ```
+
+  It assumes that this file (`hello_world.ts`) is placed at the root of your `hello_world` folder. At this stage, your folder should looks roughly like this:
+
+  ```
+  ./hello_world
+  │
+  ├── README.md
+  ├── aiken.toml
+  ├── assets
+  │   └── hello_world
+  │       └── spend
+  │           ├── script.cbor
+  │           └── ...
+  ├── hello_world.ts
+  ├── key.addr
+  ├── key.sk
+  ├── key.vk
+  ├── lib
+  │   └── ...
+  └── validators
+      └── hello_world.ak
+  ```
+</Callout>
 
 ### Locking funds into the contract
 
