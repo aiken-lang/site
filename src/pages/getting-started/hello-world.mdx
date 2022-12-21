@@ -118,21 +118,21 @@ Let's see it in action!
 
 ## Getting funds
 
-Before moving one, we'll need some funds, and a public/private key pair to hold them. We can generate a seed phrase using `Lucid` to create a new keypair:
+Before moving one, we'll need some funds, and a public/private key pair to hold them. We can generate a private key using `Lucid`:
 
 ```ts
 import { Lucid } from "https://deno.land/x/lucid@0.8.3/mod.ts";
 
-console.log((await Lucid.new()).utils.generateSeedPhrase());
+console.log((await Lucid.new()).utils.generatePrivateKey());
 ```
 
-Store that seed phrase and then, we'll need to make an address from the seed phrase to receive some test funds from the faucet:
+Store that private key and then, we'll need to make an address from the private key to receive some test funds from the faucet:
 
 ```ts
 console.log(
   await (await Lucid.new(undefined, "Preview"))
-    .selectWalletFromSeed(
-      "<seed_phrase>",
+    .selectWalletFromPrivateKey(
+      "<private_key>",
     )
     .wallet.address(),
 );
@@ -178,7 +178,7 @@ const lucid = await Lucid.new(
   "Preview",
 );
 
-lucid.selectWalletFromSeed("<seed_phrase>");
+lucid.selectWalletFromPrivateKey("<private_key>");
 
 const validator = await readValidator("./assets/hello_world/spend/script.cbor");
 
