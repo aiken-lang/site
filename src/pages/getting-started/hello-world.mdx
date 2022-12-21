@@ -118,27 +118,31 @@ Let's see it in action!
 
 ## Getting funds
 
-Before moving one, we'll need some funds, and a public/private key pair to hold them. We can generate a private key using `Lucid`:
+Before moving one, we'll need some funds, and a public/private key pair to hold them. We can generate a private key and an address using `Lucid`:
 
-```ts
+```ts filename="deno repl --allow-net --allow-write"
 import { Lucid } from "https://deno.land/x/lucid@0.8.3/mod.ts";
 
-console.log((await Lucid.new()).utils.generatePrivateKey());
+const lucid = await Lucid.new(undefined, "Preview");
+
+const privateKey = lucid.utils.generatePrivateKey();
+await Deno.writeTextFile("key.sk", privateKey);
+
+const address = await lucid.selectWalletFromPrivateKey(privateKey).wallet.address();
+await Deno.writeTextFile("key.addr", address);
 ```
 
-Store that private key and then, we'll need to make an address from the private key to receive some test funds from the faucet:
+<Callout>
+  You can run the instructions above in Deno's interactive REPL; just run:
 
-```ts
-console.log(
-  await (await Lucid.new(undefined, "Preview"))
-    .selectWalletFromPrivateKey(
-      "<private_key>",
-    )
-    .wallet.address(),
-);
-```
+  ```
+  deno repl --allow-net --allow-write
+  ```
 
-This outputs an address for the `preview` test network. Now, we can head to [the Cardano faucet](https://docs.cardano.org/cardano-testnet/tools/faucet) to get some funds on the preview network to our newly created address. Make sure to select _"Preview Testnet"_ as network.
+  and type/copy each line.
+</Callout>
+
+Now, we can head to [the Cardano faucet](https://docs.cardano.org/cardano-testnet/tools/faucet) to get some funds on the preview network to our newly created address (inside `key.addr`). Make sure to select _"Preview Testnet"_ as network.
 
 Using [CardanoScan](https://preview.cardanoscan.io/) we can watch for the faucet sending some ADA our way. This should be pretty fast.
 
@@ -178,10 +182,9 @@ const lucid = await Lucid.new(
   "Preview",
 );
 
-lucid.selectWalletFromPrivateKey("<private_key>");
+lucid.selectWalletFromPrivateKey(await Deno.readTextFile("./key.sk"));
 
 const validator = await readValidator("./assets/hello_world/spend/script.cbor");
-
 
 // --- Supporting functions
 
@@ -215,7 +218,6 @@ async function readValidator(filepath: String): Promise<SpendingValidator> {
   ├── hello_world.ts
   ├── key.addr
   ├── key.sk
-  ├── key.vk
   ├── lib
   │   └── ...
   └── validators
@@ -233,7 +235,12 @@ As value for that byte array, we provide a hash digest of our public key. This
 will be needed to unlock the funds.
 
 ```ts filename="hello-world.ts"
-const datum = Data.to(new Constr(0, [toHex(privateKey.to_public().hash().to_bytes())]));
+const publicKeyHash = lucid.utils
+  .getAddressDetails(await lucid.wallet.address())
+  .paymentCredential
+  .hash;
+
+const datum = Data.to(new Constr(0, [publicKeyHash]));
 
 const txLock = await lock(1000000, { into: validator, owner: datum });
 
