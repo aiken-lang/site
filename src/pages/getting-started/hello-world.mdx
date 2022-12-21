@@ -14,10 +14,6 @@ TypeScript (we recommend installing
 [deno](https://deno.land/manual@v1.29.1/getting_started/installation)) and have
 Aiken installed already.
 
-If you haven't any public/private key pair available, you'll also need the
-[`cardano-cli`](https://github.com/input-output-hk/cardano-node/tree/master/cardano-cli#cardano-cli)
-to generate some credentials.
-
 ## Scaffolding
 
 First, let's create a new `Aiken` project:
@@ -122,24 +118,27 @@ Let's see it in action!
 
 ## Getting funds
 
-Before moving one, we'll need some funds, and a public/private key pair to hold them. We can create a new keypair using the `cardano-cli` via:
+Before moving one, we'll need some funds, and a public/private key pair to hold them. We can generate a seed phrase using `Lucid` to create a new keypair:
 
-```
-cardano-cli address key-gen --normal-key \
-  --verification-key-file key.vk \
-  --signing-key-file key.sk
-```
+```ts
+import { Lucid } from "https://deno.land/x/lucid@0.8.3/mod.ts";
 
-Then, we'll need to make an address from our verification key to receive some test funds from the faucet. We can also use the `cardano-cli` for that:
-
-```
-cardano-cli address build \
-  --testnet-magic 2 \
-  --payment-verification-key-file key.vk \
-  > key.addr
+console.log((await Lucid.new()).utils.generateSeedPhrase());
 ```
 
-This creates an address for the `preview` test network, and stores it in `key.addr`. Now, we can head to [the Cardano faucet](https://docs.cardano.org/cardano-testnet/tools/faucet) to get some funds on the preview network to our newly created address. Make sure to select _"Preview Testnet"_ as network.
+Store that seed phrase and then, we'll need to make an address from the seed phrase to receive some test funds from the faucet:
+
+```ts
+console.log(
+  await (await Lucid.new(undefined, "Preview"))
+    .selectWalletFromSeed(
+      "<seed_phrase>",
+    )
+    .wallet.address(),
+);
+```
+
+This outputs an address for the `preview` test network. Now, we can head to [the Cardano faucet](https://docs.cardano.org/cardano-testnet/tools/faucet) to get some funds on the preview network to our newly created address. Make sure to select _"Preview Testnet"_ as network.
 
 Using [CardanoScan](https://preview.cardanoscan.io/) we can watch for the faucet sending some ADA our way. This should be pretty fast.
 
@@ -165,9 +164,9 @@ import {
   SpendingValidator,
   TxHash,
   fromHex,
-  fromhex,
   toHex,
-} from "https://deno.land/x/lucid@0.8.2/mod.ts";
+  utf8ToHex,
+} from "https://deno.land/x/lucid@0.8.3/mod.ts";
 import * as cbor from "https://deno.land/x/cbor@v1.4.1/index.js";
 
 
@@ -179,19 +178,12 @@ const lucid = await Lucid.new(
   "Preview",
 );
 
-const privateKey = await readPrivateKey("key.sk");
-
-lucid.selectWalletFromPrivateKey(privateKey.to_bech32());
+lucid.selectWalletFromSeed("<seed_phrase>");
 
 const validator = await readValidator("./assets/hello_world/spend/script.cbor");
 
 
 // --- Supporting functions
-
-async function readPrivateKey(filepath: String): Promise<C.PrivateKey> {
-  const str = JSON.parse(await Deno.readTextFile(filepath)).cborHex;
-  return C.PrivateKey.from_normal_bytes(fromHex(str.substr(4)));
-}
 
 async function readValidator(filepath: String): Promise<SpendingValidator> {
   return {
@@ -241,7 +233,7 @@ As value for that byte array, we provide a hash digest of our public key. This
 will be needed to unlock the funds.
 
 ```ts filename="hello-world.ts"
-const datum = Data.to(new Constr(0, [privateKey.to_public().hash().to_bytes()]));
+const datum = Data.to(new Constr(0, [toHex(privateKey.to_public().hash().to_bytes())]));
 
 const txLock = await lock(1000000, { into: validator, owner: datum });
 
@@ -304,7 +296,7 @@ To be valid, our transaction must meet two conditions:
 ```ts filename="hello-world.ts"
 const utxo = { txHash: txLock, outputIndex: 0 };
 
-const redeemer = Data.to(new Constr(0, [new TextEncoder().encode("Hello, World!")]));
+const redeemer = Data.to(new Constr(0, [utf8ToHex("Hello, World!")]));
 
 const txUnlock = await unlock(utxo, { from: validator, using: redeemer });
 
