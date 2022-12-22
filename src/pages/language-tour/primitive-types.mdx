@@ -2,7 +2,7 @@ import { Callout } from "nextra-theme-docs";
 
 # Primitive Types
 
-Aiken has 5 primitive types that are built in the language and can be typed as literals: booleans, integers, strings, byte arrays and data. The language also includes 2 base building blocks for associating types together: lists and tuples.
+Aiken has 6 primitive types that are built in the language and can be typed as literals: booleans, integers, strings, byte arrays, data and void. The language also includes 2 base building blocks for associating types together: lists and tuples.
 
 Worry not, we'll see later in this manual how to create your own custom types.
 
@@ -137,14 +137,22 @@ Aiken has tuples which can be useful for grouping values. Each element in a tupl
 
 Long tuples (i.e. more than 3 elements) are usually discouraged. Indeed, tuples are anonymous constructors, and while they are quick and easy to use, they often impede readability. When types become more complex, one should use records instead (as we'll see later).
 
-Elements of a tuple can be accessed using the dot, followed by the index of the element (0-based indexing). So for example:
+Elements of a tuple can be accessed using the dot, followed by the index of the element (ordinal). So for example:
 
 ```aiken
-let point = #(14, 42)
-let x = point.0
-let y = point.1
-#(y, x) // #(42, 14)
+let point = #(14, 42, 1337, 0)
+let a = point.1st
+let b = point.2nd
+let c = point.3rd
+let d = point.4th
+#(c, d, b, a) // #(0, 1337, 42, 14)
 ```
+
+## Void
+
+`Void{:ak}` is a type representing the nullary constructor, or put simply, the absence of value. It is denoted `Void` as a type and constructor. Fundamentally, if you think in terms of tuples, `Void{:ak}` is a tuple with no element in it. This is why it can also be noted as `#(){:ak}`.
+
+`Void{:ak}` is useful in certain situations, but because in Aiken everything is a typed expression (there's no "statement"), you'll rarely end up in a situation where you need it.
 
 ## List
 
