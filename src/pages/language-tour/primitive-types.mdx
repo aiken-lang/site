@@ -116,6 +116,16 @@ However, syntax rules for literal integers also apply to byte arrays. Thus, the 
 #[0xFF, 0x42]
 ```
 
+Because it is quite common to manipulate byte strings in a blockchain context (e.g. transaction id, policy id, etc..); Aiken also supports a shorthand syntax for declaring bytearrays from a base16-encoded text string literal as:
+
+```aiken
+#"FF420014A7"
+// is equivalent to
+#[0xFF, 0x42, 0x00, 0x14, 0xA7]
+// is equivalent to
+#[255, 66, 0, 20, 167]
+```
+
 ## Data
 
 A `Data{:ak}` is an opaque compound type that can represent any possible user-defined type in Aiken. We'll see later how Aiken lets you compose your own types from the primitives we just presented. In the meantime, think of _Data_ as a kind of wildcard that can possibly represent _any_ value.
