@@ -70,9 +70,9 @@ Summary
 Let's write our first validator as `validators/hello_world.ak`:
 
 ```aiken filename="validators/hello_world.ak"
+use aiken/hash.{Blake2b_224, Hash}
 use aiken/list
 use aiken/string
-use aiken/hash.{Blake2b_224, Hash}
 use aiken/transaction.{ScriptContext}
 use aiken/transaction/credential.{VerificationKey}
 
@@ -94,9 +94,9 @@ pub fn spend(datum: Datum, redeemer: Redeemer, context: ScriptContext) -> Bool {
 }
 ```
 
-Our first validator is rudimentary. It is parameterized by a `VerificationKey` that is set when funds are sent to the contract. To be unlocked, the spender must provide a signature of the corresponding `SigningKey` of the whole transaction. In a way, it mimics the traditional public/private key signing mechanism that are common to blockchains.
+Our first validator is rudimentary. It is parameterized by a verification key hash (`owner`) and a message (`msg`). Remember that, in the eUTxO model, the datum is set when locking funds in the contract and can be therefore seen as configuration. Here, we'll indicate the owner of contract and require a signature from them to unlock funds -- very much like it already works on a typical non-script address. Moreover, because there's no "Hello, World!" without a proper "Hello, World!" our little contract also demands this very message, as a UTF-8-encoded byte array, to be passed as redeemer (i.e. when spending from the contract).
 
-It's now time to build our first contract.
+It's now time to build our first contract!
 
 ```
 aiken build
