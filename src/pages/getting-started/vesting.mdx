@@ -1,0 +1,516 @@
+import { Callout } from "nextra-theme-docs";
+
+# Vesting Contract (time lock)!
+
+Now that we executed Hello World contract, let's write a bit harder example, vesting contract (time lock) (https://github.com/input-output-hk/plutus-pioneer-program/blob/main/code/week03/src/Week03/Vesting.hs).
+
+Contrary to Haskell example our time based vesting contract logic is not exactly the same, in order to keep things simple, we will introduce implicit redeemer instead of explicit one.
+
+In addition we will introduce tests, which in aiken are inlined (in the same source file). Last but not least we will show how one can do user defined type aliases.
+
+## Scaffolding
+
+First, let's create a new `Aiken` project:
+
+```
+aiken new aiken-lang/time_lock
+cd time_lock
+git init
+```
+
+This command scaffolds an Aiken project. In particular, it creates a `lib` and `validators` folders in which you can put Aiken source files.
+
+```
+./time_lock
+│
+├── README.md
+├── aiken.toml
+├── lib
+│   └── aiken-lang
+│       └── time_lock
+└── validators
+```
+
+## Using the standard library
+
+We'll use the [standard library](https://aiken-lang.github.io/stdlib) for writing our validator. We'll need to edit the `aiken.toml` file to add it as a dependency:
+
+```toml filename="aiken.toml"
+name = "aiken-lang/time_lock"
+version = "0.0.0"
+licences = ["Apache-2.0"]
+description = "Aiken contracts for project 'aiken-lang/time_lock'"
+dependencies = [
+  { name = "aiken-lang/stdlib", version = "main", source = "github" },
+]
+```
+
+Now, running `aiken check`, we should see dependencies being downloaded. That shouldn't take long.
+
+```
+❯ aiken check
+    Resolving versions
+  Downloading packages
+   Downloaded 1 package in 0.91s
+    Compiling aiken-lang/stdlib main (/Users/aiken/Documents/aiken-lang/time_lock/build/packages/aiken-lang-stdlib)
+    Compiling aiken-lang/time_lock 0.0.0 (/Users/aiken/Projects/aiken-lang/time_lock)
+
+Summary
+    0 error, 0 warning(s)
+```
+
+# Setting up wallets and getting funds
+
+```ts filename="deno repl --allow-net --allow-write"
+import { Lucid } from "https://deno.land/x/lucid@0.8.3/mod.ts";
+
+const lucid = await Lucid.new(undefined, "Preview");
+
+const ownerPrivateKey = lucid.utils.generatePrivateKey();
+await Deno.writeTextFile("owner-key.sk", privateKey);
+
+const ownerAddress = await lucid.selectWalletFromPrivateKey(ownerPrivateKey).wallet.address();
+await Deno.writeTextFile("owner.addr", ownerAddress);
+
+const beneficiaryPrivateKey = lucid.utils.generatePrivateKey();
+await Deno.writeTextFile("beneficiary-key.sk", beneficiaryPrivateKey);
+
+const beneficiaryAddress = await lucid.selectWalletFromPrivateKey(beneficiaryPrivateKey).wallet.address();
+await Deno.writeTextFile("beneficiary.addr", beneficiaryAddress);
+```
+
+Now just like in case of the previous hello world -> make sure that both wallets have some test funds from the test faucet.
+
+## Time Lock validator
+
+Let's write our time lock validator as `validators/time_lock.ak`:
+
+```aiken filename="validators/time_lock.ak"
+use aiken/hash.{Blake2b_224, Hash}
+use aiken/interval.{Finite, Interval, IntervalBound}
+use aiken/list
+use aiken/transaction.{ScriptContext, Spend, ValidityRange}
+use aiken/transaction/credential.{VerificationKey}
+
+type POSIXTime =
+  Int
+
+type PubKeyHash =
+  Hash<Blake2b_224, VerificationKey>
+
+pub type Datum {
+  /// unix time, e.g. 1672843961000
+  lock_until: POSIXTime,
+  /// owner pub key
+  owner: PubKeyHash,
+  /// owner beneficiary pub key
+  beneficiary: PubKeyHash,
+}
+
+pub fn spend(datum: Datum, _: Void, ctx: ScriptContext) -> Bool {
+  when ctx.purpose is {
+    Spend(_) ->
+      bound_check(
+        ctx.transaction.validity_range,
+        ctx.transaction.extra_signatories,
+        datum,
+      )
+    _ -> False
+  }
+}
+
+fn bound_check(
+  validity_range: ValidityRange,
+  extra_signatories: List<PubKeyHash>,
+  datum: Datum,
+) -> Bool {
+  let is_signed_by_owner =
+    list.any(extra_signatories, fn(vk) { vk == datum.owner })
+
+  if is_signed_by_owner {
+    True
+  } else {
+    let start_bound_type = validity_range.lower_bound.bound_type
+    when start_bound_type is {
+      Finite(now) -> is_beneficiary_unlocked(now, extra_signatories, datum)
+      _ -> False
+    }
+  }
+}
+
+fn is_beneficiary_unlocked(
+  now: POSIXTime,
+  extra_signatories: List<PubKeyHash>,
+  datum: Datum,
+) -> Bool {
+  let time_match = now >= datum.lock_until
+
+  let is_signed_by_beneficiary =
+    list.any(extra_signatories, fn(vk) { vk == datum.beneficiary })
+
+  is_signed_by_beneficiary && time_match
+}
+
+test test_bound_check_success_beneficiary_can_only_unlock_if_time_is_right() {
+  let owner = #[1]
+  let beneficiary = #[2]
+
+  let datum = Datum { lock_until: 1, owner, beneficiary }
+
+  let transaction_validity_range: ValidityRange =
+    Interval {
+      lower_bound: IntervalBound { bound_type: Finite(2), is_inclusive: True },
+      upper_bound: IntervalBound { bound_type: Finite(10), is_inclusive: True },
+    }
+
+  let extra_signatories = [beneficiary]
+
+  bound_check(transaction_validity_range, extra_signatories, datum) == True
+}
+
+test test_bound_check_fails_beneficiary_cannot_only_unlock_if_time_is_not_right() {
+  let owner = #[1]
+  let beneficiary = #[2]
+
+  let datum = Datum { lock_until: 3, owner, beneficiary }
+
+  let transaction_validity_range: ValidityRange =
+    Interval {
+      lower_bound: IntervalBound { bound_type: Finite(2), is_inclusive: True },
+      upper_bound: IntervalBound { bound_type: Finite(10), is_inclusive: True },
+    }
+
+  let extra_signatories = [beneficiary]
+
+  bound_check(transaction_validity_range, extra_signatories, datum) == False
+}
+
+test test_bound_check_fails_beneficiary_can_unlock_if_time_is_exactly_right() {
+  let owner = #[1]
+  let beneficiary = #[2]
+
+  let datum = Datum { lock_until: 2, owner, beneficiary }
+
+  let trx_vr: ValidityRange =
+    Interval {
+      lower_bound: IntervalBound { bound_type: Finite(2), is_inclusive: True },
+      upper_bound: IntervalBound { bound_type: Finite(10), is_inclusive: True },
+    }
+
+  let signatories = [beneficiary]
+
+  bound_check(trx_vr, signatories, datum) == True
+}
+
+test test_bound_check_success_owner_can_always_unlock_even_though_time_is_not_right() {
+  let owner = #[1]
+  let beneficiary = #[2]
+
+  let datum = Datum { lock_until: 3, owner, beneficiary }
+
+  let trx_vr: ValidityRange =
+    Interval {
+      lower_bound: IntervalBound { bound_type: Finite(2), is_inclusive: True },
+      upper_bound: IntervalBound { bound_type: Finite(10), is_inclusive: True },
+    }
+
+  let signatories = [owner]
+
+  bound_check(trx_vr, signatories, datum) == True
+}
+
+test test_bound_check_success_owner_can_unlock_when_time_is_right() {
+  let owner = #[1]
+  let beneficiary = #[2]
+
+  let datum = Datum { lock_until: 1, owner, beneficiary }
+
+  let trx_vr: ValidityRange =
+    Interval {
+      lower_bound: IntervalBound { bound_type: Finite(2), is_inclusive: True },
+      upper_bound: IntervalBound { bound_type: Finite(10), is_inclusive: True },
+    }
+
+  let signatories = [owner]
+
+  bound_check(trx_vr, signatories, datum) == True
+}
+```
+
+Vesting contract's main aim is to lock funds for a beneficiary. Beneficiary can unlock funds only if time has passed. In addition we will define logic of the contract in a way that unlocking can be done by the owner at any time.
+
+Both (`owner`) and (`beneficiary`) are represented by a custom type alias (PubKeyHash), which aliases to verification key hash.
+
+It's now time to build our time lock contract!
+
+```
+aiken build
+```
+
+This generate a few assets in the `assets` folder. In particular, we can find a `script.cbor` that contains our compiled `time_lock` spending validator.
+
+```
+assets
+└── time_lock
+    └── spend
+        ├── mainnet.addr
+        ├── payment_script.json
+        ├── script.cbor
+        └── testnet.addr
+```
+
+Let's see time lock in action!
+
+# Locking funds
+
+Now that we have some funds, we can lock them in our newly created contract. We'll use [`Lucid`](https://github.com/spacebudz/lucid) to construct and submit our transaction through Blockfrost.
+
+<Callout type="info">
+  This is only one example of possible setup using tools we love. For more tools, make sure to check out the [Cardano Developer Portal](https://developers.cardano.org/tools)!
+</Callout>
+
+### Setup
+
+First, we setup Lucid with Blockfrost as a provider. This will allow us to let Lucid handle transaction building for us, which includes managing changes. It also gives us a direct way to submit the transaction later on.
+
+```ts filename="vesting_lock.ts"
+import {
+  Blockfrost,
+  C,
+  Data,
+  Lucid,
+  SpendingValidator,
+  TxHash,
+  fromHex,
+  toHex,
+} from "https://deno.land/x/lucid@0.8.3/mod.ts";
+import * as cbor from "https://deno.land/x/cbor@v1.4.1/index.js";
+
+const lucid = await Lucid.new(
+  new Blockfrost(
+    "https://cardano-preview.blockfrost.io/api/v0",
+    /* BLOCKFROST API KEY */,
+  ),
+  "Preview",
+);
+
+lucid.selectWalletFromPrivateKey(await Deno.readTextFile("./owner-key.sk"));
+
+const validator = await readValidator("./assets/time_lock/spend/script.cbor");
+
+// --- Supporting functions
+
+async function readValidator(filepath: String): Promise<SpendingValidator> {
+  return {
+    type: "PlutusV2",
+    script: toHex(cbor.encode(fromHex(await Deno.readTextFile(filepath)))),
+  };
+}
+```
+
+<Callout>
+  If you've installed [deno](https://deno.land/manual@v1.29.1/getting_started/installation), you can run the excerpt above by executing:
+
+  ```
+  deno run --allow-net --allow-read vesting_lock.ts
+  ```
+
+  It assumes that this file (`vesting_lock.ts`) is placed at the root of your `time_lock` folder. At this stage, your folder should looks roughly like this:
+
+  ```
+  ./time_lock
+  │
+  ├── README.md
+  ├── aiken.toml
+  ├── assets
+  │   └── time_lock
+  │       └── spend
+  │           ├── script.cbor
+  │           └── ...
+  ├── vesting_lock.ts
+  ├── key.addr
+  ├── key.sk
+  ├── lib
+  │   └── ...
+  └── validators
+      └── time_lock.ak
+  ```
+</Callout>
+
+### Locking funds into the vesting contract
+
+Here, we make our first transaction to lock funds into the contract. The datum
+must match the representation expected by the script, constructor is an object expecting 3 fields.
+
+```ts filename="vesting_lock.ts"
+
+const ownerPublicKeyHash = lucid.utils
+  .getAddressDetails(await lucid.wallet.address())
+  .paymentCredential
+  .hash;
+
+  const Datum = Data.Object({
+    lock_until: Data.BigInt, // this is POSIX time, you can check and set it here: https://www.unixtimestamp.com
+    owner: Data.String, // we can pass owner's pub key hash as byte array but also as a string
+    beneficiary: Data.String, // we can beneficiary's hash as byte array but also as a string
+  });
+
+type Datum = Data.Static<typeof Datum>;
+
+const datum = Data.to<Datum>(
+  {
+   lock_until: 1672843961000n, // Wed Jan 04 2023 14:52:41 GMT+0000
+   owner: ownerPublicKeyHash, // our own wallet pub key hash
+   beneficiary: <paste content of file: beneficiary.addr> // beneficiary pub key hash - should be bech32 cardano addr
+  },
+  Datum,
+);
+
+const txLock = await lock(1000000, { into: validator, datum: datum });
+
+await lucid.awaitTx(txLock);
+
+console.log(`1 ADA locked into the contract
+    Tx ID: ${txLock}
+    Datum: ${datum}
+`);
+
+// --- Supporting functions
+
+async function lock(lovelace, { into, datum }): Promise<TxHash>{
+  const contractAddress = lucid.utils.validatorToAddress(into);
+
+  const tx = await lucid
+    .newTx()
+    .payToContract(contractAddress, { inline: datum }, { lovelace })
+    .complete();
+
+  const signedTx = await tx
+    .sign()
+    .complete();
+
+  return signedTx.submit();
+}
+```
+
+### Unlocking funds from the vesting contract
+
+Now you can generate another wallet and fund it with some funds. This wallet will be beneficiary wallet we added into datum in the previous step as well.
+
+Finally, as a last step: we now want to spend the UTxO that is locked by our
+`time_lock` contract.
+
+To be valid, our transaction must meet one of two conditions:
+
+- it must be signed by the owner referenced as "owner" in datum
+- it must be signed by the beneficiary referenced as "beneficiary" in datum AND time has to pass (that is it needs to be later than 'Wed Jan 04 2023 14:52:41 GMT+0000').
+
+<Callout type="warning">
+  Note that we need to explicitly add a signer using `.addSigner` so that it gets
+  added to the `extra_signatories` of our transaction -- and becomes accessible
+  for our script. In addition we need to specify `.validFrom` and optionally `.validTo`. `.validFrom` is a POSIX time from where transaction is valid (should be now) and `.validTo` is a form of TTL - until when transaction is valid and should remain in the mempool.
+</Callout>
+
+Let's make a new file `vesting_unlock.ts` and copy over some of the boilerplate
+from the first one.
+
+```ts filename="vesting_unlock.ts"
+import {
+  Blockfrost,
+  C,
+  Data,
+  Lucid,
+  SpendingValidator,
+  TxHash,
+  fromHex,
+  toHex,
+} from "https://deno.land/x/lucid@0.8.3/mod.ts";
+import * as cbor from "https://deno.land/x/cbor@v1.4.1/index.js";
+
+const lucid = await Lucid.new(
+  new Blockfrost(
+    "https://cardano-preview.blockfrost.io/api/v0",
+    /* BLOCKFROST API KEY */,
+  ),
+  "Preview",
+);
+
+lucid.selectWalletFromPrivateKey(await Deno.readTextFile("./beneficiary-key.sk"));
+
+const validator = await readValidator("./assets/time_lock/spend/script.cbor");
+
+// --- Supporting functions
+
+async function readValidator(filepath: String): Promise<SpendingValidator> {
+  return {
+    type: "PlutusV2",
+    script: toHex(cbor.encode(fromHex(await Deno.readTextFile(filepath)))),
+  };
+}
+```
+
+Now, let's add the bits to unlock the funds in the contract. We'll need the
+transaction identifier obtained when you ran the previous script
+(`vesting_lock.ts`)
+
+That transaction identifier, and the corresponding output index (here, `0`)
+uniquely identifies the UTxO (Unspent Transaction Output) in which the funds
+are currently locked. And that's the one we're about to unlock.
+
+Note that in order for our transaction to be valid we need to add from when it is valid and until when it is valid.
+If we add incorrect times (e.g. fake validFrom) then cardano node will not submit our transaction (it will become invalid).
+
+
+```ts filename="vesting_unlock.ts"
+// ^^^ Code above is unchanged. ^^^
+
+const utxo = { txHash: /* Tx ID from vesting_lock */, outputIndex: 0 };
+
+// we don't have any redeemer in our contract but it needs to be empty
+const redeemer = Data.empty();
+
+const txUnlock = await unlock(utxo, { from: validator, redeemer: redeemer });
+
+await lucid.awaitTx(txUnlock);
+
+console.log(`1 ADA recovered from the contract
+    Tx ID: ${txUnlock}
+    Redeemer: ${redeemer}
+`);
+
+// --- Supporting functions
+
+async function unlock(ref, { from, redeemer }): Promise<TxHash> {
+  const [utxo] = await lucid.utxosByOutRef([ref]);
+
+  const currentTime = new Date().getTime();
+  const laterTime = new Date(currentTime + 2 * 60 * 60 * 1000); // add two hours (TTL: time to live)
+
+  const tx = await lucid
+    .newTx()
+    .collectFrom([utxo], using)
+    .addSigner(await lucid.wallet.address()) // this should be beneficiary address
+    .validFrom(currentTime)
+    .validTo(laterTime)
+    .attachSpendingValidator(from)
+    .complete();
+
+  const signedTx = await tx
+    .sign()
+    .complete();
+
+  return signedTx.submit();
+}
+```
+
+<Callout>
+  As you imagine, we can run this script with the following incantation:
+
+  ```
+  deno run --allow-net --allow-read vesting_unlock.ts
+  ```
+</Callout>
+
+And assuming time has passed, tada 🎉!
+
+We can inspect our [redeeming transaction in CardanoScan].
