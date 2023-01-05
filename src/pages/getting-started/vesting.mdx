@@ -290,7 +290,7 @@ async function readValidator(filepath: String): Promise<SpendingValidator> {
   ├── lib
   │   └── ...
   └── validators
-      └── time_lock.ak
+      └── vesting.ak
   ```
 </Callout>
 
@@ -306,11 +306,11 @@ const ownerPublicKeyHash = lucid.utils
   .paymentCredential
   .hash;
 
-  const Datum = Data.Object({
-    lock_until: Data.BigInt, // this is POSIX time, you can check and set it here: https://www.unixtimestamp.com
-    owner: Data.String, // we can pass owner's pub key hash as byte array but also as a string
-    beneficiary: Data.String, // we can beneficiary's hash as byte array but also as a string
-  });
+const Datum = Data.Object({
+  lock_until: Data.BigInt, // this is POSIX time, you can check and set it here: https://www.unixtimestamp.com
+  owner: Data.String, // we can pass owner's pub key hash as byte array but also as a string
+  beneficiary: Data.String, // we can beneficiary's hash as byte array but also as a string
+});
 
 type Datum = Data.Static<typeof Datum>;
 
@@ -352,10 +352,10 @@ async function lock(lovelace, { into, datum }): Promise<TxHash>{
 
 ### Unlocking funds from the vesting contract
 
-Now you can generate another wallet and fund it with some funds. This wallet will be beneficiary wallet we added into datum in the previous step as well.
+Now we can use another wallet (beneficiary-key.sk). This wallet will be beneficiary wallet had been added into datum in the previous step (locking) as well.
 
 Finally, as a last step: we now want to spend the UTxO that is locked by our
-`time_lock` contract.
+`vesting` contract.
 
 To be valid, our transaction must meet one of two conditions:
 
@@ -394,7 +394,7 @@ const lucid = await Lucid.new(
 
 lucid.selectWalletFromPrivateKey(await Deno.readTextFile("./beneficiary-key.sk"));
 
-const validator = await readValidator("./assets/time_lock/spend/script.cbor");
+const validator = await readValidator("./assets/vesting/spend/script.cbor");
 
 // --- Supporting functions
 
