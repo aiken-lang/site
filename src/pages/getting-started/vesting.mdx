@@ -2,62 +2,17 @@ import { Callout } from "nextra-theme-docs";
 
 # Vesting Contract (time lock)!
 
-Now that we executed Hello World contract, let's write a bit harder example, vesting contract (time lock) (https://github.com/input-output-hk/plutus-pioneer-program/blob/main/code/week03/src/Week03/Vesting.hs).
+Vesting contract is a simple contract which allows to lock funds in UTxOs in a particular address and unlock them by the owner (person paying in) or by a beneficiary specified by the owner - once time specified by the owner passes.
 
-Contrary to Haskell example our time based vesting contract logic is not exactly the same, in order to keep things simple, we will introduce implicit redeemer instead of explicit one.
+This example builds upon previous Hello World contract, let's write a bit harder contract.
 
-In addition we will introduce tests, which in aiken are inlined (in the same source file). Last but not least we will show how one can do user defined type aliases.
-
-## Scaffolding
-
-First, let's create a new `Aiken` project:
-
-```
-aiken new aiken-lang/time_lock
-cd time_lock
-git init
-```
-
-This command scaffolds an Aiken project. In particular, it creates a `lib` and `validators` folders in which you can put Aiken source files.
-
-```
-./time_lock
-│
-├── README.md
-├── aiken.toml
-├── lib
-│   └── aiken-lang
-│       └── time_lock
-└── validators
-```
-
-## Using the standard library
-
-We'll use the [standard library](https://aiken-lang.github.io/stdlib) for writing our validator. We'll need to edit the `aiken.toml` file to add it as a dependency:
-
-```toml filename="aiken.toml"
-name = "aiken-lang/time_lock"
-version = "0.0.0"
-licences = ["Apache-2.0"]
-description = "Aiken contracts for project 'aiken-lang/time_lock'"
-dependencies = [
-  { name = "aiken-lang/stdlib", version = "main", source = "github" },
-]
-```
-
-Now, running `aiken check`, we should see dependencies being downloaded. That shouldn't take long.
-
-```
-❯ aiken check
-    Resolving versions
-  Downloading packages
-   Downloaded 1 package in 0.91s
-    Compiling aiken-lang/stdlib main (/Users/aiken/Documents/aiken-lang/time_lock/build/packages/aiken-lang-stdlib)
-    Compiling aiken-lang/time_lock 0.0.0 (/Users/aiken/Projects/aiken-lang/time_lock)
-
-Summary
-    0 error, 0 warning(s)
-```
+As part of this contract we want to introduce a few new features of Aiken, namely:
+- datum having more complex data structure (object)
+- the fact that redeemer is not always necessary (implicit)
+- type aliasing to make it easier to reason about
+- usage of pattern matching
+- practical usage of build in test framework
+- usage of validity range, validFrom and validTo for time unlocking
 
 # Setting up wallets and getting funds
 
