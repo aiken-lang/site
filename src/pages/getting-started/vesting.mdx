@@ -38,9 +38,9 @@ Now just like in case of the previous hello world -> make sure that both wallets
 
 ## Time Lock validator
 
-Let's write our time lock validator as `validators/time_lock.ak`:
+Let's write our time lock validator as `validators/vesting.ak`:
 
-```aiken filename="validators/time_lock.ak"
+```aiken filename="validators/vesting.ak"
 use aiken/hash.{Blake2b_224, Hash}
 use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
@@ -202,11 +202,11 @@ It's now time to build our time lock contract!
 aiken build
 ```
 
-This generate a few assets in the `assets` folder. In particular, we can find a `script.cbor` that contains our compiled `time_lock` spending validator.
+This generate a few assets in the `assets` folder. In particular, we can find a `script.cbor` that contains our compiled `vesting` spending validator.
 
 ```
 assets
-└── time_lock
+└── vesting
     └── spend
         ├── mainnet.addr
         ├── payment_script.json
@@ -251,7 +251,7 @@ const lucid = await Lucid.new(
 
 lucid.selectWalletFromPrivateKey(await Deno.readTextFile("./owner-key.sk"));
 
-const validator = await readValidator("./assets/time_lock/spend/script.cbor");
+const validator = await readValidator("./assets/vesting/spend/script.cbor");
 
 // --- Supporting functions
 
@@ -264,27 +264,29 @@ async function readValidator(filepath: String): Promise<SpendingValidator> {
 ```
 
 <Callout>
-  If you've installed [deno](https://deno.land/manual@v1.29.1/getting_started/installation), you can run the excerpt above by executing:
+  If you've installed [deno](https://deno.land/manual@v1.29.1/getting_started/installation), you can run the except above by executing:
 
   ```
   deno run --allow-net --allow-read vesting_lock.ts
   ```
 
-  It assumes that this file (`vesting_lock.ts`) is placed at the root of your `time_lock` folder. At this stage, your folder should looks roughly like this:
+  It assumes that this file (`vesting_lock.ts`) is placed at the root of your `vesting` folder. At this stage, your folder should looks roughly like this:
 
   ```
-  ./time_lock
+  ./vesting
   │
   ├── README.md
   ├── aiken.toml
   ├── assets
-  │   └── time_lock
+  │   └── vesting
   │       └── spend
   │           ├── script.cbor
   │           └── ...
   ├── vesting_lock.ts
-  ├── key.addr
-  ├── key.sk
+  ├── owner.addr
+  ├── owner-key.sk
+  ├── beneficiary.addr
+  ├── beneficiary-key.sk
   ├── lib
   │   └── ...
   └── validators
