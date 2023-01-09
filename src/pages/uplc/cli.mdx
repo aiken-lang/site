@@ -86,14 +86,14 @@ $ aiken uplc fmt program_2.uplc --print
 )
 ```
 
-## Converting to/from bytecode
+## Converting to/from binary encoding
 
 So far, we've been representing UPLC programs using a high-level syntax. In
-practice, however, UPLC programs are compiled into bytecode when submitted
-on-chain.
+practice, however, UPLC programs are encoded into compact binary strings when
+submitted on-chain (using [flat](http://quid2.org/docs/Flat.pdf)).
 
 Aiken provides means to convert a high-level UPLC program into a low-level flat
-bytecode − and vice-versa, via the `flat` and `unflat` commands. For example:
+encoding − and vice-versa, via the `flat` and `unflat` commands. For example:
 
 ```sh
 $ aiken uplc flat program_1.uplc --print
