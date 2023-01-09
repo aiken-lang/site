@@ -5,14 +5,18 @@ import { Callout } from "nextra-theme-docs";
 Let's write and execute a smart-contract on Cardano in 10 minutes. Yes, you read
 that well.
 
+You can find code supporting this tutorial on [Aiken's main repository](https://github.com/aiken-lang/aiken/tree/main/examples/hello_world).
+
 ## Pre-requisites
 
 We'll use `Aiken` to write the script, and
 [`Lucid`](https://github.com/spacebudz/lucid) to construct and submit the
 transaction. So make sure you have your dev environment ready for some
-TypeScript (we recommend installing
-[deno](https://deno.land/manual@v1.29.1/getting_started/installation)) and have
-Aiken installed already.
+TypeScript<sup>★</sup> and have Aiken installed already.
+
+<Callout type="info">
+★ For TypeScript, we recommend installing [deno](https://deno.land/manual@v1.29.1/getting_started/installation).
+</Callout>
 
 ## Scaffolding
 
@@ -86,9 +90,9 @@ pub type Redeemer {
 
 pub fn spend(datum: Datum, redeemer: Redeemer, context: ScriptContext) -> Bool {
   let must_say_hello = string.from_bytearray(redeemer.msg) == "Hello, World!"
+
   let must_be_signed =
-    context.transaction.extra_signatories
-    |> list.any(fn(vk) { vk == datum.owner })
+    list.has(context.transaction.extra_signatories, datum.owner)
 
   must_say_hello && must_be_signed
 }
@@ -158,7 +162,7 @@ Now that we have some funds, we can lock them in our newly created contract. We'
 
 First, we setup Lucid with Blockfrost as a provider. This will allow us to let Lucid handle transaction building for us, which includes managing changes. It also gives us a direct way to submit the transaction later on.
 
-```ts filename="hello_world_lock.ts"
+```ts filename="hello_world-lock.ts"
 import {
   Blockfrost,
   C,
@@ -199,10 +203,10 @@ async function readValidator(filepath: String): Promise<SpendingValidator> {
   If you've installed [deno](https://deno.land/manual@v1.29.1/getting_started/installation), you can run the excerpt above by executing:
 
   ```
-  deno run --allow-net --allow-read hello_world_lock.ts
+  deno run --allow-net --allow-read hello_world-lock.ts
   ```
 
-  It assumes that this file (`hello_world_lock.ts`) is placed at the root of your `hello_world` folder. At this stage, your folder should looks roughly like this:
+  It assumes that this file (`hello_world-lock.ts`) is placed at the root of your `hello_world` folder. At this stage, your folder should looks roughly like this:
 
   ```
   ./hello_world
@@ -214,7 +218,7 @@ async function readValidator(filepath: String): Promise<SpendingValidator> {
   │       └── spend
   │           ├── script.cbor
   │           └── ...
-  ├── hello_world_lock.ts
+  ├── hello_world-lock.ts
   ├── key.addr
   ├── key.sk
   ├── lib
@@ -233,8 +237,8 @@ with a single field that is a byte array.
 As value for that byte array, we provide a hash digest of our public key. This
 will be needed to unlock the funds.
 
-```ts filename="hello_world_lock.ts"
-// ^^^ Code above is unchanged unchanged. ^^^
+```ts filename="hello_world-lock.ts"
+// ^^^ Code above is unchanged. ^^^
 
 const publicKeyHash = lucid.utils
   .getAddressDetails(await lucid.wallet.address())
@@ -301,10 +305,10 @@ To be valid, our transaction must meet two conditions:
   for our script.
 </Callout>
 
-Let's make a new file `hello_world_unlock.ts` and copy over some of the boilerplate
+Let's make a new file `hello_world-unlock.ts` and copy over some of the boilerplate
 from the first one.
 
-```ts filename="hello_world_unlock.ts"
+```ts filename="hello_world-unlock.ts"
 import {
   Blockfrost,
   C,
@@ -343,16 +347,16 @@ async function readValidator(filepath: String): Promise<SpendingValidator> {
 
 Now, let's add the bits to unlock the funds in the contract. We'll need the
 transaction identifier obtained when you ran the previous script
-(`hello_world_lock.ts`)
+(`hello_world-lock.ts`)
 
 That transaction identifier, and the corresponding output index (here, `0`)
 uniquely identifies the UTxO (Unspent Transaction Output) in which the funds
 are currently locked. And that's the one we're about to unlock.
 
-```ts filename="hello_world_unlock.ts"
+```ts filename="hello_world-unlock.ts"
 // ^^^ Code above is unchanged unchanged. ^^^
 
-const utxo = { txHash: /* Tx ID from hello_world_lock */, outputIndex: 0 };
+const utxo = { txHash: /* Tx ID from hello_world-lock */, outputIndex: 0 };
 
 const redeemer = Data.to(new Constr(0, [utf8ToHex("Hello, World!")]));
 
@@ -389,7 +393,7 @@ async function unlock(ref, { from, using }): Promise<TxHash> {
   As you imagine, we can run this script with the following incantation:
 
   ```
-  deno run --allow-net --allow-read hello_world_unlock.ts
+  deno run --allow-net --allow-read hello_world-unlock.ts
   ```
 </Callout>
 
