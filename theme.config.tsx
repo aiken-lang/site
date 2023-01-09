@@ -33,6 +33,10 @@ const config: DocsThemeConfig = {
   chat: {
     link: "https://discord.gg/Vc3x8N9nz2",
   },
+  i18n: [{
+    locale: "en",
+    text: "English"
+  }],
   docsRepositoryBase: "https://github.com/aiken-lang/site/blob/main",
   useNextSeoProps() {
     const description = "Cardano smart contract language and toolchain";
