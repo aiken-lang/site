@@ -304,6 +304,11 @@ const ownerPublicKeyHash = lucid.utils
   .paymentCredential
   .hash;
 
+const beneficiaryPublicKeyHash = lucid.utils
+  .getAddressDetails(/* CONTENT OF 'beneficiary.addr' */)
+  .paymentCredential
+  .hash;
+
 const Datum = Data.Object({
   lock_until: Data.BigInt, // this is POSIX time, you can check and set it here: https://www.unixtimestamp.com
   owner: Data.String, // we can pass owner's verification key hash as byte array but also as a string
@@ -316,7 +321,7 @@ const datum = Data.to<Datum>(
   {
    lock_until: 1672843961000n, // Wed Jan 04 2023 14:52:41 GMT+0000
    owner: ownerPublicKeyHash, // our own wallet verification key hash
-   beneficiary: /* CONTENT OF 'beneficiary.addr' */ // beneficiary address - should be bech32 cardano addr
+   beneficiary: beneficiaryPublicKeyHash
   },
   Datum,
 );
