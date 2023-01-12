@@ -1,5 +1,5 @@
 import { DocsThemeConfig } from "nextra-theme-docs";
-import { useTheme } from 'next-themes'
+import { useTheme } from "next-themes";
 
 const config: DocsThemeConfig = {
   // Ideally, we'd simply use a <picture> + <source media="(prefers-color-scheme: ...)"/>,
@@ -12,19 +12,23 @@ const config: DocsThemeConfig = {
       <>
         <img
           style={{ height: "var(--nextra-navbar-height)" }}
-          src=
-            {
-               resolvedTheme === "light"
-               ? "https://raw.githubusercontent.com/aiken-lang/branding/main/assets/logo-dark.png"
-               : "https://raw.githubusercontent.com/aiken-lang/branding/main/assets/logo-light.png"
-            }
+          src={
+            resolvedTheme === "light"
+              ? "https://raw.githubusercontent.com/aiken-lang/branding/main/assets/logo-dark.png"
+              : "https://raw.githubusercontent.com/aiken-lang/branding/main/assets/logo-light.png"
+          }
         />
       </>
-    )
+    );
   },
   head: (
     <>
-        <link rel="icon" type="image/svg+xml" sizes="any" href="https://raw.githubusercontent.com/aiken-lang/branding/main/assets/icon.svg"/>
+      <link
+        rel="icon"
+        type="image/svg+xml"
+        sizes="any"
+        href="https://raw.githubusercontent.com/aiken-lang/branding/main/assets/icon.svg"
+      />
     </>
   ),
   project: {
@@ -33,10 +37,12 @@ const config: DocsThemeConfig = {
   chat: {
     link: "https://discord.gg/Vc3x8N9nz2",
   },
-  i18n: [{
-    locale: "en",
-    text: "English"
-  }],
+  i18n: [
+    {
+      locale: "en",
+      text: "English",
+    },
+  ],
   docsRepositoryBase: "https://github.com/aiken-lang/site/blob/main",
   useNextSeoProps() {
     const description = "Cardano smart contract language and toolchain";
@@ -49,25 +55,28 @@ const config: DocsThemeConfig = {
         title: "Aiken",
         description,
         images: [
-            {
-              url: 'https://raw.githubusercontent.com/aiken-lang/branding/main/assets/icon.png',
-              width: 796,
-              height: 742,
-              alt: 'Aiken',
-              type: 'image/png',
-            },
+          {
+            url: "https://raw.githubusercontent.com/aiken-lang/branding/main/assets/icon.png",
+            width: 796,
+            height: 742,
+            alt: "Aiken",
+            type: "image/png",
+          },
         ],
       },
       siteName: "Aiken",
       twitter: {
-        handle: '@aiken_eng',
-        site: '@aiken_eng',
-        cardType: 'summary',
-      }
+        handle: "@aiken_eng",
+        site: "@aiken_eng",
+        cardType: "summary",
+      },
     };
   },
   footer: {
     text: "Aiken Docs",
+  },
+  toc: {
+    extraContent: <></>,
   },
 };
 
