@@ -158,12 +158,6 @@ let d = point.4th
 #(c, d, b, a) // #(0, 1337, 42, 14)
 ```
 
-## Void
-
-`Void{:ak}` is a type representing the nullary constructor, or put simply, the absence of value. It is denoted `Void` as a type and constructor. Fundamentally, if you think in terms of tuples, `Void{:ak}` is a tuple with no element in it. This is why it can also be noted as `#(){:ak}`.
-
-`Void{:ak}` is useful in certain situations, but because in Aiken everything is a typed expression (there's no "statement"), you'll rarely end up in a situation where you need it.
-
 ## List
 
 Lists are ordered collections of values. They're one of the most common data structures in Aiken.
@@ -192,3 +186,9 @@ let y = [1, ..x]
 x // [2, 3]
 y // [1, 2, 3]
 ```
+
+## Void
+
+`Void{:ak}` is a type representing the nullary constructor, or put simply, the absence of value. It is denoted `Void` as a type and constructor. Fundamentally, if you think in terms of tuples, `Void{:ak}` is a tuple with no element in it. This is why it can also be noted as `#(){:ak}`.
+
+`Void{:ak}` is useful in certain situations, but because in Aiken everything is a typed expression (there's no "statement"), you'll rarely end up in a situation where you need it.
