@@ -1,8 +1,48 @@
 {
-  "index": "Introduction",
+  "index": {
+    "title": "Aiken",
+    "type": "page",
+    "display": "hidden",
+    "theme": {
+      "layout": "raw"
+    }
+  },
+  "user-manual": {
+    "title": "Documentation",
+    "type": "page",
+    "href": "/getting-started"
+  },
+  "about": {
+    "title": "About",
+    "type": "page",
+    "href": "/credits"
+  },
+  "-- Basics --": {
+    "type": "separator",
+    "title": "Basics"
+  },
   "getting-started": "Getting Started",
   "language-tour": "Language Tour",
+  "-- Advanced --": {
+    "type": "separator",
+    "title": "Advanced"
+  },
   "uplc": "Untyped Plutus Core",
+  "-- Appendix --": {
+    "type": "separator",
+    "title": "Appendix"
+  },
   "ecosystem-overview": "Ecosystem Overview",
-  "resources": "Resources"
+  "resources": "Resources",
+  "credits": {
+    "title": "About",
+    "display": "hidden",
+    "theme": {
+      "breadcrumb": false,
+      "footer": true,
+      "sidebar": false,
+      "toc": false,
+      "pagination": false
+    }
+  }
 }
