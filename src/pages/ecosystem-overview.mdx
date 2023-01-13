@@ -59,6 +59,7 @@ Core. The current alternatives range from full blown new languages to embedded
 Domain Specific Languages (abbrev. eDSLs.) Here is a list of the main ones:
 
 - [Aiken](https://github.com/aiken-lang/aiken)
+- [eopsin](https://github.com/ImperatorLang/eopsin)
 - [Helios](https://github.com/Hyperion-BT/Helios)
 - [Plutarch](https://github.com/Plutonomicon/plutarch-plutus)
 - [plu-ts](https://github.com/HarmonicLabs/plu-ts)
@@ -95,6 +96,15 @@ harder problems.
 That being said Aiken may introduce more elaborate language features (such as
 type classes/traits) at a later time if it's found that they are extremely
 useful to developers.
+
+### eopsin
+
+Eopsin is **not** a new language. It allows you to write Smart Contracts in 100% valid but restricted Python3.
+Since it uses normal Python, you have all the features that come with developing on Python,
+including widespread editor support, language servers, linters, testing frameworks and verification tools.
+It implements it's own type system and at compile time checks the types to be correct.
+
+As part of its development, python packages for [uplc](https://github.com/ImperatorLang/uplc) and [pluto](https://github.com/ImperatorLang/pluthon) have been externalized and are available for anyone that wants to build UPLC tooling in Python (such as optimizers).
 
 ### Helios
 
