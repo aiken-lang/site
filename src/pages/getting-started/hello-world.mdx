@@ -25,7 +25,6 @@ First, let's create a new `Aiken` project:
 ```
 aiken new aiken-lang/hello_world
 cd hello_world
-git init
 ```
 
 This command scaffolds an Aiken project. In particular, it creates a `lib` and `validators` folders in which you can put Aiken source files.
@@ -43,16 +42,24 @@ This command scaffolds an Aiken project. In particular, it creates a `lib` and `
 
 ## Using the standard library
 
-We'll use the [standard library](https://aiken-lang.github.io/stdlib) for writing our validator. We'll need to edit the `aiken.toml` file to add it as a dependency:
+We'll use the [standard library](https://aiken-lang.github.io/stdlib) for writing our validator. Fortunately, `aiken new` did automatically add the standard
+library to our `aiken.toml` for us. It should look roughly like that:
 
 ```toml filename="aiken.toml"
 name = "aiken-lang/hello_world"
-version = "0.0.0"
-licences = ["Apache-2.0"]
 description = "Aiken contracts for project 'aiken-lang/hello_world'"
-dependencies = [
-  { name = "aiken-lang/stdlib", version = "main", source = "github" },
-]
+version = "0.0.0"
+license  = "Apache-2.0"
+
+[repository]
+user = 'aiken-lang'
+project = 'hello_world'
+platform = 'github'
+
+[[dependencies]]
+name = "aiken-lang/stdlib"
+version = "main"
+source = "github"
 ```
 
 Now, running `aiken check`, we should see dependencies being downloaded. That shouldn't take long.
