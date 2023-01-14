@@ -141,8 +141,8 @@ We'll see more about `Data{:ak}` when we cover custom types.
 Aiken has tuples which can be useful for grouping values. Each element in a tuple can have a different type.
 
 ```aiken
-#(10, "hello") // Type is #(Int, String)
-#(1, 4, [0]) // Type is #(Int, Int, List<Int>)
+(10, "hello") // Type is (Int, String)
+(1, 4, [0]) // Type is (Int, Int, List<Int>)
 ```
 
 Long tuples (i.e. more than 3 elements) are usually discouraged. Indeed, tuples are anonymous constructors, and while they are quick and easy to use, they often impede readability. When types become more complex, one should use records instead (as we'll see later).
@@ -150,12 +150,12 @@ Long tuples (i.e. more than 3 elements) are usually discouraged. Indeed, tuples 
 Elements of a tuple can be accessed using the dot, followed by the index of the element (ordinal). So for example:
 
 ```aiken
-let point = #(14, 42, 1337, 0)
+let point = (14, 42, 1337, 0)
 let a = point.1st
 let b = point.2nd
 let c = point.3rd
 let d = point.4th
-#(c, d, b, a) // #(0, 1337, 42, 14)
+(c, d, b, a) // (0, 1337, 42, 14)
 ```
 
 ## List
@@ -189,6 +189,6 @@ y // [1, 2, 3]
 
 ## Void
 
-`Void{:ak}` is a type representing the nullary constructor, or put simply, the absence of value. It is denoted `Void` as a type and constructor. Fundamentally, if you think in terms of tuples, `Void{:ak}` is a tuple with no element in it. This is why it can also be noted as `#(){:ak}`.
+`Void{:ak}` is a type representing the nullary constructor, or put simply, the absence of value. It is denoted `Void` as a type and constructor. Fundamentally, if you think in terms of tuples, `Void{:ak}` is a tuple with no element in it.
 
 `Void{:ak}` is useful in certain situations, but because in Aiken everything is a typed expression (there's no "statement"), you'll rarely end up in a situation where you need it.
