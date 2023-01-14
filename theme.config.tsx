@@ -25,7 +25,7 @@ const config: DocsThemeConfig = {
     <>
         <link rel="icon" type="image/svg+xml" sizes="any" href="/icon.png"/>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Expletus+Sans:wght@700&display=swap" />
-        <meta name="twitter:image" content="/open-graph.png" />
+        <meta name="twitter:image" content="https://aiken-lang.org/open-graph.png" />
         <meta name="twitter:site:domain" content="aiken-lang.org" />
     </>
   ),
@@ -57,7 +57,7 @@ const config: DocsThemeConfig = {
         description,
         images: [
           {
-            url: "/open-graph.png",
+            url: "https://aiken-lang.org/open-graph.png",
             width: 800,
             height: 418,
             alt: "Aiken - A modern smart contract platform for Cardano",
