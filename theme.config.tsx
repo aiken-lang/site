@@ -1,4 +1,4 @@
-import { DocsThemeConfig } from "nextra-theme-docs";
+import { DocsThemeConfig, useConfig } from "nextra-theme-docs";
 import { useTheme } from "next-themes";
 
 const config: DocsThemeConfig = {
@@ -23,8 +23,10 @@ const config: DocsThemeConfig = {
   },
   head: (
     <>
-        <link rel="icon" type="image/svg+xml" sizes="any" href="https://raw.githubusercontent.com/aiken-lang/branding/main/assets/icon.svg"/>
+        <link rel="icon" type="image/svg+xml" sizes="any" href="/icon.png"/>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Expletus+Sans:wght@700&display=swap" />
+        <meta name="twitter:image" content="/open-graph.png" />
+        <meta name="twitter:site:domain" content="aiken-lang.org" />
     </>
   ),
   project: {
@@ -44,6 +46,7 @@ const config: DocsThemeConfig = {
   ],
   docsRepositoryBase: "https://github.com/aiken-lang/site/blob/main",
   useNextSeoProps() {
+    const { title } = useConfig();
     const description = "A modern smart contract platform for Cardano";
     return {
       titleTemplate: "Aiken | %s",
@@ -51,7 +54,6 @@ const config: DocsThemeConfig = {
       canonical: "https://aiken-lang.org/",
       openGraph: {
         url: "https://aiken-lang.org/",
-        title: "Aiken",
         description,
         images: [
           {
@@ -66,7 +68,7 @@ const config: DocsThemeConfig = {
       siteName: "Aiken",
       twitter: {
         handle: "@aiken_eng",
-        site: "@aiken_eng",
+        site: "https://aiken-lang.org",
         cardType: "summary_large_image",
       },
     };
