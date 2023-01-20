@@ -436,7 +436,7 @@ const utxo = { txHash: /* Tx ID from vesting_lock */, outputIndex: 0 };
 // we don't have any redeemer in our contract but it needs to be empty
 const redeemer = Data.empty();
 
-const txUnlock = await unlock(utxo, { from: validator, redeemer: redeemer });
+const txUnlock = await unlock(utxo, { from: validator, using: redeemer });
 
 await lucid.awaitTx(txUnlock);
 
@@ -455,7 +455,7 @@ async function unlock(ref, { from, redeemer }): Promise<TxHash> {
 
   const tx = await lucid
     .newTx()
-    .collectFrom([utxo], using)
+    .collectFrom([utxo], redeemer)
     .addSigner(await lucid.wallet.address()) // this should be beneficiary address
     .validFrom(currentTime)
     .validTo(laterTime)
