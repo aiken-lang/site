@@ -55,7 +55,7 @@ is given [in annexe](./builtins.md).
 
 Plutus Core has the notion of type abstractions and type instantiations. That is, like lambdas are functions over term values, abstractions are functions over types. These abstractions allow to represent polymorphic types (such as, a list of elements, or an option type). UPLC has gotten rid of the types, but introduces two new keywords in order to preserve the abstractions in some form.
 
-- `force` can be used on a polymorphic function to instantiate one type-parameter. For example, the branches of a builtin `ifThenElse` can be of any type -- though they have to be the same for both branches. In fact, `ifThenElse` has one type parameter. To be called, it must therefore be forced once: `[ [ [ force (builtin ifThenElse) p ] x ] y ]`
+- `force` can be used on a polymorphic function to instantiate one type-parameter. For example, the branches of a builtin `ifThenElse` can be of any type -- though they have to be the same for both branches. In fact, `ifThenElse` has one type parameter. To be called, it must therefore be forced once: `[ [ [ (force (builtin ifThenElse)) p ] x ] y ]`
 
 - Similarly, `delay` can be used to defer the evaluation of a certain term; this allows to artificially construct or preserve type abstractions, but also, to introduce a certain level of laziness in parts of the program.
 
