@@ -777,22 +777,9 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
   <details>
     <summary><h3>Can I write off-chain/backend code with Aiken</h3></summary>
     <p>
-      Our main goal is to improve the smart contract development experience
-      <strong>for the Cardano blockchain</strong>. By developing Aiken as a
-      bespoke language, we can better align its features with what is truly
-      needed for on-chain development.
-      <br/>
-      We want to keep the language simple and manageable. In a decentralized
-      architecture, smart contracts present a significant challenge where a
-      single flaw can escalate into a multi-million financial exploit. Moreso,
-      on-chain code typically represents a small fraction of an entire DApp
-      source code. While writing contracts should be straightforward possible,
-      smart contracts ought to be optimized for review, audit and static
-      analysis.
-      <br/>
-      Hence, Aiken is <strong>not</strong> intended as a general-purpose
-      language. Rather, it focuses on Cardano and aims for a high-quality
-      toolkit for developing reliable smart contracts with confidence.
+      Aiken is a bespoke programming language used to write the <i>on-chain validators</i> (a.k.a. Smart Contracts) for the <strong>Cardano blockchain</strong>.</br>
+    </br> That said, Aiken isn't (currently) designed for writing the <a href = "https://cardano.stackexchange.com/a/240/1275"><i>off-chain</i></a> components of your decentralized applications(or dApps). </br>
+  </br> We recommend using the <a href = "https://github.com/spacebudz/lucid">Lucid</a> library as it satisfies this task very well and effectively compliments Aiken's on-chain scripts.
     </p>
   </details>
 </section>
