@@ -59,9 +59,9 @@
 | `sha3_256`                            | \-        | (bytestring)                         | bytestring            |
 | `blake2b_256`                         | \-        | (bytestring)                         | bytestring            |
 |                                       |           |                                      |                       |
-| `verifyEd25519Signature`[^4]          | \-        | (bytestring, bytestring, bytestring) | bytestring            |
-| `verifyEcdsaSecp256k1Signature`[^4]   | \-        | (bytestring, bytestring, bytestring) | bytestring            |
-| `verifySchnorrSecp256k1Signature`[^4] | \-        | (bytestring, bytestring, bytestring) | bytestring            |
+| `verifyEd25519Signature`[^4]          | \-        | (bytestring, bytestring, bytestring) | bool                  |
+| `verifyEcdsaSecp256k1Signature`[^4]   | \-        | (bytestring, bytestring, bytestring) | bool                  |
+| `verifySchnorrSecp256k1Signature`[^4] | \-        | (bytestring, bytestring, bytestring) | bool                  |
 |                                       |           |                                      |                       |
 | `error`                               | (α)       | (unit)                               | α                     |
 | `trace`                               | (α)       | (string, (α))                        | α                     |
