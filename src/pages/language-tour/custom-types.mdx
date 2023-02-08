@@ -92,8 +92,8 @@ We define `Option` as a generic type like so:
 
 ```ak
 type Option<a> {
-    None
-    Some(a)
+  None
+  Some(a)
 }
 ```
 
@@ -101,10 +101,10 @@ Then, functions which fail may safely return an optional value.
 
 ```ak
 fn get_head(a: List<a>) -> Option<a> {
-    when a is {
-        [a, .._] -> Some(a)
-        [] -> None
-    }
+  when a is {
+    [a, ..] -> Some(a)
+    [] -> None
+  }
 }
 ```
 
@@ -144,7 +144,7 @@ type Dog {
   Dog { name: ByteArray, cuteness: Int, age: Int }
 }
 
-let dog = Dog { name: #[67, 97, 115, 104, 101, 119], cuteness: 9001, age: 3 }
+let dog = Dog { name: #"436173686577", cuteness: 9001, age: 3 }
 ```
 
 You will need to specify all args for a pattern match, or alternatively use the
@@ -171,17 +171,6 @@ For example using the `Dog` type defined earlier.
 ```aiken
 let dog = Dog { name: #[82, 105, 110], cuteness: 2001 }
 dog.cuteness // This returns 2001
-```
-
-This is actually so common that Aiken has some syntactic sugar for defining these
-kinds of single-constructor types: one can omit the constructor:
-
-```aiken
-type Dog {
-  name: ByteArray,
-  cuteness: Int,
-  age: Int,
-}
 ```
 
 ## Generics
@@ -246,7 +235,7 @@ They are most useful for simplifying type signatures.
 type Person = (String, Integer)
 
 fn create_person(name: String, age: Integer) -> Person {
-    (name, age)
+  (name, age)
 }
 ```
 
@@ -256,8 +245,8 @@ At runtime custom types become an opaque Plutus' Data. In Aiken's type system
 `Data` matches with any user-defined type (but with none of the primitive
 types).
 
-Thus, it's also possible to cast any `Data` to a [custom
-type](./custom-types.md), and vice versa.
+Thus, it's also possible to cast any [custom type](./custom-types.md) into
+`Data`. Extracting from `Data` however requires the use of [assert](https://aiken-lang.org/language-tour/variables-and-constants#assert)
 
 ```aiken
 fn to_datum(datum: Data) -> Datum {
@@ -285,3 +274,52 @@ let datum = Datum { count: 1 }
 // fn(Data) -> ByteArray
 builtin.serialize_data(datum) // some bytearray
 ```
+
+### assert
+
+`assert` is a special keyword which works like `let`, but allows to perform
+some potentially unsafe conversions. There are two main use cases to it:
+
+#### Non-exhaustive pattern matching
+
+In case where you have a value of a type that have multiple constructor
+variants, but are only truly interested in one of the possible outcome
+(considering any other like a invalid program), then `assert` is the perfect
+tool. Consider the `Option` type from above.
+
+```aiken
+let x = Some(42)
+
+// As a pattern-match
+let y = when x is {
+  None -> error("didn't expect that")
+  Some(y) -> y
+}
+
+// Using assert
+assert Some(y) = x
+```
+
+#### Casting from `Data` into a custom type
+
+Another crucial use of `assert` is to turn some opaque `Data` into a concrete
+representation. In the context of Cardano smart-contract, we can encounter
+`Data` in various places but in general, it's mostly when dealing with datums
+associated to outputs.
+
+Often, we do expect a specific structure for some given datum, and thus, being able
+to safely relay those assumptions in the validators comes in handy.
+
+The syntax is identical to the other use case, but it requires an explicit type
+annotation.
+
+```aiken
+type MyDatum {
+  foo: Int,
+  bar: ByteArray,
+}
+
+fn to_my_datum(data: Data) -> MyDatum {
+  assert my_datum: MyDatum = data
+  my_datum
+}

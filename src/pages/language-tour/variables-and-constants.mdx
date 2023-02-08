@@ -39,23 +39,3 @@ const size: Int = 100
 
 let result: Bool = 14 > 42
 ```
-
-## assert
-
-Sometimes, it is useful to fail the exit and fail the execution of a program
-early on. This is where the `assert` keywords comes in handy. `assert` causes
-the script to fail if it fails to bind a given expression.
-
-It is particularly useful when combined with custom types that can have
-multiple constructors, and that are expected to have a very specific shape. It
-is primarily used for validating datums and redeemers -- which can really be
-anything.
-
-Having ways to enforce that some inputs have the requested shape is thus
-often necessary. For example, let's consider we have a custom type `MyDatum`
-that we want to turn some opaque `Data` into. We can do the following:
-
-```aiken
-// some_data : Data
-assert my_datum : MyDatum = some_data
-```
