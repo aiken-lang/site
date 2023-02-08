@@ -28,6 +28,24 @@ fn datums() {
 }
 ```
 
+## Shorthand notation
+
+Because single constructors are quite common, there exists a special shorthand
+notation when the type and the constructor have the same name. So instead of
+the above, one can write:
+
+```aiken
+type Datum {
+  signer: ByteArray,
+  count: Int
+}
+```
+
+These two notations are synonym. With the shorthand, we implicitly indicate
+that there's a single constructor named `Datum` which can be used for
+constructing values of type `Datum`, or can also be used when destructuring
+(see below).
+
 ## Multiple constructors
 
 Custom types in Aiken can be defined with multiple constructors, making them a
