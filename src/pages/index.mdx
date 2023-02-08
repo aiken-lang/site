@@ -134,6 +134,7 @@ export function icon(name, color) {
   main ul > li::before {
     content: url("${icon('checkbox-checked', palette.dark.bullet)}");
     padding-right: 0.5rem;
+    vertical-align: middle;
   }
   section ul > li.todo::before,
   main ul > li.todo::before {
@@ -678,9 +679,9 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
       <ul>
         <li>Compiler fine-tuning &amp; optimizations</li>
         <li>End-to-end examples on Cardano's preview network</li>
+        <li>Interoperable smart-contract blueprints ([CIP-0057](https://github.com/cardano-foundation/CIPs/pull/258))</li>
+        <li class="todo">LSP on-the-fly compilation &amp; feedback</li>
         <li class="todo">Alpha release with first pioneers</li>
-        <li class="todo">Packages registry &amp; first community libraries</li>
-        <li class="todo">Code generation for datum &amp; redeemer</li>
         <li class="todo">Online playground</li>
       </ul>
     </article>
@@ -688,10 +689,10 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
     <article>
       <h3>Q2 2023</h3>
       <ul>
+        <li class="todo">Code generation from blueprints into various languages</li>
+        <li class="todo">Packages registry &amp; first community libraries</li>
         <li class="todo">External audit &amp; verification of the compiler</li>
         <li class="todo">Property-based testing framework</li>
-        <li class="todo">LSP on-the-fly compilation &amp; feedback</li>
-        <li class="todo">More tooling and end-to-end examples</li>
         <li class="todo">Beta release &amp; mainnet readiness</li>
       </ul>
     </article>
