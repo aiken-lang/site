@@ -90,6 +90,12 @@ This may be useful for values that are used frequently in a module, but
 generally qualified imports are preferred as it makes it clearer where the
 value is defined.
 
+You may also combine unqualified imports with custom names as such:
+
+```aiken
+use animal/dog.{Dog, stroke} as kitty
+```
+
 ## Opaque types
 
 At times it may be useful to create a type and make the constructors and
