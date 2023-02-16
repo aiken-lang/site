@@ -20,8 +20,8 @@ During this tutorial, we will introduce some new concepts from Aiken, such as:
 - Manipulation of time on-chain through transaction validity ranges.
 
 <Callout type="info" emoji="📘">
-When encountering an unfamiliar syntax or concept, do not hesitate to refer to
-the [language-tour](/language-tour) for details and extra examples.
+  When encountering an unfamiliar syntax or concept, do not hesitate to refer to
+  the [language-tour](/language-tour) for details and extra examples.
 </Callout>
 
 ## Setup
@@ -42,13 +42,17 @@ const lucid = await Lucid.new(undefined, "Preview");
 const ownerPrivateKey = lucid.utils.generatePrivateKey();
 await Deno.writeTextFile("owner.sk", privateKey);
 
-const ownerAddress = await lucid.selectWalletFromPrivateKey(ownerPrivateKey).wallet.address();
+const ownerAddress = await lucid
+  .selectWalletFromPrivateKey(ownerPrivateKey)
+  .wallet.address();
 await Deno.writeTextFile("owner.addr", ownerAddress);
 
 const beneficiaryPrivateKey = lucid.utils.generatePrivateKey();
 await Deno.writeTextFile("beneficiary.sk", beneficiaryPrivateKey);
 
-const beneficiaryAddress = await lucid.selectWalletFromPrivateKey(beneficiaryPrivateKey).wallet.address();
+const beneficiaryAddress = await lucid
+  .selectWalletFromPrivateKey(beneficiaryPrivateKey)
+  .wallet.address();
 await Deno.writeTextFile("beneficiary.addr", beneficiaryAddress);
 ```
 
@@ -61,7 +65,7 @@ the definition of its interface (i.e. its datum's shape).
 use aiken/hash.{Blake2b_224, Hash}
 use aiken/transaction/credential.{VerificationKey}
 
-pub type Datum {
+type Datum {
   /// POSIX time in second, e.g. 1672843961000
   lock_until: POSIXTime,
   /// Owner's credentials
@@ -89,20 +93,22 @@ use aiken/interval.{Finite}
 use aiken/list.{and, or}
 use aiken/transaction.{Transaction, ScriptContext, Spend, ValidityRange}
 
-pub fn spend(datum: Datum, _redeemer: Void, ctx: ScriptContext) {
-  // In principle, scripts can be used for different purpose (e.g. minting
-  // assets). Here we make sure it's only used when 'spending' from a eUTxO
-  when ctx.purpose is {
-    Spend(_) ->
-      or([
-        must_be_signed_by(ctx.transaction, datum.owner),
-        and([
-          must_be_signed_by(ctx.transaction, datum.beneficiary),
-          must_start_after(ctx.transaction.validity_range, datum.lock_until),
+validator spend {
+  fn(datum: Datum, _redeemer: Void, ctx: ScriptContext) {
+    // In principle, scripts can be used for different purpose (e.g. minting
+    // assets). Here we make sure it's only used when 'spending' from a eUTxO
+    when ctx.purpose is {
+      Spend(_) ->
+        or([
+          must_be_signed_by(ctx.transaction, datum.owner),
+          and([
+            must_be_signed_by(ctx.transaction, datum.beneficiary),
+            must_start_after(ctx.transaction.validity_range, datum.lock_until),
+          ])
         ])
-      ])
-    _ ->
-     False
+      _ ->
+      False
+    }
   }
 }
 
@@ -181,9 +187,9 @@ test must_start_after_fail_when_lower_bound_is_after() {
 ```
 
 <Callout>
-You can run tests with `aiken check`; Aiken will collect and run all tests
-found in your modules, and give you some statistics about the execution units
-(CPU and memory) required by the test.
+  You can run tests with `aiken check`; Aiken will collect and run all tests
+  found in your modules, and give you some statistics about the execution units
+  (CPU and memory) required by the test.
 </Callout>
 
 ### Building
@@ -254,28 +260,29 @@ async function readValidator(): Promise<SpendingValidator> {
 <Callout>
   If you've installed [deno](https://deno.land/manual@v1.29.1/getting_started/installation), you can run the except above by executing:
 
-  ```
-  deno run --allow-net --allow-read vesting_lock.ts
-  ```
+```
+deno run --allow-net --allow-read vesting_lock.ts
+```
 
-  It assumes that this file (`vesting_lock.ts`) is placed at the root of your `vesting` folder. At this stage, your folder should looks roughly like this:
+It assumes that this file (`vesting_lock.ts`) is placed at the root of your `vesting` folder. At this stage, your folder should looks roughly like this:
 
-  ```
-  ./vesting
-  │
-  ├── README.md
-  ├── aiken.toml
-  ├── plutus.json
-  ├── vesting_lock.ts
-  ├── owner.addr
-  ├── owner.sk
-  ├── beneficiary.addr
-  ├── beneficiary.sk
-  ├── lib
-  │   └── ...
-  └── validators
-      └── vesting.ak
-  ```
+```
+./vesting
+│
+├── README.md
+├── aiken.toml
+├── plutus.json
+├── vesting_lock.ts
+├── owner.addr
+├── owner.sk
+├── beneficiary.addr
+├── beneficiary.sk
+├── lib
+│   └── ...
+└── validators
+    └── vesting.ak
+```
+
 </Callout>
 
 ### Locking funds into the contract
@@ -284,16 +291,13 @@ Here, we make our first transaction to lock funds into the contract. The datum
 must match the representation expected by the script, constructor is an object expecting 3 fields.
 
 ```ts filename="vesting_lock.ts"
+const ownerPublicKeyHash = lucid.utils.getAddressDetails(
+  await lucid.wallet.address()
+).paymentCredential.hash;
 
-const ownerPublicKeyHash = lucid.utils
-  .getAddressDetails(await lucid.wallet.address())
-  .paymentCredential
-  .hash;
-
-const beneficiaryPublicKeyHash = lucid.utils
-  .getAddressDetails(/* CONTENT OF 'beneficiary.addr' */)
-  .paymentCredential
-  .hash;
+const beneficiaryPublicKeyHash =
+  lucid.utils.getAddressDetails(/* CONTENT OF 'beneficiary.addr' */)
+    .paymentCredential.hash;
 
 const Datum = Data.Object({
   lock_until: Data.BigInt, // this is POSIX time, you can check and set it here: https://www.unixtimestamp.com
@@ -305,11 +309,11 @@ type Datum = Data.Static<typeof Datum>;
 
 const datum = Data.to<Datum>(
   {
-   lock_until: 1672843961000n, // Wed Jan 04 2023 14:52:41 GMT+0000
-   owner: ownerPublicKeyHash, // our own wallet verification key hash
-   beneficiary: beneficiaryPublicKeyHash
+    lock_until: 1672843961000n, // Wed Jan 04 2023 14:52:41 GMT+0000
+    owner: ownerPublicKeyHash, // our own wallet verification key hash
+    beneficiary: beneficiaryPublicKeyHash,
   },
-  Datum,
+  Datum
 );
 
 const txLock = await lock(1000000, { into: validator, datum: datum });
@@ -323,7 +327,7 @@ console.log(`1 ADA locked into the contract
 
 // --- Supporting functions
 
-async function lock(lovelace, { into, datum }): Promise<TxHash>{
+async function lock(lovelace, { into, datum }): Promise<TxHash> {
   const contractAddress = lucid.utils.validatorToAddress(into);
 
   const tx = await lucid
@@ -331,9 +335,7 @@ async function lock(lovelace, { into, datum }): Promise<TxHash>{
     .payToContract(contractAddress, { inline: datum }, { lovelace })
     .complete();
 
-  const signedTx = await tx
-    .sign()
-    .complete();
+  const signedTx = await tx.sign().complete();
 
   return signedTx.submit();
 }
@@ -351,8 +353,8 @@ To be valid, our transaction must meet one of two conditions:
 
 - it must be signed by the owner referenced as "owner" in the datum; or
 - it must be signed by the beneficiary referenced as "beneficiary" in the datum
-AND time has to pass beyond the threshold we fixed -- that is it needs to be
-later than 'Wed Jan 04 2023 14:52:41 GMT+0000'.
+  AND time has to pass beyond the threshold we fixed -- that is it needs to be
+  later than 'Wed Jan 04 2023 14:52:41 GMT+0000'.
 
 Like for the _Hello, World!_ example, we need to explicitly add a signer using
 `.addSigner` so that it gets added to the `extra_signatories` of our
@@ -460,9 +462,10 @@ async function unlock(ref, { from, redeemer }): Promise<TxHash> {
 <Callout>
   As you imagine, we can run this script with the following incantation:
 
-  ```
-  deno run --allow-net --allow-read vesting_unlock.ts
-  ```
+```
+deno run --allow-net --allow-read vesting_unlock.ts
+```
+
 </Callout>
 
 Assuming everything went well... congratulations 🎉!

@@ -15,7 +15,8 @@ transaction. So make sure you have your dev environment ready for some
 TypeScript<sup>★</sup> and have Aiken installed already.
 
 <Callout type="info">
-★ For TypeScript, we recommend installing [deno](https://deno.land/manual@v1.29.1/getting_started/installation).
+  ★ For TypeScript, we recommend installing
+  [deno](https://deno.land/manual@v1.29.1/getting_started/installation).
 </Callout>
 
 ## Scaffolding
@@ -87,21 +88,23 @@ use aiken/string
 use aiken/transaction.{ScriptContext}
 use aiken/transaction/credential.{VerificationKey}
 
-pub type Datum {
+type Datum {
   owner: Hash<Blake2b_224, VerificationKey>,
 }
 
-pub type Redeemer {
+type Redeemer {
   msg: ByteArray,
 }
 
-pub fn spend(datum: Datum, redeemer: Redeemer, context: ScriptContext) -> Bool {
-  let must_say_hello = string.from_bytearray(redeemer.msg) == "Hello, World!"
+validator spend {
+  fn(datum: Datum, redeemer: Redeemer, context: ScriptContext) -> Bool {
+    let must_say_hello = string.from_bytearray(redeemer.msg) == "Hello, World!"
 
-  let must_be_signed =
-    list.has(context.transaction.extra_signatories, datum.owner)
+    let must_be_signed =
+      list.has(context.transaction.extra_signatories, datum.owner)
 
-  must_say_hello && must_be_signed
+    must_say_hello && must_be_signed
+  }
 }
 ```
 
@@ -131,18 +134,21 @@ const lucid = await Lucid.new(undefined, "Preview");
 const privateKey = lucid.utils.generatePrivateKey();
 await Deno.writeTextFile("key.sk", privateKey);
 
-const address = await lucid.selectWalletFromPrivateKey(privateKey).wallet.address();
+const address = await lucid
+  .selectWalletFromPrivateKey(privateKey)
+  .wallet.address();
 await Deno.writeTextFile("key.addr", address);
 ```
 
 <Callout>
   You can run the instructions above in Deno's interactive REPL; just run:
 
-  ```
-  deno repl --allow-net --allow-write
-  ```
+```
+deno repl --allow-net --allow-write
+```
 
-  and type/copy each line.
+and type/copy each line.
+
 </Callout>
 
 Now, we can head to [the Cardano faucet](https://docs.cardano.org/cardano-testnet/tools/faucet) to get some funds on the preview network to our newly created address (inside `key.addr`). Make sure to select _"Preview Testnet"_ as network.
@@ -154,7 +160,9 @@ Using [CardanoScan](https://preview.cardanoscan.io/) we can watch for the faucet
 Now that we have some funds, we can lock them in our newly created contract. We'll use [`Lucid`](https://github.com/spacebudz/lucid) to construct and submit our transaction through Blockfrost.
 
 <Callout type="info">
-  This is only one example of possible setup using tools we love. For more tools, make sure to check out the [Cardano Developer Portal](https://developers.cardano.org/tools)!
+  This is only one example of possible setup using tools we love. For more
+  tools, make sure to check out the [Cardano Developer
+  Portal](https://developers.cardano.org/tools)!
 </Callout>
 
 ### Setup
@@ -202,26 +210,27 @@ async function readValidator(): Promise<SpendingValidator> {
 <Callout>
   If you've installed [deno](https://deno.land/manual@v1.29.1/getting_started/installation), you can run the excerpt above by executing:
 
-  ```
-  deno run --allow-net --allow-read hello_world-lock.ts
-  ```
+```
+deno run --allow-net --allow-read hello_world-lock.ts
+```
 
-  It assumes that this file (`hello_world-lock.ts`) is placed at the root of your `hello_world` folder. At this stage, your folder should looks roughly like this:
+It assumes that this file (`hello_world-lock.ts`) is placed at the root of your `hello_world` folder. At this stage, your folder should looks roughly like this:
 
-  ```
-  ./hello_world
-  │
-  ├── README.md
-  ├── aiken.toml
-  ├── plutus.json
-  ├── hello_world-lock.ts
-  ├── key.addr
-  ├── key.sk
-  ├── lib
-  │   └── ...
-  └── validators
-      └── hello_world.ak
-  ```
+```
+./hello_world
+│
+├── README.md
+├── aiken.toml
+├── plutus.json
+├── hello_world-lock.ts
+├── key.addr
+├── key.sk
+├── lib
+│   └── ...
+└── validators
+    └── hello_world.ak
+```
+
 </Callout>
 
 ### Locking funds into the contract
@@ -236,10 +245,9 @@ will be needed to unlock the funds.
 ```ts filename="hello_world-lock.ts"
 // ^^^ Code above is unchanged. ^^^
 
-const publicKeyHash = lucid.utils
-  .getAddressDetails(await lucid.wallet.address())
-  .paymentCredential
-  .hash;
+const publicKeyHash = lucid.utils.getAddressDetails(
+  await lucid.wallet.address()
+).paymentCredential.hash;
 
 const datum = Data.to(new Constr(0, [publicKeyHash]));
 
@@ -254,7 +262,7 @@ console.log(`1 ADA locked into the contract
 
 // --- Supporting functions
 
-async function lock(lovelace, { into, owner }): Promise<TxHash>{
+async function lock(lovelace, { into, owner }): Promise<TxHash> {
   const contractAddress = lucid.utils.validatorToAddress(into);
 
   const tx = await lucid
@@ -262,9 +270,7 @@ async function lock(lovelace, { into, owner }): Promise<TxHash>{
     .payToContract(contractAddress, { inline: owner }, { lovelace })
     .complete();
 
-  const signedTx = await tx
-    .sign()
-    .complete();
+  const signedTx = await tx.sign().complete();
 
   return signedTx.submit();
 }
@@ -276,12 +282,12 @@ If you notice the small icon next to the contract output address, we can even [i
 
 ```json filename="d8799f581c10073fd2997d2f7dc6dadcf24966bd06b01930e5210e5de7aebf792dff"
 {
-   constructor: 0,
-   fields: [
-      {
-         bytes: "10073fd2997d2f7dc6dadcf24966bd06b01930e5210e5de7aebf792d"
-      }
-   ]
+  "constructor": 0,
+  "fields": [
+    {
+      "bytes": "10073fd2997d2f7dc6dadcf24966bd06b01930e5210e5de7aebf792d"
+    }
+  ]
 }
 ```
 
@@ -296,9 +302,9 @@ To be valid, our transaction must meet two conditions:
 - it must be signed by the key referenced as datum (i.e the owner).
 
 <Callout type="warning">
-  Note that we need to explicitly add a signer using `.addSigner` so that it gets
-  added to the `extra_signatories` of our transaction -- and becomes accessible
-  for our script.
+  Note that we need to explicitly add a signer using `.addSigner` so that it
+  gets added to the `extra_signatories` of our transaction -- and becomes
+  accessible for our script.
 </Callout>
 
 Let's make a new file `hello_world-unlock.ts` and copy over some of the boilerplate
@@ -389,9 +395,10 @@ async function unlock(ref, { from, using }): Promise<TxHash> {
 <Callout>
   As you imagine, we can run this script with the following incantation:
 
-  ```
-  deno run --allow-net --allow-read hello_world-unlock.ts
-  ```
+```
+deno run --allow-net --allow-read hello_world-unlock.ts
+```
+
 </Callout>
 
 And, tada 🎉!
