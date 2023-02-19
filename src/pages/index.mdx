@@ -499,20 +499,19 @@ export function icon(name, color) {
   }
 `}</style>
 
-export const aikenCodeExample = `<span class="hljs-keyword"><span class="hljs-keyword">use</span></span> aiken<span class="hljs-operator">/</span>list
-<span class="hljs-keyword"><span class="hljs-keyword">use</span></span> aiken<span class="hljs-operator">/</span>string
+export const aikenCodeExample = `<span class="hljs-keyword"><span class="hljs-keyword">validator</span></span> <span class="hljs-function"><span class="hljs-title function_">hello_world</span></span> {
+  <span class="hljs-keyword">fn</span>(datum, redeemer, context) <span class="hljs-operator">-&gt;</span> <span class="hljs-title">Bool</span> {
+    <span class="hljs-keyword"><span class="hljs-keyword">let</span></span> must_say_hello <span class="hljs-operator">=</span>
+      redeemer <span class="hljs-operator">==</span> <span class="hljs-string">"Hello, World!"</span>
 
-<span class="hljs-keyword"><span class="hljs-keyword">pub</span></span> <span class="hljs-function"><span class="hljs-keyword">fn</span> <span class="hljs-title function_">spend</span></span>(datum, redeemer, context) <span class="hljs-operator">-&gt;</span> <span class="hljs-title">Bool</span> {
-  <span class="hljs-keyword"><span class="hljs-keyword">let</span></span> must_say_hello <span class="hljs-operator">=</span>
-    string<span class="hljs-operator">.</span><span class="hljs-title function_ invoke__">from_bytearray</span><span class="hljs-ponctuation">(</span>redeemer<span class="hljs-operator">.</span>msg) <span class="hljs-operator">==</span> <span class="hljs-string">"Hello, World!"</span>
+    <span class="hljs-keyword"><span class="hljs-keyword">let</span></span> must_be_signed <span class="hljs-operator">=</span>
+      list<span class="hljs-operator">.</span><span class="hljs-title function_ invoke__">has</span><span class="hljs-ponctuation">(</span>
+        context<span class="hljs-operator">.</span>transaction<span class="hljs-operator">.</span>extra_signatories,
+        datum<span class="hljs-operator">.</span>owner,
+      )
 
-  <span class="hljs-keyword"><span class="hljs-keyword">let</span></span> must_be_signed <span class="hljs-operator">=</span>
-    list<span class="hljs-operator">.</span><span class="hljs-title function_ invoke__">has</span><span class="hljs-ponctuation">(</span>
-      context<span class="hljs-operator">.</span>transaction<span class="hljs-operator">.</span>extra_signatories,
-      datum<span class="hljs-operator">.</span>owner
-    )
-
-  must_say_hello <span class="hljs-operator">&amp;&amp;</span> must_be_signed
+    must_say_hello<span class="hljs-operator">?</span> <span class="hljs-operator">&amp;&amp;</span> must_be_signed<span class="hljs-operator">?</span>
+  }
 }`;
 
 
