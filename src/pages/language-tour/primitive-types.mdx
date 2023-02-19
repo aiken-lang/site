@@ -69,93 +69,47 @@ Integers are also of course comparable, so they work with a variety of binary lo
 | `>={:ak}` | Greater or equal |
 | `<={:ak}` | Smaller or equal |
 
-## String
-
-In Aiken Strings can be written as text surrounded by double quotes.
-
-```aiken
-"Hello, Aiken!"
-```
-
-They can span multiple lines.
-
-```aiken
-"Hello
-Aiken!"
-```
-
-Under the hood text strings are [UTF-8](https://en.wikipedia.org/wiki/UTF-8) encoded binaries
-and can contain any valid unicode.
-
-```aiken
-"🌘 アルバイト Aiken 🌒"
-```
-
 ## ByteArray
 
-A _ByteArray_ is exactly what it seems, an array of bytes.
+A _ByteArray_ is exactly what it seems, an array of bytes. Aiken supports three notations to declare ByteArray literals.
 
-Aiken supports byte arrays literals, written as lists of integers ranging from 0 to 255 (a.k.a _bytes_):
+#### 1 - As an array of bytes
+
+First, as list of integers ranging from 0 to 255 (a.k.a. _bytes_):
 
 ```aiken
 #[10, 255]
 #[1, 256] // results in a parse error because 256 is bigger than 1 byte
 ```
 
-It's important to mention that variables and patterns are not supported in
-byte array literals due to how Untyped Plutus Core works behind the scene.
+Syntax rules for literal integers also apply to byte arrays. Thus, the following is a perfectly valid syntax:
 
 ```aiken
-let x = 10
-#[x, 243] // not allowed
+#[0xff, 0x42]
 ```
 
-However, syntax rules for literal integers also apply to byte arrays. Thus, the following is a perfectly valid syntax:
+#### 2 - As a byte string
+
+Second, as a UTF-8 encoded byte string. This is generally how common text strings are represented under the hood. In Aiken, simply use double-quotes for that:
 
 ```aiken
-#[0xFF, 0x42]
+"foo" == #[0x66, 0x6f, 0x6f] == #[102, 111, 111]
 ```
 
-Because it is quite common to manipulate byte strings in a blockchain context (e.g. transaction id, policy id, etc..); Aiken also supports a shorthand syntax for declaring bytearrays from a base16-encoded text string literal as:
+#### 3 - As a hex-encoded byte string
+
+Because it is quite common to manipulate base16-encoded byte strings in a blockchain context (e.g. transaction id, policy id, etc..); Aiken also supports a shorthand syntax for declaring bytearrays as an hexadecimal string.
+
+Behind the scene, Aiken decodes the encoded string for you and stores only the raw bytes as a ByteArray. This is achieved by prefixing a double-quotes byte string with a `#`, like so:
 
 ```aiken
-#"FF420014A7"
-// is equivalent to
-#[0xFF, 0x42, 0x00, 0x14, 0xA7]
-// is equivalent to
-#[255, 66, 0, 20, 167]
+#"666f6f" == #[0x66, 0x6f, 0x6f] == #[102, 111, 111] == "foo"
 ```
 
-## Data
-
-A `Data{:ak}` is an opaque compound type that can represent any possible user-defined type in Aiken. We'll see later how Aiken lets you compose your own types from the primitives we just presented. In the meantime, think of _Data_ as a kind of wildcard that can possibly represent _any_ value.
-
-This is useful when you need to use values from different types in an homogeneous structure. Any user-defined type can be cast to a `Data{:ak}`, and you can try converting from a _Data_ to any custom type in a safe manner.
-
-Besides, several language builtins only work with `Data{:ak}` as a way to deal with polymorphism.
-
-We'll see more about `Data{:ak}` when we cover custom types.
-
-## Tuples
-
-Aiken has tuples which can be useful for grouping values. Each element in a tuple can have a different type.
+Note how this is different from:
 
 ```aiken
-(10, "hello") // Type is (Int, String)
-(1, 4, [0]) // Type is (Int, Int, List<Int>)
-```
-
-Long tuples (i.e. more than 3 elements) are usually discouraged. Indeed, tuples are anonymous constructors, and while they are quick and easy to use, they often impede readability. When types become more complex, one should use records instead (as we'll see later).
-
-Elements of a tuple can be accessed using the dot, followed by the index of the element (ordinal). So for example:
-
-```aiken
-let point = (14, 42, 1337, 0)
-let a = point.1st
-let b = point.2nd
-let c = point.3rd
-let d = point.4th
-(c, d, b, a) // (0, 1337, 42, 14)
+"666f6f" == #[0x36, 0x36, 0x36, 0x66, 0x36, 0x66] == #[54, 54, 54, 102, 54, 54]
 ```
 
 ## List
@@ -179,7 +133,7 @@ Inserting at the front of a list is very fast, and is the preferred way to add n
 
 Note that all data structures in Aiken are immutable so prepending to a list does not change the original list. Instead it efficiently creates a new list with the new additional element.
 
-```
+```aiken
 let x = [2, 3]
 let y = [1, ..x]
 
@@ -187,8 +141,62 @@ x // [2, 3]
 y // [1, 2, 3]
 ```
 
+
+## Tuples
+
+Aiken has tuples which can be useful for grouping values. Each element in a tuple can have a different type.
+
+```aiken
+(10, "hello") // Type is (Int, ByteArray)
+(1, 4, [0]) // Type is (Int, Int, List<Int>)
+```
+
+Long tuples (i.e. more than 3 elements) are usually discouraged. Indeed, tuples are anonymous constructors, and while they are quick and easy to use, they often impede readability. When types become more complex, one should use records instead (as we'll see later).
+
+Elements of a tuple can be accessed using the dot, followed by the index of the element (ordinal). So for example:
+
+```aiken
+let point = (14, 42, 1337, 0)
+let a = point.1st
+let b = point.2nd
+let c = point.3rd
+let d = point.4th
+(c, d, b, a) // (1337, 0, 42, 14)
+```
+
 ## Void
 
 `Void{:ak}` is a type representing the nullary constructor, or put simply, the absence of value. It is denoted `Void` as a type and constructor. Fundamentally, if you think in terms of tuples, `Void{:ak}` is a tuple with no element in it.
 
 `Void{:ak}` is useful in certain situations, but because in Aiken everything is a typed expression (there's no "statement"), you'll rarely end up in a situation where you need it.
+
+## Data
+
+A `Data{:ak}` is an opaque compound type that can represent any possible user-defined type in Aiken. We'll see more about `Data{:ak}` when we cover custom types. In the meantime, think of _Data_ as a kind of wildcard that can possibly represent _any_ value.
+
+This is useful when you need to use values from different types in an homogeneous structure. Any user-defined type can be cast to a `Data{:ak}`, and you can try converting from a _Data_ to any custom type in a safe manner. Besides, several language builtins only work with `Data{:ak}` as a way to deal with polymorphism.
+
+## String
+
+In Aiken text strings can be written as text surrounded by double quotes, prefixed with `@`.
+
+```aiken
+@"Hello, Aiken!"
+```
+
+They can span multiple lines.
+
+```aiken
+@"Hello
+Aiken!"
+```
+
+Under the hood text strings are [UTF-8](https://en.wikipedia.org/wiki/UTF-8) encoded binaries and can contain any valid unicode.
+
+```aiken
+@"🌘 アルバイト Aiken 🌒"
+```
+
+<Callout type="warning">
+  Beware the use case for strings is extremely narrow in Aiken and on-chain code. They are only used for _tracing_, a bit like labels attached to specific execution paths of your program. You can't find them in the interface exposed by your validator, for example. So most of the time, you probably want to use a `ByteArray` instead and only resort to `String` for debugging.
+</Callout>
