@@ -98,7 +98,7 @@ This is all great but sometimes, you need more. Sometimes, you need to inspect t
 
 Note quite easy to read, huh? But there's hope! [Aiken's standard library](https://aiken-lang.github.io/stdlib/) provides a convenient method to inspect **any value** at runtime and obtain a `String` representation of them. The syntax used for this representation is called a [CBOR diagnostic](https://www.rfc-editor.org/rfc/rfc8949#name-diagnostic-notation). Think of it as a high-level syntax that resembles JSON and that can represent binary data.
 
-```aiken filename="aiken/string"
+```aiken filename="aiken/cbor"
 pub fn diagnostic(data: Data) -> String
 ```
 
@@ -125,29 +125,29 @@ While most are pretty transparent, the use-case for `Tag` may not strike as obvi
 Let's see some more examples of diagnostics from real Aiken's values.
 
 ```aiken
-use aiken/string
+use aiken/cbor
 
 
 // An Int becomes a CBOR int
-string.diagnostic(42) == @"42"
+cbor.diagnostic(42) == @"42"
 
 // A ByteArray becomes a CBOR bytestring
-string.diagnostic("foo") == @"h'666F6F'"
+cbor.diagnostic("foo") == @"h'666F6F'"
 
 // A List becomes a CBOR array
-string.diagnostic([1, 2, 3]) == @"[1, 2, 3]"
+cbor.diagnostic([1, 2, 3]) == @"[1, 2, 3]"
 
 // A Tuple becomes a CBOR array
-string.diagnostic((1, 2)) == @"[1, 2]"
+cbor.diagnostic((1, 2)) == @"[1, 2]"
 
 // A List of 2-tuples becomes a CBOR map
-string.diagnostic([(1, #"ff")]) == @"{ 1: h'FF' }"
+cbor.diagnostic([(1, #"ff")]) == @"{ 1: h'FF' }"
 
 // 'Some' is the first constructor of Option → tagged as 121
-string.diagnostic(Some(42)) == @"121([42])"
+cbor.diagnostic(Some(42)) == @"121([42])"
 
 // 'None' is the second constructor of Option → tagged as 122
-string.diagnostic(None) == @"122([])"
+cbor.diagnostic(None) == @"122([])"
 ```
 
 Diagnostics are meant to be used only in development or for testing; in combination with `trace` for example. Incidentally, they also make for a convenient way to double-check the binary representation of some instance of your datum or redeemer through tests. Imagine the following type:
@@ -159,14 +159,14 @@ type MyDatum {
 }
 ```
 
-Eventually, you will need to construct compatible values for building an associated transaction. Aiken provides blueprints as build outputs to help with that. Yet you may also control some chosen values directly using `string.diagnostic` and a test:
+Eventually, you will need to construct compatible values for building an associated transaction. Aiken provides blueprints as build outputs to help with that. Yet you may also control some chosen values directly using `cbor.diagnostic` and a test:
 
 ```aiken
-use aiken/string
+use aiken/cbor
 
 test my_datum_1() {
   let datum = MyDatum { foo: 42, bar: "Hello, World!" }
-  string.diagnostic(datum) == @"121([42, h'48656c6c6f2c20576f726c6421'])"
+  cbor.diagnostic(datum) == @"121([42, h'48656c6c6f2c20576f726c6421'])"
 }
 ```
 
