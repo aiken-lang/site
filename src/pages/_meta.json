@@ -23,6 +23,12 @@
   },
   "getting-started": "Getting Started",
   "language-tour": "Language Tour",
+  "-- Examples --": {
+    "type": "separator",
+    "title": "Examples"
+  },
+  "example--hello-world": "Hello, World!",
+  "example--vesting": "Vesting",
   "-- Advanced --": {
     "type": "separator",
     "title": "Advanced"
