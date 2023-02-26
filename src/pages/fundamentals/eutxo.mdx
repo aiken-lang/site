@@ -34,7 +34,7 @@ crash course **isn't** one of them.
 
 Blockchains are made of blocks. And blocks are made of transactions. Without
 going into the details, you can think of blocks as being objects divided into
-two parts: a header and a body. The header contains meta-information about the
+two parts: a header and a body. The header contains information about the
 blocks, such as who produced them and when they were made. The body is nothing
 more than an ordered sequence of transactions.
 
@@ -57,8 +57,13 @@ another. Indeed, each block header includes at least two things:
 A hash digest is a tamper-proof mechanism that maps an input value to a
 fixed-sized output. Think of it as a way to assign an identifier to a piece of
 content, such that the identifier depends on the content itself: change the
-content, change the identifier. A chain is formed by including a hash of the
-block body in the header and the header hash digest of the previous block.
+content, change the identifier.
+
+A chain is formed by including in every block header:
+
+- a hash of the block body; and
+- a header hash of the previous block.
+
 Changing any transaction in a block will change the block body hash, thus
 changing the block header hash, the header hash of the next block, and so on,
 invalidating the entire chain that follows.
@@ -92,13 +97,16 @@ location to another.
 
 In the blockchain world, it is a bit of both.
 
-A transaction is an object with an input from where it takes assets and an
-output to where they are sent. Often, as is the case in Cardano, transactions
-have many inputs and many outputs. In addition to inputs and outputs,
-blockchain protocols often include other elements that modify different parts
-of the blockchain state. The spirit is the same as in the database world. A
-transaction is an all-or-nothing atomic series of commands. Either it is
-_valid_, and all its changes are applied, or it isn't, and none are applied.
+A transaction is, first and foremost, an object with an input from where it
+takes assets and an output to where it sends them. Often, as is the case in
+Cardano, transactions have many inputs and many outputs. And, in addition to
+inputs and outputs, blockchain protocols often include other elements that
+modify different parts of the blockchain state (e.g. delegation certificates,
+governance votes, user-defined assets definitions...)
+
+Moreso, like in the database world, a transaction is an all-or-nothing atomic
+series of commands. Either it is valid, and all its changes are applied, or it
+isn't, and none are applied.
 
 We'll talk more about other capabilities later. For now, let's focus on inputs
 and outputs, starting with the outputs.
@@ -114,14 +122,13 @@ In addition, a data payload can also be added to outputs but let's not bother
 with that just now. The role of the value is pretty transparent, and it
 indicates how many assets hold the output.
 
-Cardano supports two kinds of assets: the main protocol currency (a.k.a. Ada);
-and user-defined currencies.
+Incidentally, Cardano supports two kinds of assets: the main protocol currency
+(a.k.a. Ada); and user-defined currencies. Both live side-by-side in values
+though slightly different rules apply to each.
 
-Both live side-by-side in values though slightly different rules apply to each.
 The address captures the logic that tells the protocol under what conditions
-one can utilize the assets at this particular output. It is what defines
-ownership of the assets. We'll explore this very soon. Bear with us a little
-more.
+one can utilize the assets at a particular output. It is what defines ownership
+of the assets. We'll explore this very soon. Bear with us a little more.
 
 ```console filename="Output"
 ┏━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
@@ -132,27 +139,32 @@ more.
 ```
 
 ### Inputs
-#
+
 An input is a reference to a previous output. Think of outputs as post-it notes
 with a unique serial number and inputs as being this serial number.
 
 ![](/post-it-notes.jpg)
 
-A transaction is a form indicating which post-it notes should be destroyed and
-which new ones should be pinned to the wall so that there's as much value in as
-there's value out. The total value should balance out but might be shuffled
-differently. The blockchain state results from looking at the entire wall of
-remaining post-it notes.
+A transaction is a document indicating which post-it notes should be destroyed
+and which new ones should be pinned to the wall. Note that there are rules
+regarding the construction of transactions. For example. there must as much
+value in as there's value out. Said differently, the total value should balance
+out but might be shuffled differently.
 
 An output that hasn't been spent yet (i.e. is still on the wall) is called --
-you guessed it -- an _unspent transaction output_, or UTxO in short.
+you guessed it -- an _unspent transaction output_, or UTxO in short. The
+blockchain state results from looking at the entire wall of post-it remaining
+notes. It includes not only the available UTxO, but also any additional data
+defined by the protocol.
+
+Okay, back to inputs.
 
 Technically speaking, an input's _"serial number"_ is the hash digest of the
 transaction that emitted the output it refers to and the position of the output
 within that transaction. These two elements make each input unique. And because
-outputs are removed from the available set (post-it note is destroyed), they
-can only be spent once. At least, that's what the blockchain protocol makes
-sure of.
+outputs are removed from the available set (post-it note is destroyed) when
+spent, they can only be spent once. At least, that's what the blockchain
+protocol makes sure of.
 
 ```console filename="Input"
 ┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
@@ -242,7 +254,8 @@ Payment credentials:    c37b1b5dc0669f1d3c61a6fddb2e8fde96be87b881c60bce8e8d542f
 Delegation credentials: c37b1b5dc0669f1d3c61a6fddb2e8fde96be87b881c60bce8e8d542f
 ```
 
-As we can see, this address is a type 3, is for mainnet and uses the same credentials for both the payment and the delegation part.
+As we can see, this address is a type 3, is for mainnet and uses the same
+credentials for both the payment and the delegation part.
 
 <Callout type="info">
 You will often need to convert back-and-forth between bech32-encoded strings
