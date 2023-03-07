@@ -418,6 +418,15 @@ Run this script with the transaction hash obtained from the previous command loc
 deno run --allow-net --allow-read --allow-env hello_world-unlock.ts 8559f57234407204d8e9a6bf57ef6943c65ec7119eb1c2ca6224f8bad8e71c1e
 ```
 
+If everything worked as planned you should see something resembling the following output:
+
+```
+1 ADA unlocked from the contract
+    Tx Hash: d3d5e828a3989691b0960d22a265c8c9ae4723134b52aa05ec0fb7d40f060392
+    Redeemer: d8799f4d48656c6c6f2c20576f726c6421ff
+
+```
+
 And, tada 🎉!
 
-We can inspect our [redeeming transaction in CardanoScan](https://preview.cardanoscan.io/transaction/d3d5e828a3989691b0960d22a265c8c9ae4723134b52aa05ec0fb7d40f060392?tab=contracts) and see that it successfully executed our _Hello World_ contract.
+We can inspect our [redeeming transaction on CardanoScan](https://preview.cardanoscan.io/transaction/d3d5e828a3989691b0960d22a265c8c9ae4723134b52aa05ec0fb7d40f060392?tab=contracts) and see that it successfully executed our _Hello World_ contract.
