@@ -114,7 +114,7 @@ It's now time to build our first contract!
 aiken build
 ```
 
-This generate a [CIP-0057 Plutus blueprint](https://github.com/cardano-foundation/CIPs/pull/258) as `plutus.json` at the root of your project. This blueprint describes your on-chain contract and its binary interface. In particular, it contains the generated on-chain code that will be executed by the ledger, and a hash of your validator(s) that can be used to construct addresses.
+This command generate a [CIP-0057 Plutus blueprint](https://github.com/cardano-foundation/CIPs/pull/258) as `plutus.json` at the root of your project. This blueprint describes your on-chain contract and its binary interface. In particular, it contains the generated on-chain code that will be executed by the ledger, and a hash of your validator(s) that can be used to construct addresses.
 
 This format is framework-agnostic and is meant to facilitate interoperability between tools. The blueprint is fully integrated into Aiken, which can automatically generates it based on your type definitions and comments.
 
@@ -122,9 +122,11 @@ Let's see the validator in action!
 
 ## Getting funds
 
-Before moving one, we'll need some funds, and a public/private key pair to hold them. We can generate a private key and an address using `Lucid`:
+Before moving one, we'll need some funds, and a public/private key pair to hold them. We can generate a private key and an address using `Lucid`.
 
-```ts filename="deno repl --allow-net --allow-write"
+Let's write our first script as `generate-credentials.ts`:
+
+```ts filename="generate-credentials.ts"
 import { Lucid } from "https://deno.land/x/lucid@0.8.3/mod.ts";
 
 const lucid = await Lucid.new(undefined, "Preview");
@@ -138,15 +140,12 @@ const address = await lucid
 await Deno.writeTextFile("key.addr", address);
 ```
 
-<Callout>
-  You can run the instructions above in Deno's interactive REPL; just run:
+<Callout type="info">
+  You can run the instructions above using Deno via:
 
+```console
+deno run --allow-net --allow-write generate-credentials.ts
 ```
-deno repl --allow-net --allow-write
-```
-
-and type/copy each line.
-
 </Callout>
 
 Now, we can head to [the Cardano faucet](https://docs.cardano.org/cardano-testnet/tools/faucet) to get some funds on the preview network to our newly created address (inside `key.addr`). Make sure to select _"Preview Testnet"_ as network.
@@ -167,6 +166,8 @@ Now that we have some funds, we can lock them in our newly created contract. We'
 
 First, we setup Lucid with Blockfrost as a provider. This will allow us to let Lucid handle transaction building for us, which includes managing changes. It also gives us a direct way to submit the transaction later on.
 
+Create a file named `hello_world-lock.ts` in the root of your project and add the following code:
+
 ```ts filename="hello_world-lock.ts"
 import {
   Blockfrost,
@@ -185,11 +186,15 @@ import * as cbor from "https://deno.land/x/cbor@v1.4.1/index.js";
 const lucid = await Lucid.new(
   new Blockfrost(
     "https://cardano-preview.blockfrost.io/api/v0",
-    /* BLOCKFROST API KEY */,
+    Deno.env.get("BLOCKFROST_API_KEY")
   ),
-  "Preview",
+  "Preview"
 );
+```
 
+Next, we'll need to read the validator from the blueprint (`plutus.json`) we generated earlier. We'll also need to convert it to a format that Lucid understands. This is done by serializing the validator and then converting it to an hexadecimal text string as shown below:
+
+```ts filename="hello_world-lock.ts"
 lucid.selectWalletFromPrivateKey(await Deno.readTextFile("./key.sk"));
 
 const validator = await readValidator();
@@ -205,62 +210,38 @@ async function readValidator(): Promise<SpendingValidator> {
 }
 ```
 
-<Callout>
-  If you've installed [deno](https://deno.land/manual@v1.29.1/getting_started/installation), you can run the excerpt above by executing:
-
-```
-deno run --allow-net --allow-read hello_world-lock.ts
-```
-
-It assumes that this file (`hello_world-lock.ts`) is placed at the root of your `hello_world` folder. At this stage, your folder should looks roughly like this:
-
-```
-./hello_world
-│
-├── README.md
-├── aiken.toml
-├── plutus.json
-├── hello_world-lock.ts
-├── key.addr
-├── key.sk
-├── lib
-│   └── ...
-└── validators
-    └── hello_world.ak
-```
-
-</Callout>
-
 ### Locking funds into the contract
 
-Here, we make our first transaction to lock funds into the contract. The datum
-must match the representation expected by the script, so this is a constructor
+Now that we can read our validator, we can make our first transaction to lock
+funds into the contract. The datum must match the representation expected by
+the validator (and as specified in the blueprint), so this is a constructor
 with a single field that is a byte array.
 
 As value for that byte array, we provide a hash digest of our public key. This
 will be needed to unlock the funds.
 
 ```ts filename="hello_world-lock.ts"
-// ^^^ Code above is unchanged. ^^^
-
 const publicKeyHash = lucid.utils.getAddressDetails(
   await lucid.wallet.address()
-).paymentCredential.hash;
+).paymentCredential?.hash;
 
 const datum = Data.to(new Constr(0, [publicKeyHash]));
 
-const txLock = await lock(1000000, { into: validator, owner: datum });
+const txLock = await lock(1000000n, { into: validator, owner: datum });
 
 await lucid.awaitTx(txLock);
 
-console.log(`1 ADA locked into the contract
+console.log(`1 tADA locked into the contract at:
     Tx ID: ${txLock}
     Datum: ${datum}
 `);
 
 // --- Supporting functions
 
-async function lock(lovelace, { into, owner }): Promise<TxHash> {
+async function lock(
+  lovelace: bigint,
+  { into, owner }: { into: SpendingValidator; owner: string }
+): Promise<TxHash> {
   const contractAddress = lucid.utils.validatorToAddress(into);
 
   const tx = await lucid
@@ -273,6 +254,49 @@ async function lock(lovelace, { into, owner }): Promise<TxHash> {
   return signedTx.submit();
 }
 ```
+
+<Callout type="info">
+You can run the excerpt above by executing:
+
+```
+deno run --allow-net --allow-read --allow-env hello_world-lock.ts
+```
+</Callout>
+
+The above code requires to:
+
+- have a `BLOCKFROST_API_KEY` environment variable set. You can get one by [signing up for a Blockfrost account](https://blockfrost.io/).
+
+- have the file `hello_world-lock.ts` placed at the root of your `hello_world` folder.
+
+At this stage, your folder should looks roughly like this:
+
+```
+./hello_world
+│
+├── README.md
+├── aiken.toml
+├── plutus.json
+├── generate-credentials.ts
+├── hello_world-lock.ts
+├── key.addr
+├── key.sk
+├── lib
+│   └── ...
+└── validators
+    └── hello_world.ak
+```
+
+If everything went well, you should see something like this:
+
+```
+1 tADA locked into the contract at:
+    Tx ID: 8559f57234407204d8e9a6bf57ef6943c65ec7119eb1c2ca6224f8bad8e71c1e
+    Datum: d8799f581c10073fd2997d2f7dc6dadcf24966bd06b01930e5210e5de7aebf792dff
+
+```
+
+#### Inspecting the transaction
 
 Now is a good moment to pause and have a look at CardanoScan. Here's [an example of an _Hello World_ transaction](https://preview.cardanoscan.io/transaction/8559f57234407204d8e9a6bf57ef6943c65ec7119eb1c2ca6224f8bad8e71c1e?tab=utxo) that we generated using this tutorial.
 
@@ -326,9 +350,9 @@ import * as cbor from "https://deno.land/x/cbor@v1.4.1/index.js";
 const lucid = await Lucid.new(
   new Blockfrost(
     "https://cardano-preview.blockfrost.io/api/v0",
-    /* BLOCKFROST API KEY */,
+    Deno.env.get("BLOCKFROST_API_KEY")
   ),
-  "Preview",
+  "Preview"
 );
 
 lucid.selectWalletFromPrivateKey(await Deno.readTextFile("./key.sk"));
@@ -338,7 +362,8 @@ const validator = await readValidator();
 // --- Supporting functions
 
 async function readValidator(): Promise<SpendingValidator> {
-  const validator = JSON.parse(await Deno.readTextFile("plutus.json")).validators[0];
+  const validator = JSON.parse(await Deno.readTextFile("plutus.json"))
+    .validators[0];
   return {
     type: "PlutusV2",
     script: toHex(cbor.encode(fromHex(validator.compiledCode))),
@@ -347,32 +372,37 @@ async function readValidator(): Promise<SpendingValidator> {
 ```
 
 Now, let's add the bits to unlock the funds in the contract. We'll need the
-transaction identifier obtained when you ran the previous script
+transaction identifier (i.e. `Tx ID`) obtained when you ran the previous script
 (`hello_world-lock.ts`)
 
-That transaction identifier, and the corresponding output index (here, `0`)
-uniquely identifies the UTxO (Unspent Transaction Output) in which the funds
-are currently locked. And that's the one we're about to unlock.
+That transaction identifier (a.k.a. transaction hash), and the corresponding
+output index (here, `0`) uniquely identify the UTxO (Unspent Transaction
+Output) in which the funds are currently locked. And that's the one we're about
+to unlock.
 
 ```ts filename="hello_world-unlock.ts"
-// ^^^ Code above is unchanged unchanged. ^^^
-
-const utxo = { txHash: /* Tx ID from hello_world-lock */, outputIndex: 0 };
+const utxo: OutRef = { txId: Deno.args[0], outputIndex: 0 };
 
 const redeemer = Data.to(new Constr(0, [utf8ToHex("Hello, World!")]));
 
-const txUnlock = await unlock(utxo, { from: validator, using: redeemer });
+const txUnlock = await unlock(utxo, {
+  from: validator,
+  using: redeemer,
+});
 
 await lucid.awaitTx(txUnlock);
 
-console.log(`1 ADA recovered from the contract
-    Tx ID: ${txUnlock}
+console.log(`1 tADA unlocked from the contract
+    Tx ID:    ${txUnlock}
     Redeemer: ${redeemer}
 `);
 
 // --- Supporting functions
 
-async function unlock(ref, { from, using }): Promise<TxHash> {
+async function unlock(
+  ref: OutRef,
+  { from, using }: { from: SpendingValidator; using: Redeemer }
+): Promise<TxHash> {
   const [utxo] = await lucid.utxosByOutRef([ref]);
 
   const tx = await lucid
@@ -389,16 +419,22 @@ async function unlock(ref, { from, using }): Promise<TxHash> {
   return signedTx.submit();
 }
 ```
+<Callout type="info">
+Run this script as usual, but this time, also passing the transaction id obtained from the previous command locking the funds. For example:
 
-<Callout>
-  As you imagine, we can run this script with the following incantation:
-
+```console
+deno run --allow-net --allow-read --allow-env hello_world-unlock.ts 8559f57234407204d8e9a6bf57ef6943c65ec7119eb1c2ca6224f8bad8e71c1e
 ```
-deno run --allow-net --allow-read hello_world-unlock.ts
-```
-
 </Callout>
+
+If everything worked as planned you should see something resembling the following output:
+
+```
+1 tADA unlocked from the contract
+    Tx ID:    d3d5e828a3989691b0960d22a265c8c9ae4723134b52aa05ec0fb7d40f060392
+    Redeemer: d8799f4d48656c6c6f2c20576f726c6421ff
+```
 
 And, tada 🎉!
 
-We can inspect our [redeeming transaction in CardanoScan](https://preview.cardanoscan.io/transaction/d3d5e828a3989691b0960d22a265c8c9ae4723134b52aa05ec0fb7d40f060392?tab=contracts) and see that it successfully executed our _Hello World_ contract.
+We can inspect our [redeeming transaction on CardanoScan](https://preview.cardanoscan.io/transaction/d3d5e828a3989691b0960d22a265c8c9ae4723134b52aa05ec0fb7d40f060392?tab=contracts) and see that it successfully executed our _Hello World_ contract.
