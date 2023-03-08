@@ -227,12 +227,12 @@ const publicKeyHash = lucid.utils.getAddressDetails(
 
 const datum = Data.to(new Constr(0, [publicKeyHash]));
 
-const txLock = await lock(1000000n, { into: validator, owner: datum });
+const txHash = await lock(1000000n, { into: validator, owner: datum });
 
-await lucid.awaitTx(txLock);
+await lucid.awaitTx(txHash);
 
 console.log(`1 tADA locked into the contract at:
-    Tx ID: ${txLock}
+    Tx ID: ${txHash}
     Datum: ${datum}
 `);
 
@@ -385,15 +385,15 @@ const utxo: OutRef = { txId: Deno.args[0], outputIndex: 0 };
 
 const redeemer = Data.to(new Constr(0, [utf8ToHex("Hello, World!")]));
 
-const txUnlock = await unlock(utxo, {
+const txHash = await unlock(utxo, {
   from: validator,
   using: redeemer,
 });
 
-await lucid.awaitTx(txUnlock);
+await lucid.awaitTx(txHash);
 
 console.log(`1 tADA unlocked from the contract
-    Tx ID:    ${txUnlock}
+    Tx ID:    ${txHash}
     Redeemer: ${redeemer}
 `);
 
