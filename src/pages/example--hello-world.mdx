@@ -381,7 +381,7 @@ Output) in which the funds are currently locked. And that's the one we're about
 to unlock.
 
 ```ts filename="hello_world-unlock.ts"
-const utxo: OutRef = { txId: Deno.args[0], outputIndex: 0 };
+const utxo: OutRef = { txHash: Deno.args[0], outputIndex: 0 };
 
 const redeemer = Data.to(new Constr(0, [utf8ToHex("Hello, World!")]));
 
