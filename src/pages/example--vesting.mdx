@@ -93,8 +93,8 @@ use aiken/interval.{Finite}
 use aiken/list.{and, or}
 use aiken/transaction.{Transaction, ScriptContext, Spend, ValidityRange}
 
-validator vesting {
-  fn(datum: Datum, _redeemer: Void, ctx: ScriptContext) {
+validator {
+  fn vesting(datum: Datum, _redeemer: Void, ctx: ScriptContext) {
     // In principle, scripts can be used for different purpose (e.g. minting
     // assets). Here we make sure it's only used when 'spending' from a eUTxO
     when ctx.purpose is {

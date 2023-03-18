@@ -94,8 +94,8 @@ type Redeemer {
   msg: ByteArray,
 }
 
-validator hello_world {
-  fn(datum: Datum, redeemer: Redeemer, context: ScriptContext) -> Bool {
+validator {
+  fn hello_world(datum: Datum, redeemer: Redeemer, context: ScriptContext) -> Bool {
     let must_say_hello = redeemer.msg == "Hello, World!"
 
     let must_be_signed =
