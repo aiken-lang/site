@@ -1,0 +1,25 @@
+import { Callout } from "nextra-theme-docs";
+
+# Gift Card
+
+Let's build a UI to send and redeem a gift card using smart contracts on Cardano.
+
+## Covered in this tutorial
+
+- writing `Aiken`
+- parameterizing scripts
+- using [lucid](https://lucid.spacebudz.io/)
+- using [deno fresh](https://fresh.deno.dev/)
+
+<Callout type="info">
+  ★ You should install deno using these
+  [instructions](https://deno.land/manual@v1.29.1/getting_started/installation).
+</Callout>
+
+## What is a gift card?
+
+In the context of this tutorial a gift card will involve locking some assets
+in a smart contract. While some assets are being locked, we'll mint an NFT in
+the same transaction. This NFT could be sent anywhere and the owner of the NFT
+can burn it to unlock the assets there were previously locked. We can consider
+the NFT as a gift card.
