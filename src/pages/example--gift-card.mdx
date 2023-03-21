@@ -23,3 +23,58 @@ in a smart contract. While some assets are being locked, we'll mint an NFT in
 the same transaction. This NFT could be sent anywhere and the owner of the NFT
 can burn it to unlock the assets there were previously locked. We can consider
 the NFT as a gift card.
+
+## Aiken is the easy part
+
+Let's go ahead and create a new `Aiken` project:
+
+```sh
+aiken new my-org/gift-card
+cd gift-card
+```
+
+<Callout type="info">
+  `my-org` above can be replaced by any name. We recommend using the name of a
+  Github organization or your own username.
+</Callout>
+
+We've already covered what `aiken new` generates in a previous tutorial so
+let's jump right into some code.
+
+Go ahead and remove the `lib/` folder, we won't be needing that for this tutorial.
+
+```
+rm -rf lib
+```
+
+Now let's create a new file in the `validators/` folder called `main.ak`.
+
+```
+touch validators/main.ak
+```
+
+<Callout type="info">
+  `main.ak` could be named anything. Any file in `validators/` is allowed to
+  export as many validators as you'd like.
+</Callout>
+
+Now let's open the project folder in our favorite editor and define two empty
+validator functions.
+
+```aiken filename="validators/main.ak"
+use aiken/transaction.{ScriptContext}
+
+validator {
+  fn gift_card(rdmr, ctx: ScriptContext) -> Bool {
+    todo @"mint and burn"
+  }
+}
+
+validator {
+  fn redeem(d, r, ctx: ScriptContext) -> Bool {
+    todo @"redeem"
+  }
+}
+```
+
+The `gift_card` validator will be used to mint and burn the NFT.
