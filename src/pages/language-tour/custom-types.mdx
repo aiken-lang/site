@@ -22,7 +22,7 @@ Once defined the custom type can be used in functions:
 fn datums() {
   // Fields can be given in any order
   let datum1 = Datum { signer: #[0xAA, 0xBB], count: 2001 }
-  let datum2 = Datum { count: 1805, name: #[0xAA, 0xCC] }
+  let datum2 = Datum { count: 1805, signer: #[0xAA, 0xCC] }
 
   [cat1, cat2]
 }
