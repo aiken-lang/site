@@ -21,7 +21,7 @@ Let's build a UI to send and redeem a gift card using smart contracts on Cardano
 In the context of this tutorial a gift card will involve locking some assets
 in a smart contract. While some assets are being locked, we'll mint an NFT in
 the same transaction. This NFT could be sent anywhere and the owner of the NFT
-can burn it to unlock the assets there were previously locked. We can consider
+can burn it to unlock the assets that were previously locked. We can consider
 the NFT as a gift card.
 
 ## Aiken is the easy part
@@ -78,10 +78,11 @@ validator {
 ```
 
 The `gift_card` validator will be used to mint and burn the gift card. The
-`redeem` validator will be used to redeem the gift card and unlock the assets. The life cycle of this
-gift card will involve two transactions. The first transaction will mint the gift card as an NFT
-and it will send some assets to the `redeem` validator's address. The gift card can be sent anywhere in the first transaction.
-The second transaction will burn the NFT and send the locked assets to the address that held the burned NFT.
+`redeem` validator will be used with `gift_card` to redeem the gift card and unlock the assets.
+The life cycle of this gift card will involve two transactions. The first transaction
+will mint the gift card as an NFT and it will send some assets to the `redeem` validator's address.
+The gift card can be sent anywhere in the first transaction. The second transaction will
+burn the NFT and send the locked assets to the address that held the burned NFT.
 
 ### Minting a Gift Card
 
@@ -165,7 +166,7 @@ validator(token_name: ByteArray, utxo_ref: OutputReference) {
 }
 ```
 
-At this point we have all the data we need to perform the final check in the `Mint` branch.
+At this point we have all the data we need to perform the final check for the `Mint` action.
 For this validator to succeed we need to ensure that the `utxo_ref` parameter equals one of
 the `inputs` in the transaction. In addition to this, we need to ensure `amount` is equal to one because
 we're minting an NFT. For fun, we'll check that `asset_name` is equal to `token_name` from the parameters.
@@ -207,7 +208,7 @@ validator(token_name: ByteArray, utxo_ref: OutputReference) {
 ```
 
 We have everything we need in this validator to mint a Gift Card. Before
-we start making transactions though, we'll need to finish the `Burn` branch and that
+we start making transactions though, we'll need to finish the `Burn` action and that
 will also be paired with the `redeem` validator.
 
 ### Redeeming a Gift Card
@@ -303,7 +304,7 @@ validator(token_name: ByteArray, policy_id: ByteArray) {
 }
 ```
 
-Finally all we need to do is confirm that `asset_name` is equal to `token_name`
+Finally we need to confirm that `asset_name` is equal to `token_name`
 and that `amount` is equal to negative one.
 
 ```aiken filename="validators/oneshot.ak" {19}
@@ -329,3 +330,231 @@ validator(token_name: ByteArray, policy_id: ByteArray) {
   }
 }
 ```
+
+We should make sure this builds. You've been running `aiken check` along the way right?!?
+
+<Callout type="info">
+  Jokes aside, you're probably using an editor integration. If the editor
+  integration isn't giving you proper feed back or giving you a hard time please
+  come talk to us so we can make things better.
+</Callout>
+
+```sh
+aiken build
+```
+
+## Building a frontend
+
+With the easy part out of the way we can start building a frontend to interact with our
+smart contracts in the browser. Deno fresh is an interesting project for building
+web applications in Deno.
+
+### Setting up
+
+Let's generate a Deno fresh project in the same directory as our Aiken project.
+
+```sh
+deno run -A -r https://fresh.deno.dev .
+```
+
+<Callout type="warning">When prompted to enable Tailwind CSS say yes.</Callout>
+
+We need lucid and we should probably add an alias for better looking imports.
+Let's edit `import_map.json`.
+
+```json filename="import_map.json" {11-12}
+{
+  "imports": {
+    "$fresh/": "...",
+    "preact": "...",
+    "preact/": "...",
+    "preact-render-to-string": "...",
+    "@preact/signals": "...",
+    "@preact/signals-core": "...",
+    "twind": "...",
+    "twind/": "...",
+    "lucid/": "https://deno.land/x/lucid@0.9.5/",
+    "~/": "./"
+  }
+}
+```
+
+We can delete a few things that come with the starter template that we don't need.
+
+```sh
+rm islands/Counter.tsx
+rm -rf routes/api
+rm routes/\[name\].tsx
+```
+
+### Home page
+
+Everything we'll be doing with validators and transactions will happen fully client side.
+This means we can just have our route render a single `island` component and then
+we can write all of our code in this island for the most part.
+
+Let's create a new file `islands/Oneshot.tsx` and add the following code.
+
+```tsx filename="islands/Oneshot.tsx"
+export default function Oneshot() {
+  return <div>Oneshot</div>;
+}
+```
+
+Now inside of `routes/index.tsx` we can import our new island and render it.
+
+```tsx filename="routes/index.tsx" {3,29}
+import { Head } from "$fresh/runtime.ts";
+
+import Oneshot from "~/islands/Oneshot";
+
+export default function Home() {
+  return (
+    <>
+      <Head>
+        <title>One Shot</title>
+      </Head>
+
+      <div class="max-w-2xl mx-auto mt-20 mb-10">
+        <div class="mb-10">
+          <h2 class="text-lg font-semibold text-gray-900">
+            Make a one shot minting and lock contract
+          </h2>
+
+          <h3 class="mt-4 mb-2">Redeem</h3>
+          <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
+            TODO: Render non-parameterized redeem validator
+          </pre>
+
+          <h3 class="mt-4 mb-2">Gift Card</h3>
+          <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
+            TODO: Render non-parameterized gift_card validator
+          </pre>
+        </div>
+
+        <Oneshot />
+      </div>
+    </>
+  );
+}
+```
+
+You can replace everything that was in `routes/index.tsx` with the above code.
+We've left some `TODO`'s in the code to remind us to render the validators. We'll render
+the compiled aiken code as a hex encoded string. There not much of a reason to do this, it's just
+kinda cool to see.
+
+Next we should load the `plutus.json` file and get the compiled aiken code. Let's create
+a file called `utils.ts` and add the following code.
+
+```ts filename="utils.ts"
+import { MintingPolicy, SpendingValidator } from "lucid/mod.ts";
+
+import blueprint from "~/plutus.json" assert { type: "json" };
+
+export type Validators = {
+  redeem: SpendingValidator;
+  giftCard: MintingPolicy;
+};
+
+export function readValidators(): Validators {
+  const redeem = blueprint.validators.find((v) => v.title === "oneshot.redeem");
+
+  if (!redeem) {
+    throw new Error("Redeem validator not found");
+  }
+
+  const giftCard = blueprint.validators.find(
+    (v) => v.title === "oneshot.gift_card"
+  );
+
+  if (!giftCard) {
+    throw new Error("Gift Card validator not found");
+  }
+
+  return {
+    redeem: {
+      type: "PlutusV2",
+      script: redeem.compiledCode,
+    },
+    giftCard: {
+      type: "PlutusV2",
+      script: giftCard.compiledCode,
+    },
+  };
+}
+```
+
+There's nothing particularly special here. We're just reading the `plutus.json` file
+and finding the compiled code for the `redeem` and `gift_card` validators. We're also
+exporting a type for the validators so we can use it in our island later. Having this function
+potentially throw an error is just a way to signal to us that we've done something wrong.
+
+Let's import our new `readValidators` file into our `routes/index.tsx` file and use it to
+in a server side handler. This will allow us to access the data in the `Home` page component
+as page props which we'll then use to render the validator's compiled code.
+
+```tsx filename="routes/index.tsx" {2,5,7-9,11-17} /validators/4-8 /PageProps<Data>/ /data/
+import { Head } from "$fresh/runtime.ts";
+import { Handlers, PageProps } from "$fresh/server.ts";
+
+import Oneshot from "~/islands/Oneshot";
+import { readValidators, Validators } from "~/utils.ts";
+
+interface Data {
+  validators: Validators;
+}
+
+export const handler: Handlers<Data> = {
+  GET(_req, ctx) {
+    const validators = readValidators();
+
+    return ctx.render({ validators });
+  },
+};
+
+export default function Home({ data }: PageProps<Data>) {
+  const { validators } = data;
+
+  return (
+    <>
+      <Head>
+        <title>One Shot</title>
+      </Head>
+
+      <div class="max-w-2xl mx-auto mt-20 mb-10">
+        <div class="mb-10">
+          <h2 class="text-lg font-semibold text-gray-900">
+            Make a one shot minting and lock contract
+          </h2>
+
+          <h3 class="mt-4 mb-2">Redeem</h3>
+          <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
+            {validators.redeem.script}
+          </pre>
+
+          <h3 class="mt-4 mb-2">Gift Card</h3>
+          <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
+            {validators.giftCard.script}
+          </pre>
+        </div>
+
+        <Oneshot validators={validators} />
+      </div>
+    </>
+  );
+}
+```
+
+Your editor will probably complain and say that `Oneshot` doesn't accept a `validators` prop.
+We'll fix that in a moment.
+
+### The island
+
+It's about time we start the real party and we've made it to the juicy part. In this island
+we'll capture some user input, apply some params to our raw validators, and execute some transactions.
+To keep things simple we'll assume [eternl](https://eternl.io/) is setup in your browser. Another thing
+we'll do to keep things simple is have the gift card be sent to ourselves when minted. This way we
+can test the redeeming of the gift card without having to send it to someone else or using a second wallet.
+
+#### Params
