@@ -609,6 +609,7 @@ some boilerplate out of the way.
 
 ```tsx filename="islands/Oneshot.tsx"
 import { useEffect, useState } from "preact/hooks";
+import { Blockfrost, Lucid } from "lucid/mod.ts";
 
 import { Input } from "~/components/Input.tsx";
 import { Button } from "~/components/Button.tsx";
@@ -823,5 +824,154 @@ Before you go build the next big thing, let's use these newly generated validato
 transactions.
 
 #### Mint and lock
+
+We're going to mint some assets and lock them in the `lockAddress` that we got from
+`applyParams`. For the sake of keeping things simple, we'll only provide an input
+to capture some ADA amount to be locked. Technically the validators allow for any assets
+to be locked but it's easy to just support ADA for now. Along with an input, we want a button
+that when clicked will run a function that builds, signs, and submits a transaction. When
+the transaction is done we'll render the hash and have it link to cardano scan.
+
+```tsx filename="islands/Oneshot.tsx" {2,10-12,20-81,89-122} showLineNumbers
+// ... other imports ...
+import { Blockfrost, Constr, Data, fromText, Lucid } from "lucid/mod.ts";
+
+import { AppliedValidators, applyParams, Validators } from "~/utils.ts";
+
+// ... export interface AppProps ...
+
+export default function App({ validators }: AppProps) {
+  // ... other useState ...
+  const [giftADA, setGiftADA] = useState<string | undefined>();
+  const [lockTxHash, setLockTxHash] = useState<string | undefined>(undefined);
+  const [waitingLockTx, setWaitingLockTx] = useState<boolean>(false);
+
+  // ... const setupLucid = async (blockfrostApiKey: string) ...
+
+  // ... useEffect ...
+
+  // ... const submitTokenName = async (e: Event) ...
+
+  const createGiftCard = async (e: Event) => {
+    e.preventDefault();
+
+    setWaitingLockTx(true);
+
+    try {
+      const lovelace = Number(giftADA) * 1000000;
+
+      const assetName = `${parameterizedContracts!.policyId}${fromText(
+        tokenName
+      )}`;
+
+      // Action::Mint
+      // This is how you build the redeemer for gift_card
+      // when you want to perform the Mint action.
+      const mintRedeemer = Data.to(new Constr(0, []));
+
+      const utxos = await lucid?.wallet.getUtxos()!;
+      const utxo = utxos[0];
+
+      const tx = await lucid!
+        .newTx()
+        .collectFrom([utxo])
+        // use the gift_card validator
+        .attachMintingPolicy(parameterizedContracts!.giftCard)
+        // mint 1 of the asset
+        .mintAssets(
+          { [assetName]: BigInt(1) },
+          // this redeemer is the first argument to the gift_card validator
+          mintRedeemer
+        )
+        .payToContract(
+          parameterizedContracts!.lockAddress,
+          {
+            // On unlock this gets passed to the redeem
+            // validator as datum. Our redeem validator
+            // doesn't use it so we can just pass in anything.
+            inline: Data.void(),
+          },
+          { lovelace: BigInt(lovelace) }
+        )
+        .complete();
+
+      const txSigned = await tx.sign().complete();
+
+      const txHash = await txSigned.submit();
+
+      const success = await lucid!.awaitTx(txHash);
+
+      // Wait a little bit longer so ExhuastedUTxOError doesn't happen
+      // in the next Tx
+      setTimeout(() => {
+        setWaitingLockTx(false);
+
+        if (success) {
+          setLockTxHash(txHash);
+        }
+      }, 3000);
+    } catch {
+      setWaitingLockTx(false);
+    }
+  };
+
+  return (
+    <div>
+      {/* ... {!lucid ? ... */}
+      {lucid && parameterizedContracts && (
+        <>
+          {/* ... show applied contracts ... */}
+          <div class="mt-10 grid grid-cols-1 gap-y-8">
+            <Input
+              type="text"
+              name="giftADA"
+              id="giftADA"
+              value={giftADA}
+              onInput={(e) => setGiftADA(e.currentTarget.value)}
+            >
+              ADA Amount
+            </Input>
+
+            <Button
+              onClick={createGiftCard}
+              disabled={waitingLockTx || !!lockTxHash}
+            >
+              {waitingLockTx
+                ? "Waiting for Tx..."
+                : "Create Gift Card (Locks ADA)"}
+            </Button>
+
+            {lockTxHash && (
+              <>
+                <h3 class="mt-4 mb-2">ADA Locked</h3>
+
+                <a
+                  class="mb-2"
+                  target="_blank"
+                  href={`https://preprod.cardanoscan.io/transaction/${lockTxHash}`}
+                >
+                  {lockTxHash}
+                </a>
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+```
+
+With this code, we can now enter some ADA amount and then click a button to perform
+the transaction. The transaction will mint a new asset using our token and send the ADA
+to the `redeem` validator's address, effectively locking the ADA.
+
+<Callout type="warning">
+  It may be tempting to run this right now, but unless you cache some of the
+  data so far into local storage, you may find it hard to recover the locked
+  assets. We'll be writing more code which will require the app to be reloaded
+  and you will lose all your state including the uniquely parameterized `redeem`
+  validator's compiled code.
+</Callout>
 
 #### Burn and unlock
