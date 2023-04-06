@@ -832,7 +832,7 @@ to be locked but it's easy to just support ADA for now. Along with an input, we 
 that when clicked will run a function that builds, signs, and submits a transaction. When
 the transaction is done we'll render the hash and have it link to cardano scan.
 
-```tsx filename="islands/Oneshot.tsx" {2,10-12,20-81,89-122} showLineNumbers
+```tsx filename="islands/Oneshot.tsx" {2,10-12,20-81,89-122}
 // ... other imports ...
 import { Blockfrost, Constr, Data, fromText, Lucid } from "lucid/mod.ts";
 
@@ -975,3 +975,146 @@ to the `redeem` validator's address, effectively locking the ADA.
 </Callout>
 
 #### Burn and unlock
+
+The final step in this example will be to redeem the gift card for the locked assets.
+Similar to the previous section, we'll drive the transaction execution with a button click.
+After the redeem button is clicked and the transaction finishes we'll render the hash and
+have it link to cardano scan like the previous section.
+
+```tsx filename="islands/Oneshot.tsx" {7-10,20-73,96-103,107-119}
+// ... imports ...
+
+// ... export interface AppProps ...
+
+export default function App({ validators }: AppProps) {
+  // ... other useState ...
+  const [unlockTxHash, setUnlockTxHash] = useState<string | undefined>(
+    undefined
+  );
+  const [waitingUnlockTx, setWaitingUnlockTx] = useState<boolean>(false);
+
+  // ... const setupLucid = async (blockfrostApiKey: string) ...
+
+  // ... useEffect ...
+
+  // ... const submitTokenName = async (e: Event) ...
+
+  // ... const createGiftCard = async (e: Event) ...
+
+  const redeemGiftCard = async (e: Event) => {
+    e.preventDefault();
+
+    setWaitingUnlockTx(true);
+
+    try {
+      // get the utxos at the redeem validator's address
+      const utxos = await lucid!.utxosAt(parameterizedContracts!.lockAddress);
+
+      const assetName = `${parameterizedContracts!.policyId}${fromText(
+        tokenName
+      )}`;
+
+      // Action::Burn
+      // This is how you build the redeemer for gift_card
+      // when you want to perform the Burn action.
+      const burnRedeemer = Data.to(new Constr(1, []));
+
+      const tx = await lucid!
+        .newTx()
+        .collectFrom(
+          utxos,
+          // This is the second argument to the redeem validator
+          // and we also don't do anything with it similar to the
+          // inline datum. It's fine to pass in anything in this case.
+          Data.void()
+        )
+        // use the gift_card validator again
+        .attachMintingPolicy(parameterizedContracts!.giftCard)
+        // use the redeem validator
+        .attachSpendingValidator(parameterizedContracts!.redeem)
+        .mintAssets(
+          // notice the negative one here
+          { [assetName]: BigInt(-1) },
+          // this redeemer is the first argument to the gift_card validator
+          burnRedeemer
+        )
+        .complete();
+
+      const txSigned = await tx.sign().complete();
+
+      const txHash = await txSigned.submit();
+
+      const success = await lucid!.awaitTx(txHash);
+
+      setWaitingUnlockTx(false);
+
+      if (success) {
+        setUnlockTxHash(txHash);
+      }
+    } catch {
+      setWaitingUnlockTx(false);
+    }
+  };
+
+  return (
+    <div>
+      {/* ... {!lucid ? ... */}
+      {lucid && parameterizedContracts && (
+        <>
+          {/* ... show applied contracts ... */}
+          <div class="mt-10 grid grid-cols-1 gap-y-8">
+            {/* ... Create gift card ... */}
+
+            {lockTxHash && (
+              <>
+                <h3 class="mt-4 mb-2">ADA Locked</h3>
+
+                <a
+                  class="mb-2"
+                  target="_blank"
+                  href={`https://preprod.cardanoscan.io/transaction/${lockTxHash}`}
+                >
+                  {lockTxHash}
+                </a>
+
+                <Button
+                  onClick={redeemGiftCard}
+                  disabled={waitingLockTx || !!unlockTxHash}
+                >
+                  {waitingUnlockTx
+                    ? "Waiting for Tx..."
+                    : "Redeem Gift Card (Unlocks ADA)"}
+                </Button>
+              </>
+            )}
+
+            {unlockTxHash && (
+              <>
+                <h3 class="mt-4 mb-2">ADA Unlocked</h3>
+
+                <a
+                  class="mb-2"
+                  target="_blank"
+                  href={`https://preprod.cardanoscan.io/transaction/${unlockTxHash}`}
+                >
+                  {unlockTxHash}
+                </a>
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+```
+
+We've now completed the example and have a fun little prototype.
+
+## Conclusion
+
+Hopefully this gives you ideas on what you can build on Cardano. This example should
+also illustrate how most of the code in your dapp isn't even the validators. When designing
+applications that leverage Cardano it's always better to think about what kinds of transactions
+you'll need to construct and then writing your validators to enforce them. A full reference
+to this example can be found [here](https://github.com/aiken-lang/aiken/tree/main/examples/gift_card).
