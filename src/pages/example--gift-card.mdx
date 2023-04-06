@@ -8,7 +8,7 @@ Let's build a UI to send and redeem a gift card using smart contracts on Cardano
 
 - writing `Aiken`
 - parameterizing scripts
-- using [lucid](https://lucid.spacebudz.io/)
+- using [lucid](https://lucid.spacebudz.io/) (requires a [blockfrost](https://blockfrost.io/) account)
 - using [deno fresh](https://fresh.deno.dev/)
 
 <Callout type="info">
@@ -387,6 +387,50 @@ rm -rf routes/api
 rm routes/\[name\].tsx
 ```
 
+Let's also add some reusable components to our project.
+
+```tsx filename="components/Button.tsx"
+import { JSX } from "preact";
+import { IS_BROWSER } from "$fresh/runtime.ts";
+
+export function Button(props: JSX.HTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      {...props}
+      disabled={!IS_BROWSER || props.disabled}
+      class={`group inline-flex items-center justify-center rounded-full py-2 px-4 text-sm font-semibold focus:outline-none bg-blue-600 text-white hover:bg-blue-500 active:bg-blue-800 active:text-blue-100 ${props.class}`}
+    />
+  );
+}
+```
+
+<Callout type="info">
+  You can just replace the existing Button component with the above code
+</Callout>
+
+```tsx filename="components/Input.tsx"
+import { ComponentChild, JSX } from "preact";
+
+export function Input({
+  children,
+  id,
+  ...props
+}: JSX.HTMLAttributes<HTMLInputElement>) {
+  return (
+    <div>
+      <label for={id} class="block mb-3 text-sm font-medium text-gray-700">
+        {children}
+      </label>
+      <input
+        {...props}
+        id={id}
+        class="block w-full appearance-none rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-blue-500 sm:text-sm"
+      />
+    </div>
+  );
+}
+```
+
 ### Home page
 
 Everything we'll be doing with validators and transactions will happen fully client side.
@@ -557,4 +601,227 @@ To keep things simple we'll assume [eternl](https://eternl.io/) is setup in your
 we'll do to keep things simple is have the gift card be sent to ourselves when minted. This way we
 can test the redeeming of the gift card without having to send it to someone else or using a second wallet.
 
-#### Params
+#### Token name
+
+We should give `Oneshot`'s props a type and capture the `token_name` so we can use it to
+apply some params to the raw validators. Lucid also requires initialization so let's get
+some boilerplate out of the way.
+
+```tsx filename="islands/Oneshot.tsx"
+import { useEffect, useState } from "preact/hooks";
+
+import { Input } from "~/components/Input.tsx";
+import { Button } from "~/components/Button.tsx";
+import { Validators } from "~/utils.ts";
+
+export interface OneshotProps {
+  validators: Validators;
+}
+
+export default function Oneshot({ validators }: OneshotProps) {
+  const [lucid, setLucid] = useState<Lucid | null>(null);
+  const [tokenName, setTokenName] = useState<string>("");
+
+  const setupLucid = async (blockfrostApiKey: string) => {
+    const lucid = await Lucid.new(
+      new Blockfrost(
+        "https://cardano-preprod.blockfrost.io/api/v0",
+        blockfrostApiKey
+      ),
+      "Preprod"
+    );
+
+    setLucid(lucid);
+  };
+
+  useEffect(() => {
+    if (lucid) {
+      window.cardano.eternl.enable().then((wallet) => {
+        lucid.selectWallet(wallet);
+      });
+    }
+  }, [lucid]);
+
+  const submitTokenName = async (e: Event) => {
+    e.preventDefault();
+
+    console.log("TODO: apply params to raw validators");
+  };
+
+  return (
+    <div>
+      {!lucid ? (
+        <Input
+          type="password"
+          id="blockfrostApiKey"
+          onKeyDown={async (e) => {
+            if (e.key === "Enter") {
+              await setupLucid(e.currentTarget.value);
+            }
+          }}
+        >
+          Blockfrost API KEY (PRESS ENTER)
+        </Input>
+      ) : (
+        <form class="mt-10 grid grid-cols-1 gap-y-8" onSubmit={submitTokenName}>
+          <Input
+            type="text"
+            name="tokenName"
+            id="tokenName"
+            value={tokenName}
+            onInput={(e) => setTokenName(e.currentTarget.value)}
+          >
+            Token Name
+          </Input>
+
+          {tokenName && <Button type="submit">Make Contracts</Button>}
+        </form>
+      )}
+    </div>
+  );
+}
+```
+
+#### Apply params
+
+We're going to use the `token_name` to apply some params to the raw validators. We can
+create a helper in `utils.ts` to do this for us.
+
+```ts filename="utils.ts" {2-6,8}
+import {
+  applyDoubleCborEncoding,
+  applyParamsToScript,
+  Constr,
+  fromText,
+  Lucid,
+  MintingPolicy,
+  OutRef,
+  SpendingValidator,
+} from "lucid/mod.ts";
+
+// ... export type Validators ...
+
+// ... export function readValidators(): Validators ...
+
+export type AppliedValidators = {
+  redeem: SpendingValidator;
+  giftCard: MintingPolicy;
+  policyId: string;
+  lockAddress: string;
+};
+
+export function applyParams(
+  tokenName: string,
+  outputReference: OutRef,
+  validators: Validators,
+  lucid: Lucid
+): AppliedValidators {
+  const outRef = new Constr(0, [
+    new Constr(0, [outputReference.txHash]),
+    BigInt(outputReference.outputIndex),
+  ]);
+
+  const giftCard = applyParamsToScript(validators.giftCard.script, [
+    fromText(tokenName),
+    outRef,
+  ]);
+
+  const policyId = lucid.utils.validatorToScriptHash({
+    type: "PlutusV2",
+    script: giftCard,
+  });
+
+  const redeem = applyParamsToScript(validators.redeem.script, [
+    fromText(tokenName),
+    policyId,
+  ]);
+
+  const lockAddress = lucid.utils.validatorToAddress({
+    type: "PlutusV2",
+    script: redeem,
+  });
+
+  return {
+    redeem: { type: "PlutusV2", script: applyDoubleCborEncoding(redeem) },
+    giftCard: { type: "PlutusV2", script: applyDoubleCborEncoding(giftCard) },
+    policyId,
+    lockAddress,
+  };
+}
+```
+
+Our `applyParams` function expects a `tokenName`, an `output_Reference` that we'll fetch
+using lucid in the island, `validators` that we got in the props, and a `lucid` instance. First we
+create `outRef` which is `PlutusData` using `outputReference`. Then we apply the `tokenName` and
+`outRef` to the `giftCard` validator. We then use `lucid` to get the `policyId` so that we can
+apply `tokenName` and `policyId` to the `redeem` validator. Finally we use `lucid` to get the
+`lockAddress` so that we can return everything we need from the function. `lockAddress` is just the
+address of the `redeem` validator which is where we'll send some assets that can be redeemed with the
+gift card. At this point we won't need to touch `utils.ts` again. We can use this new function in
+`islands/Oneshot.tsx` when a `tokenName` is submitted.
+
+```tsx filename="islands/Oneshot.tsx" {2,8-9,18-33,39-51}
+// ... other imports ...
+import { AppliedValidators, applyParams, Validators } from "~/utils.ts";
+
+// ... export interface AppProps ...
+
+export default function App({ validators }: AppProps) {
+  // ... other useState ...
+  const [parameterizedContracts, setParameterizedContracts] =
+    useState<AppliedValidators | null>(null);
+
+  // ... const setupLucid = async (blockfrostApiKey: string) ...
+
+  // ... useEffect ...
+
+  const submitTokenName = async (e: Event) => {
+    e.preventDefault();
+
+    const utxos = await lucid?.wallet.getUtxos()!;
+
+    const utxo = utxos[0];
+    const outputReference = {
+      txHash: utxo.txHash,
+      outputIndex: utxo.outputIndex,
+    };
+
+    const contracts = applyParams(
+      tokenName,
+      outputReference,
+      validators,
+      lucid!
+    );
+
+    setParameterizedContracts(contracts);
+  };
+
+  return (
+    <div>
+      {/* ... {!lucid ? ... */}
+      {lucid && parameterizedContracts && (
+        <>
+          <h3 class="mt-4 mb-2">Redeem</h3>
+          <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
+            {parameterizedContracts.redeem.script}
+          </pre>
+
+          <h3 class="mt-4 mb-2">Gift Card</h3>
+          <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
+            {parameterizedContracts.giftCard.script}
+          </pre>
+        </>
+      )}
+    </div>
+  );
+}
+```
+
+We now have the power to create validators, that are usable on-chain, **completely on the fly**
+powered by some user input. You may already be getting all kinds of ideas on how to use this.
+Before you go build the next big thing, let's use these newly generated validators in some
+transactions.
+
+#### Mint and lock
+
+#### Burn and unlock
