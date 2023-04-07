@@ -8,12 +8,24 @@ Let's build a UI to send and redeem a gift card using smart contracts on Cardano
 
 - writing `Aiken`
 - parameterizing scripts
-- using [lucid](https://lucid.spacebudz.io/) (requires a [blockfrost](https://blockfrost.io/) account)
+- using [lucid](https://lucid.spacebudz.io/)
 - using [deno fresh](https://fresh.deno.dev/)
 
 <Callout type="info">
-  ★ You should install deno using these
+  ★ You can install deno using these
   [instructions](https://deno.land/manual@v1.29.1/getting_started/installation).
+</Callout>
+
+This time, for lucid, we'll be using the `Kupmios` provider. You'll need a url
+for [kupo](https://github.com/CardanoSolutions/kupo) and [ogmios](https://github.com/CardanoSolutions/ogmios).
+Thankfully it's very easy to get access to an instance of each on [Demeter](https://demeter.run).
+
+<Callout type="info">
+  ★ Demeter has a generous free tier perfect for this situation. Once you have
+  an account you'll need to create a project. In your project dashboard click
+  `Browse Extensions`, there you'll be able to enable ogmios and kupo. In the
+  screen for each connected instance you can expose a url to access the
+  instance. You'll need these urls later.
 </Callout>
 
 ## What is a gift card?
@@ -609,7 +621,7 @@ some boilerplate out of the way.
 
 ```tsx filename="islands/Oneshot.tsx"
 import { useEffect, useState } from "preact/hooks";
-import { Blockfrost, Lucid } from "lucid/mod.ts";
+import { Kupmios, Lucid } from "lucid/mod.ts";
 
 import { Input } from "~/components/Input.tsx";
 import { Button } from "~/components/Button.tsx";
@@ -621,16 +633,14 @@ export interface OneshotProps {
 
 export default function Oneshot({ validators }: OneshotProps) {
   const [lucid, setLucid] = useState<Lucid | null>(null);
+  const [kupoUrl, setKupoUrl] = useState<string>("");
+  const [ogmiosUrl, setOgmiosUrl] = useState<string>("");
   const [tokenName, setTokenName] = useState<string>("");
 
-  const setupLucid = async (blockfrostApiKey: string) => {
-    const lucid = await Lucid.new(
-      new Blockfrost(
-        "https://cardano-preprod.blockfrost.io/api/v0",
-        blockfrostApiKey
-      ),
-      "Preprod"
-    );
+  const setupLucid = async (e: Event) => {
+    e.preventDefault();
+
+    const lucid = await Lucid.new(new Kupmios(kupoUrl, ogmiosUrl), "Preprod");
 
     setLucid(lucid);
   };
@@ -652,17 +662,24 @@ export default function Oneshot({ validators }: OneshotProps) {
   return (
     <div>
       {!lucid ? (
-        <Input
-          type="password"
-          id="blockfrostApiKey"
-          onKeyDown={async (e) => {
-            if (e.key === "Enter") {
-              await setupLucid(e.currentTarget.value);
-            }
-          }}
-        >
-          Blockfrost API KEY (PRESS ENTER)
-        </Input>
+        <form class="mt-10 grid grid-cols-1 gap-y-8" onSubmit={setupLucid}>
+          <Input
+            type="text"
+            id="kupoUrl"
+            onInput={(e) => setKupoUrl(e.currentTarget.value)}
+          >
+            Kupo URL
+          </Input>
+          <Input
+            type="text"
+            id="ogmiosUrl"
+            onInput={(e) => setOgmiosUrl(e.currentTarget.value)}
+          >
+            Ogmios URL
+          </Input>
+
+          <Button type="submit">Setup Lucid</Button>
+        </form>
       ) : (
         <form class="mt-10 grid grid-cols-1 gap-y-8" onSubmit={submitTokenName}>
           <Input
