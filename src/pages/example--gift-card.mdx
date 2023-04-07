@@ -112,7 +112,7 @@ validator(token_name: ByteArray, utxo_ref: OutputReference) {
 ```
 
 We'll use the `utxo_ref` parameter to ensure this validator will only allow a mint once. Since
-utxos are cryptographically guaranteed to be unique we can use this parameter for this purpose.
+the Cardano ledger guarantees that utxos can only be spent once, we can leverage them to inherit similar guarantees in our validator.
 
 Next let's define a type for `rdmr`. We have two actions that this validator
 will perform. This validator can be used to mint and then burn an NFT.
