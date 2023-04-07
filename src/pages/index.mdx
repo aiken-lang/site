@@ -61,9 +61,8 @@ export function icon(name, color) {
 
     default:
       throw new Error(`Unknown icon name: ${name}`);
-
-}
-return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  }
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
 <style>{`
@@ -111,11 +110,11 @@ return `data:image/svg+xml,${encodeURIComponent(svg)}`;
     margin: 0 0.5rem -0.25rem 0;
     background-repeat: no-repeat;
     background-position: 50%;
-    background-image: url("${icon("carret", palette.dark.text)}");
+    background-image: url("${icon('carret', palette.dark.text)}");
     transition: transform .15s;
   }
   html.light details summary > h3::before {
-    background-image: url("${icon("carret", palette.light.text)}");
+    background-image: url("${icon('carret', palette.light.text)}");
   }
   details[open] summary > h3::before {
     transform: rotate(90deg);
@@ -133,30 +132,18 @@ return `data:image/svg+xml,${encodeURIComponent(svg)}`;
   }
   section ul > li::before,
   main ul > li::before {
-    content: url("${icon("checkbox-checked", palette.dark.bullet)}");
+    content: url("${icon('checkbox-checked', palette.dark.bullet)}");
     padding-right: 0.5rem;
     vertical-align: middle;
   }
   section ul > li.todo::before,
   main ul > li.todo::before {
-    content: url("${icon("checkbox-todo", palette.dark.bullet)}");
+    content: url("${icon('checkbox-todo', palette.dark.bullet)}");
   }
-  li.icon-grid::before         { content: url("${icon(
-    "icon-grid",
-    palette.dark.bullet
-  )}"); }
-  li.icon-fast-forward::before { content: url("${icon(
-    "icon-fast-forward",
-    palette.dark.bullet
-  )}"); }
-  li.icon-coffee::before       { content: url("${icon(
-    "icon-coffee",
-    palette.dark.bullet
-  )}"); }
-  li.icon-heart::before        { content: url("${icon(
-    "icon-heart",
-    palette.dark.bullet
-  )}"); }
+  li.icon-grid::before         { content: url("${icon('icon-grid', palette.dark.bullet)}"); }
+  li.icon-fast-forward::before { content: url("${icon('icon-fast-forward', palette.dark.bullet)}"); }
+  li.icon-coffee::before       { content: url("${icon('icon-coffee', palette.dark.bullet)}"); }
+  li.icon-heart::before        { content: url("${icon('icon-heart', palette.dark.bullet)}"); }
   section ul > li + li,
   main ul > li + li {
     margin-top: 1rem;
@@ -524,98 +511,49 @@ export const aikenCodeExample = `<span class="hljs-keyword"><span class="hljs-ke
       )
 
     must_say_hello<span class="hljs-operator">?</span> <span class="hljs-operator">&amp;&amp;</span> must_be_signed<span class="hljs-operator">?</span>
-
-}
+  }
 }`;
+
 
 export const aikenErrorExample = `<strong>Error:</strong> <span class="hljs-error">err::aiken::check::unknown_record_field</span>
 
 <span class="hljs-error">×</span> While trying to make sense of your code...
-<span class="hljs-error">╰─▶</span> I looked for the field <span class="hljs-title function_">
-  'extra_signatures'
-</span> in a record of type <span class="hljs-title">'Transaction'</span> but didn't
-find it.
+<span class="hljs-error">╰─▶</span> I looked for the field <span class="hljs-title function_">'extra_signatures'</span> in a record
+    of type <span class="hljs-title">'Transaction'</span> but didn't find it.
 
-╭─[<span class="hljs-title">examples/hello_world/validators/hello_world.ak:18:1</span>]
+   ╭─[<span class="hljs-title">examples/hello_world/validators/hello_world.ak:18:1</span>]
+<span class="hljs-line-number">18</span> │   let must_be_signed =
+<span class="hljs-line-number">19</span> │     list.has(
+<span class="hljs-line-number">20</span> │       context.transaction.extra_signatures,
+   ·       <span class="hljs-operator">────────────────────────────────────</span>
+<span class="hljs-line-number">21</span> │       datum.owner
+<span class="hljs-line-number">22</span> │     )
+   ╰─────────────────────────────────────────────────────
 
-<span class="hljs-line-number">18</span> │ let must_be_signed =<span class="hljs-line-number">
-  19
-</span> │ list.has(
-<span class="hljs-line-number">20</span> │ context.transaction.extra_signatures,
-· <span class="hljs-operator">────────────────────────────────────</span>
-<span class="hljs-line-number">21</span> │ datum.owner
-<span class="hljs-line-number">22</span> │ ) ╰─────────────────────────────────────────────────────
+<span class="hljs-title">help</span>: <i>Did you mean <span class="hljs-title function_">'extra_signatories'</span>?</i>`;
 
-<span class="hljs-title">help</span>: <i>
-  Did you mean <span class="hljs-title function_">'extra_signatories'</span>?
-</i>`;
 
 export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compiling</strong></span> aiken-lang/stdlib 0.0.0
   <span class="fadein1"><span class="hljs-keyword"><strong>Testing</strong></span> ...</span>
 
-<span class="fadein2">
-  {" "}
-  ┍━ <span class="hljs-title">
-    <strong>aiken/option</strong>
-  </span> ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │ <span class="hljs-string">
-    PASS
-  </span> [<span class="hljs-title function_">mem:</span> 5099, <span class="hljs-title function_">
-    cpu:
-  </span> 1884852] <span class="hljs-title">or_else_1</span>│ <span class="hljs-string">
-    PASS
-  </span> [<span class="hljs-title function_">mem:</span> 5963, <span class="hljs-title function_">
-    cpu:
-  </span> 3091855] <span class="hljs-title">map_1</span>│ <span class="hljs-string">
-    PASS
-  </span> [<span class="hljs-title function_">mem:</span> 11985, <span class="hljs-title function_">
-    cpu:
-  </span> 5076974] <span class="hljs-title">map_2</span>│ <span class="hljs-string">
-    PASS
-  </span> [<span class="hljs-title function_">mem:</span> 6863, <span class="hljs-title function_">
-    cpu:
-  </span> 3298855] <span class="hljs-title">and_then_1</span>│ <span class="hljs-string">
-    PASS
-  </span> [<span class="hljs-title function_">mem:</span> 14187, <span class="hljs-title function_">
-    cpu:
-  </span> 5872937] <span class="hljs-title">and_then_2</span>│ <span class="hljs-string">
-    PASS
-  </span> [<span class="hljs-title function_">mem:</span> 11657, <span class="hljs-title function_">
-    cpu:
-  </span> 4918544] <span class="hljs-title">and_then_3</span>
-  ┕━━━━━━━━━━━━━━ <strong>13 tests</strong> |{" "}
-  <span class="hljs-string">
-    <strong>13 passed</strong>
-  </span>{" "}
-  |{" "}
-  <span class="hljs-error">
-    <strong>0 failed</strong>
-  </span>
-</span>
+<span class="fadein2">    ┍━ <span class="hljs-title"><strong>aiken/option</strong></span> ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │ <span class="hljs-string">PASS</span> [<span class="hljs-title function_">mem:</span>   5099, <span class="hljs-title function_">cpu:</span>   1884852] <span class="hljs-title">or_else_1</span>
+    │ <span class="hljs-string">PASS</span> [<span class="hljs-title function_">mem:</span>   5963, <span class="hljs-title function_">cpu:</span>   3091855] <span class="hljs-title">map_1</span>
+    │ <span class="hljs-string">PASS</span> [<span class="hljs-title function_">mem:</span>  11985, <span class="hljs-title function_">cpu:</span>   5076974] <span class="hljs-title">map_2</span>
+    │ <span class="hljs-string">PASS</span> [<span class="hljs-title function_">mem:</span>   6863, <span class="hljs-title function_">cpu:</span>   3298855] <span class="hljs-title">and_then_1</span>
+    │ <span class="hljs-string">PASS</span> [<span class="hljs-title function_">mem:</span>  14187, <span class="hljs-title function_">cpu:</span>   5872937] <span class="hljs-title">and_then_2</span>
+    │ <span class="hljs-string">PASS</span> [<span class="hljs-title function_">mem:</span>  11657, <span class="hljs-title function_">cpu:</span>   4918544] <span class="hljs-title">and_then_3</span>
+    ┕━━━━━━━━━━━━━━ <strong>13 tests</strong> | <span class="hljs-string"><strong>13 passed</strong></span> | <span class="hljs-error"><strong>0 failed</strong></span></span>
 
-{" "}
+  <span class="fadein3"><span class="hljs-keyword"><strong>Summary</strong></span> 0 error, 0 warning(s)</span>`;
 
-<span class="fadein3">
-  <span class="hljs-keyword">
-    <strong>Summary</strong>
-  </span>{" "}
-  0 error, 0 warning(s)
-</span>
-`;
-
-<link rel="stylesheet" href="/css/highlightjs-theme.css" />
+<link rel="stylesheet" href="/css/highlightjs-theme.css"/>
 
 <header id="landing">
-  <Image
-    src={theCodeOfLife}
-    alt="Credit: © Hurcastock! - https://www.hurcastock.com"
-    loading="eager"
-  />
+  <Image src={theCodeOfLife} alt="Credit: © Hurcastock! - https://www.hurcastock.com" loading="eager" />
   <h1>A modern smart contract platform for Cardano</h1>
   <nav>
-    <a href="#" disabled="true">
-      Playground (coming soon)
-    </a>
-    <a href="/getting-started">❯_ Get started</a>
+    <a href="#" disabled="true">Playground (coming soon)</a><a href="/getting-started">❯_ Get started</a>
   </nav>
 </header>
 
@@ -636,47 +574,37 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
     </div>
   </article>
 
-{" "}
+  <article>
+    <div>
+      <h2>A modern development environment</h2>
+      <ul>
+        <li>Zero configuration, one single capable tool</li>
+        <li>Quick and friendly feedback with helpful error diagnotics</li>
+        <li>Language-Server Protocol (LSP) with auto-formatting</li>
+        <li>Easy-to-produce and beautiful libraries documentation</li>
+        <li>Editors integration (VSCode + NeoVim)</li>
+      </ul>
+    </div>
+    <div class="terminal">
+      <pre class="hljs" dangerouslySetInnerHTML={{ __html: aikenErrorExample }}></pre>
+    </div>
+  </article>
 
-<article>
-  <div>
-    <h2>A modern development environment</h2>
-    <ul>
-      <li>Zero configuration, one single capable tool</li>
-      <li>Quick and friendly feedback with helpful error diagnostics</li>
-      <li>Language-Server Protocol (LSP) with auto-formatting</li>
-      <li>Easy-to-produce and beautiful libraries documentation</li>
-      <li>Editors integration (VSCode + NeoVim)</li>
-    </ul>
-  </div>
-  <div class="terminal">
-    <pre
-      class="hljs"
-      dangerouslySetInnerHTML={{ __html: aikenErrorExample }}
-    ></pre>
-  </div>
-</article>
-
-{" "}
-
-<article>
-  <div>
-    <h2>A toolkit for working with Plutus</h2>
-    <ul>
-      <li>Baked-in unit test framework</li>
-      <li>Optimized for on-chain execution</li>
-      <li>Full-blown Plutus interpreter & disassembler</li>
-      <li>Execution cost evaluation with trace reporting</li>
-      <li>Low-level scripts arguments injection</li>
-    </ul>
-  </div>
-  <div class="terminal">
-    <pre
-      class="hljs"
-      dangerouslySetInnerHTML={{ __html: aikenTestResultExample }}
-    ></pre>
-  </div>
-</article>
+  <article>
+    <div>
+      <h2>A toolkit for working with Plutus</h2>
+      <ul>
+        <li>Baked-in unit test framework</li>
+        <li>Optimized for on-chain execution</li>
+        <li>Full-blown Plutus interpreter & disassembler</li>
+        <li>Execution cost evaluation with trace reporting</li>
+        <li>Low-level scripts arguments injection</li>
+      </ul>
+    </div>
+    <div class="terminal">
+      <pre class="hljs" dangerouslySetInnerHTML={{ __html: aikenTestResultExample }}></pre>
+    </div>
+  </article>
 
   <article>
     <div>
@@ -715,7 +643,6 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
         </a>
       </div>
     </div>
-
   </article>
 </main>
 
@@ -768,36 +695,27 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
         <li class="todo">Beta release &amp; mainnet readiness</li>
       </ul>
     </article>
-
   </div>
 </section>
 
 <section id="faq">
   <h2>FAQ</h2>
 
-{" "}
-
-<details open>
-  <summary>
-    <h3>What is Aiken?</h3>
-  </summary>
-  <p>
-    Aiken is a new{" "}
-    <strong>
-      programming language and toolkit for developing smart contracts
-    </strong>{" "}
-    on the{" "}
-    <a href="https://cardano.org/" target="_blank">
-      Cardano
-    </a>{" "}
-    blockchain. It is geared towards robustness and developer experience.
-    <br />
-    Aiken takes inspiration from many modern languages such as Gleam, Rust, and
-    Elm, which are known for friendly error messages and an overall excellent
-    developer experience. We believe Cardano deserves a dedicated language with
-    these kinds of features, developed in the open with the community.
-  </p>
-</details>
+  <details open>
+    <summary><h3>What is Aiken?</h3></summary>
+    <p>
+      Aiken is a new <strong>programming language and toolkit for developing
+      smart contracts</strong> on the <a href="https://cardano.org/"
+      target="_blank">Cardano</a> blockchain. It is geared towards robustness
+      and developer experience.
+      <br/>
+      Aiken takes inspiration from many modern languages such as Gleam, Rust,
+      and Elm, which are known for friendly error messages and an overall
+      excellent developer experience. We believe Cardano deserves a dedicated
+      language with these kinds of features, developed in the open with the
+      community.
+    </p>
+  </details>
 
   <details>
     <summary><h3>Why build another smart contract platform?</h3></summary>
@@ -830,35 +748,31 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
       firmly believe it is a great tool, we want to encourage other approaches
       and favour interoperability as much as possible. </li>
     </ul>
-
   </details>
 
-{" "}
-
-<details>
-  <summary>
-    <h3>I thought Cardano smart contracts had to be written in Haskell?</h3>
-  </summary>
-  <p>
-    This is a common misconception. The current Cardano node implementation does
-    indeed happen to be written in Haskell. The virtual machine for executing
-    smart contracts that comes baked into the node is also implemented in
-    Haskell. But that does not mean that it is Haskell which is executed by the
-    smart contract virtual machine.
-    <br />
-    The virtual machine is a language interpreter which executes a smart
-    contract language called <i>'Untyped Plutus Core'</i> (abbrev.
-    <code>UPLC</code>) often referred to simply as <i>'Plutus'</i>.
-    <br />
-    Yet UPLC isn't something developers are expected to write by hand. Instead, it
-    is a compilation target (like WebAssembly for the world wide web). Oddly enough,
-    until recently, the only established framework that produced UPLC from a high-level
-    syntax was called <i>'Plutus-Tx'</i> and happened to be a Haskell framework.
-    <br />
-    Aiken changes the game by introducing a new framework that compiles straight
-    to UPLC.
-  </p>
-</details>
+  <details>
+    <summary><h3>I thought Cardano smart contracts had to be written in Haskell?</h3></summary>
+    <p>
+      This is a common misconception. The current Cardano node implementation
+      does indeed happen to be written in Haskell. The virtual machine for
+      executing smart contracts that comes baked into the node is also
+      implemented in Haskell. But that does not mean that it is Haskell which
+      is executed by the smart contract virtual machine.
+      <br/>
+      The virtual machine is a language interpreter which executes a
+      smart contract language called <i>'Untyped Plutus Core'</i> (abbrev.
+      <code>UPLC</code>) often referred to simply as <i>'Plutus'</i>.
+      <br/>
+      Yet UPLC isn't something developers are expected to write by hand.
+      Instead, it is a compilation target (like WebAssembly for the world wide
+      web). Oddly enough, until recently, the only established framework that
+      produced UPLC from a high-level syntax was called <i>'Plutus-Tx'</i> and
+      happened to be a Haskell framework.
+      <br/>
+      Aiken changes the game by introducing a new framework that compiles
+      straight to UPLC.
+    </p>
+  </details>
 
   <details>
     <summary><h3>Can I write off-chain/backend code with Aiken</h3></summary>
