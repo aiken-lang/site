@@ -33,7 +33,7 @@ Thankfully it's very easy to get access to an instance of each on [Demeter](http
 In the context of this tutorial a gift card will involve locking some assets
 in a smart contract. While some assets are being locked, we'll mint an NFT in
 the same transaction. This NFT could be sent anywhere and the owner of the NFT
-can burn it to unlock the assets that were previously locked. We can consider
+can burn it to unlock the assets that were previously locked. We can think of
 the NFT as a gift card.
 
 ## Aiken is the easy part
@@ -89,7 +89,7 @@ validator {
 }
 ```
 
-The `gift_card` validator will be used to mint and burn the gift card. The
+The `gift_card` validator will be used to mint and burn the gift card NFT. The
 `redeem` validator will be used with `gift_card` to redeem the gift card and unlock the assets.
 The life cycle of this gift card will involve two transactions. The first transaction
 will mint the gift card as an NFT and it will send some assets to the `redeem` validator's address.
@@ -112,7 +112,8 @@ validator(token_name: ByteArray, utxo_ref: OutputReference) {
 ```
 
 We'll use the `utxo_ref` parameter to ensure this validator will only allow a mint once. Since
-the Cardano ledger guarantees that utxos can only be spent once, we can leverage them to inherit similar guarantees in our validator.
+the Cardano ledger guarantees that utxos can only be spent once, we can leverage them to inherit
+similar guarantees in our validator.
 
 Next let's define a type for `rdmr`. We have two actions that this validator
 will perform. This validator can be used to mint and then burn an NFT.
@@ -138,14 +139,14 @@ validator(token_name: ByteArray, utxo_ref: OutputReference) {
 ```
 
 Next we'll do these things in order so that we have everything we need
-to perfom the final check.
+to perform the final check.
 
 - pattern match on the script context to get `transaction` and `purpose`
 - `expect` the `purpose` to be `tx.Mint(policy_id)`
 - pattern match on the `transaction` to get it's `inputs` and `mint` which holds minted assets
 - `expect` minted assets (`mint`) to only have one item which has an `asset_name` and an `amount`
 
-```aiken filename="validators/oneshot.ak" {1,3,12-21} /Transaction/1
+```aiken filename="validators/oneshot.ak" {1,3,12-24} /Transaction/1
 use aiken/dict
 use aiken/transaction.{OutputReference, ScriptContext, Transaction} as tx
 use aiken/transaction/value
@@ -157,13 +158,13 @@ type Action {
 
 validator(token_name: ByteArray, utxo_ref: OutputReference) {
   fn gift_card(rdmr: Action, ctx: ScriptContext) -> Bool {
-    let ScriptContext { transaction, purpose } = 
+    let ScriptContext { transaction, purpose } =
       ctx
 
-    expect tx.Mint(policy_id) = 
+    expect tx.Mint(policy_id) =
       purpose
 
-    let Transaction { inputs, mint, .. } = 
+    let Transaction { inputs, mint, .. } =
       transaction
 
     expect [(asset_name, amount)] =
@@ -186,7 +187,7 @@ For this validator to succeed we need to ensure that the `utxo_ref` parameter eq
 the `inputs` in the transaction. In addition to this, we need to ensure `amount` is equal to one because
 we're minting an NFT. For fun, we'll check that `asset_name` is equal to `token_name` from the parameters.
 
-```aiken filename="validators/oneshot.ak" {2,26-28}
+```aiken filename="validators/oneshot.ak" {2,29-31}
 use aiken/dict
 use aiken/list
 use aiken/transaction.{OutputReference, ScriptContext, Transaction} as tx
@@ -199,16 +200,19 @@ type Action {
 
 validator(token_name: ByteArray, utxo_ref: OutputReference) {
   fn gift_card(rdmr: Action, ctx: ScriptContext) -> Bool {
-    let ScriptContext { transaction, purpose } = ctx
+    let ScriptContext { transaction, purpose } =
+      ctx
 
-    expect tx.Mint(policy_id) = purpose
+    expect tx.Mint(policy_id) =
+      purpose
 
-    let Transaction { inputs, mint, .. } = transaction
+    let Transaction { inputs, mint, .. } =
+      transaction
 
     expect [(asset_name, amount)] =
       mint
-      |> value.tokens(policy_id)
-      |> dict.to_list()
+        |> value.tokens(policy_id)
+        |> dict.to_list()
 
     when rdmr is {
       Mint ->
@@ -236,7 +240,7 @@ to unlock the assets at that address.
 Let's finish the `Burn` action of the `gift_card` validator. We just need
 to check that `amount` is equal to negative one and that `asset_name` is equal to `token_name`.
 
-```aiken filename="validators/oneshot.ak" {30}
+```aiken filename="validators/oneshot.ak" {33}
 use aiken/dict
 use aiken/list
 use aiken/transaction.{OutputReference, ScriptContext, Transaction} as tx
@@ -249,16 +253,19 @@ type Action {
 
 validator(token_name: ByteArray, utxo_ref: OutputReference) {
   fn gift_card(rdmr: Action, ctx: ScriptContext) -> Bool {
-    let ScriptContext { transaction, purpose } = ctx
+    let ScriptContext { transaction, purpose } =
+      ctx
 
-    expect tx.Mint(policy_id) = purpose
+    expect tx.Mint(policy_id) =
+      purpose
 
-    let Transaction { inputs, mint, .. } = transaction
+    let Transaction { inputs, mint, .. } =
+      transaction
 
     expect [(asset_name, amount)] =
       mint
-      |> value.tokens(policy_id)
-      |> dict.to_list()
+        |> value.tokens(policy_id)
+        |> dict.to_list()
 
     when rdmr is {
       Mint ->
@@ -295,7 +302,7 @@ validator(token_name: ByteArray, policy_id: ByteArray) {
 Let's add some boilerplate to this validator so that we can get the
 `asset_name` and the `amount` out of the script context's transaction.
 
-```aiken filename="validators/oneshot.ak" {10-17}
+```aiken filename="validators/oneshot.ak" {10-19}
 use aiken/dict
 use aiken/list
 use aiken/transaction.{OutputReference, ScriptContext, Transaction} as tx
@@ -305,14 +312,16 @@ use aiken/transaction/value
 
 validator(token_name: ByteArray, policy_id: ByteArray) {
   fn redeem(_d: Data, _r: Data, ctx: ScriptContext) -> Bool {
-    let ScriptContext { transaction, .. } = ctx
+    let ScriptContext { transaction, .. } =
+      ctx
 
-    let Transaction { mint, .. } = transaction
+    let Transaction { mint, .. } =
+      transaction
 
     expect [(asset_name, amount)] =
       mint
-      |> value.tokens(policy_id)
-      |> dict.to_list()
+        |> value.tokens(policy_id)
+        |> dict.to_list()
 
     todo @"redeem"
   }
@@ -322,7 +331,7 @@ validator(token_name: ByteArray, policy_id: ByteArray) {
 Finally we need to confirm that `asset_name` is equal to `token_name`
 and that `amount` is equal to negative one.
 
-```aiken filename="validators/oneshot.ak" {19}
+```aiken filename="validators/oneshot.ak" {21}
 use aiken/dict
 use aiken/list
 use aiken/transaction.{OutputReference, ScriptContext, Transaction} as tx
@@ -332,14 +341,16 @@ use aiken/transaction/value
 
 validator(token_name: ByteArray, policy_id: ByteArray) {
   fn redeem(_d: Data, _r: Data, ctx: ScriptContext) -> Bool {
-    let ScriptContext { transaction, .. } = ctx
+    let ScriptContext { transaction, .. } =
+      ctx
 
-    let Transaction { mint, .. } = transaction
+    let Transaction { mint, .. } =
+      transaction
 
     expect [(asset_name, amount)] =
       mint
-      |> value.tokens(policy_id)
-      |> dict.to_list()
+        |> value.tokens(policy_id)
+        |> dict.to_list()
 
     amount == -1 && asset_name == token_name
   }
@@ -921,7 +932,7 @@ export default function App({ validators }: AppProps) {
 
       const success = await lucid!.awaitTx(txHash);
 
-      // Wait a little bit longer so ExhuastedUTxOError doesn't happen
+      // Wait a little bit longer so ExhaustedUTxOError doesn't happen
       // in the next Tx
       setTimeout(() => {
         setWaitingLockTx(false);
