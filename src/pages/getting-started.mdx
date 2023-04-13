@@ -4,7 +4,27 @@ import { Callout } from "nextra-theme-docs";
 
 ## Installation
 
-### From Source
+### From aikup
+
+First, install `aikup`: a basic utility tool to download and manage Aiken's
+pre-compiled executables:
+
+```sh
+curl -sSfL https://install.aiken-lang.org | bash
+```
+
+Then, simply run:
+
+```
+aikup
+```
+
+<Callout type="info">
+  `aikup` alone installs the latest version available. You can install specific versions
+  by specifying a version number. For usage instructions, use `aikup --help`.
+</Callout>
+
+### From source
 
 ```sh
 cargo install --git https://github.com/aiken-lang/aiken.git
@@ -15,19 +35,35 @@ cargo install --git https://github.com/aiken-lang/aiken.git
   Rust book](https://doc.rust-lang.org/stable/book/ch01-01-installation.html)
 </Callout>
 
-### From Nix Flakes
+### From Nix flakes
 
 ```sh
-nix build .#aiken
+nix build github:aiken-lang/aiken#aiken
 ```
 
-## QuickStart
+## Quickstart
 
 ```sh
 aiken --help
 ```
 
-## Editor Integrations
+### Aiken's prelude
+
+The `prelude` contains a minimum set of functions, constructors and modules
+available _by default_ to all Aiken projects. You can find it on
+[aiken-lang/prelude](https://aiken-lang.github.io/prelude/) and at the bottom
+of this website.
+
+### Aiken's standard library
+
+The standard library (or `stdlib` in short) gathers useful functions and
+data-structures that might come in handy in your Aiken programming journey.
+It's also a good reference of well-written and well-tested Aiken code if you
+need some examples to get started with. You can find it on
+[aiken-lang/stdlib](https://aiken-lang.github.io/stdlib/) and at the bottom of
+this website.
+
+## Editor integrations
 
 The following plugins provide syntax highlighting and indentation rules for Aiken.
 
