@@ -32,79 +32,17 @@ fn add_two(x: Int) -> Int {
 }
 ```
 
-## Pipe Operator
+## Anonymous functions
 
-Aiken provides syntax for passing the result of one function to the arguments of another function, the pipe operator (`|>`). This is similar in functionality to the same operator in Elixir or F#.
-
-The pipe operator allows you to chain function calls without using a lot of parenthesis and nesting.
-For a simple example, consider the following implementation of an imaginary `string.reverse` in Aiken:
+Anonymous functions can be defined with a similar syntax.
 
 ```aiken
-string_builder.to_string(string_builder.reverse(string_builder.from_string(string)))
-```
+fn run() {
+  let add = fn(x, y) { x + y }
 
-This can be expressed more naturally using the pipe operator, eliminating the need to track parenthesis closure.
-
-```aiken
-string
-|> string_builder.from_string
-|> string_builder.reverse
-|> string_builder.to_string
-```
-
-Each line of this expression applies the function to the result of the previous line. This works easily because each of these functions takes only one argument. Syntax is available to substitute specific arguments of functions that take more than one argument; for more, look below in the section "Function capturing".
-
-## Type annotations
-
-Function arguments are normally annotated with their type, and the
-compiler will check these annotations and ensure they are correct.
-
-```aiken
-fn identity(x: some_type) -> some_type {
-  x
-}
-
-fn inferred_identity(x) {
-  x
+  add(1, 2)
 }
 ```
-
-The Aiken compiler can infer all the types of Aiken code without annotations
-and both annotated and unannotated code is equally safe. It's considered a
-best practice to always write type annotations for your functions as they
-provide useful documentation, and they encourage thinking about types as code
-is being written.
-
-## Generic functions
-
-At times you may wish to write functions that are generic over multiple types.
-For example, consider a function that consumes any value and returns a list
-containing two of the value that was passed in. This can be expressed in Aiken
-like this:
-
-```aiken
-fn list_of_two(my_value: a) -> List<a> {
-  [my_value, my_value]
-}
-```
-
-Here the type variable `a` is used to represent any possible type.
-
-You can use any number of different type variables in the same function. This
-function declares type variables `a` and `b`.
-
-```aiken
-fn multi_result(x: a, y: b, condition: Bool) -> Result<a, b> {
-  when condition is {
-    True -> Ok(x)
-    False -> Error(y)
-  }
-}
-```
-
-Type variables can be named anything, but the names must be lowercase and may
-contain underscores. Like other type annotations, they are completely optional,
-but may aid in understanding the code.
 
 ## Labeled arguments
 
@@ -154,17 +92,77 @@ fn insert(self: List<(String, Int)>, key k: String, value v: Int) {
 Externally, the function can still be called using `key` and `value` as
 labelled, but in the function body, they are named `k` and `v` for conciseness.
 
-## Anonymous functions
+## Validators
 
-Anonymous functions can be defined with a similar syntax.
+In Aiken, you can promote some functions to _validators_ using the keyword
+`validator`.
 
-```aiken
-fn run() {
-  let add = fn(x, y) { x + y }
+```ak
+validator {
+  fn foo(redeemer: Data, script_context: Data) {
+    ..
+  }
 
-  add(1, 2)
+  fn bar(datum: Data, redeemer: Data, script_context: Data) {
+    ..
+  }
 }
 ```
+
+Functions present in a `validator` block must abide by the following rules:
+
+- [x] They must have exactly 2 or 3 arguments.
+- [x] They must be named
+- [x] There may be one or two functions, in a single block, but no more.
+
+### Parameters
+
+Validators themselves can take _parameters_, which represent configuration
+elements that must be provided to create an instance of the validator. Once
+provided, parameters are embedded within the compiled validator and part of the
+generated code. Hence they must be provided before any address can be
+calculated for the corresponding validator.
+
+```ak
+validator(utxo_ref: ByteArray) {
+  fn foo(redeemer: Data, script_context: Data) {
+    ..
+  }
+}
+```
+
+We see more examples of validators in the examples presented later in this user
+manual.
+
+## Pipe Operator
+
+Aiken provides syntax for passing the result of one function to the arguments
+of another function, the pipe operator (`|>`). This is similar in functionality
+to the same operator in Elixir or F#.
+
+The pipe operator allows you to chain function calls without using a lot of
+parenthesis and nesting. For a simple example, consider the following
+implementation of an imaginary `string.reverse` in Aiken:
+
+```aiken
+string_builder.to_string(string_builder.reverse(string_builder.from_string(string)))
+```
+
+This can be expressed more naturally using the pipe operator, eliminating the
+need to track parenthesis closure.
+
+```aiken
+string
+|> string_builder.from_string
+|> string_builder.reverse
+|> string_builder.to_string
+```
+
+Each line of this expression applies the function to the result of the previous
+line. This works easily because each of these functions takes only one
+argument. Syntax is available to substitute specific arguments of functions
+that take more than one argument; for more, look below in the section "Function
+capturing".
 
 ## Function capturing
 
@@ -218,6 +216,59 @@ as the first argument to the call, e.g. `a |> b(1, 2)` would become `b(a, 1, 2)`
 
 If not it falls back to calling the result of the right hand side as a function
 , e.g. `b(1, 2)(a)`.
+
+## Generic functions
+
+At times you may wish to write functions that are generic over multiple types.
+For example, consider a function that consumes any value and returns a list
+containing two of the value that was passed in. This can be expressed in Aiken
+like this:
+
+```aiken
+fn list_of_two(my_value: a) -> List<a> {
+  [my_value, my_value]
+}
+```
+
+Here the type variable `a` is used to represent any possible type.
+
+You can use any number of different type variables in the same function. This
+function declares type variables `a` and `b`.
+
+```aiken
+fn multi_result(x: a, y: b, condition: Bool) -> Result<a, b> {
+  when condition is {
+    True -> Ok(x)
+    False -> Error(y)
+  }
+}
+```
+
+Type variables can be named anything, but the names must be lowercase and may
+contain underscores. Like other type annotations, they are completely optional,
+but may aid in understanding the code.
+
+## Type annotations
+
+Function arguments are normally annotated with their type, and the
+compiler will check these annotations and ensure they are correct.
+
+```aiken
+fn identity(x: some_type) -> some_type {
+  x
+}
+
+fn inferred_identity(x) {
+  x
+}
+```
+
+The Aiken compiler can infer all the types of Aiken code without annotations
+and both annotated and unannotated code is equally safe. It's considered a
+best practice to always write type annotations for your functions as they
+provide useful documentation, and they encourage thinking about types as code
+is being written.
+
 
 ## Documentation
 
