@@ -1,0 +1,215 @@
+import { Callout } from "nextra-theme-docs";
+
+# What I wish I knew when exploring Cardano
+
+This documentation is a collection of tips and secret knowledge that may be
+useful in your Cardano journey. Some may never be useful to you or only useful
+in the distant future. Yet, we hope that if we can save someone a few hours of
+debugging and hunting down rabbits in bottomless holes, we have accomplished
+our mission.
+
+## CBOR / CDDL
+
+Pretty much everything in Cardano that requires serialization is done using a a
+structured binary format called [CBOR](https://www.rfc-editor.org/rfc/rfc8949).
+Think of it as JSON but for binary data. You don't have to be an expert in CBOR
+to work on Cardano, but being familiar with the notation can be useful
+especially for troubleshooting low-level stuff.
+
+There are two specific areas worth knowing:
+
+- CDDL, which is a specification meta-language for CBOR. It's used to describe
+  how some data is encoded into bytes. In particular, the Cardano ledger
+  maintains [a CDDL specification of all the Cardano
+  objects](https://github.com/input-output-hk/cardano-ledger/blob/81548171f2cd336714bb0425640a6553c46aa09e/eras/babbage/test-suite/cddl-files/babbage.cddl)
+  that have to be serialized on-chain. Transaction serialization, for example, is
+  entirely specified in this document. This specification is generally **the**
+  source of truth for many other tools.
+
+- CBOR diagnostic provides a more human-readable, JSON-like syntax that
+  is handy for debugging. We explain CBOR diagnostic in more detail in the
+  [Troubleshooting](/language-tour/troubleshooting#cbor-diagnostic) section.
+
+A well-known tool for debugging CBOR is [cbor.me](https://cbor.me); there are
+also numerous command-line utilities in various languages.
+
+## Byron Addresses
+
+Cardano has two kinds of addresses, which are called by different names
+depending on who you ask. Prior to the introduction of the Shelley era,
+addresses looked vastly different than what they look like today.
+
+For example: `Ae2tdPwUPEYz6ExfbWubiXPB6daUuhJxikMEb4eXRp5oKZBKZwrbJ2k7EZe`.
+
+We call these addresses _"Bootstrap addresses"_ or simply _"Byron addresses"_;
+in contrast to other addresses that are either called _"addresses"_ or
+_"Shelley addresses"_ when there's a possible ambiguity. Byron addresses are
+considered deprecated today and are likely not something you want to use ever.
+But, you might come across them, for some legacy systems still use them.
+
+<Callout type="warning">
+Outputs locked by a Byron address or inputs corresponding to such outputs
+are **absent** from script contexts! This makes any validator completely blind
+to Byron addresses which may lead to confusing situations if you aren't
+careful about your validation logic.
+</Callout>
+
+## Validity Intervals
+
+You probably know already that Cardano smart-contract execution is fully
+deterministic.
+
+This, however, raises an interesting question: **How to deal with time?**
+
+Asking for _the current time_ usually breaks determinism because asking the
+same question at different moments may lead to different answers and, thus,
+different execution paths. So how to introduce time in scripts validating
+transactions?
+
+Cardano decouples transaction validations in two phases, and we typically refer
+to them as "phase-1 validations" and "phase-2 validations". Phase-1 validations
+are structural checks on a transaction performed by the ledger. For example,
+this is when the ledger verifies that inputs referenced in a transaction are
+valid, that minimum amounts for fees and outputs are met, etc...
+
+Among the available features of a transaction are "validity intervals" that
+define a period after which and until the ledger can consider the transaction
+valid. The validity interval is made of a lower bound (optional) and an upper
+bound (optional), and it is verified during phase-1 validations. That is if a
+transaction is said to be valid only after the 5th January 2030, it can only be
+submitted and considered valid by the ledger after that date. Similarly, if the
+validity interval defines an upper bound, then the transaction will sit in
+mempools until then. It is pruned if it doesn't make it into a block by the
+specified date.
+
+Thereby, one can introduce a notion of time in validators through the means of
+validity intervals. Since they are checked during phase-1, a validator can
+assume that the transaction it validates is within the specified validity
+interval. Hence, should you ensure that an action happens only after a specific
+date, you can record that date as a datum and check that the transaction's
+lower bound is greater than the specified date.
+
+The validity interval can be as narrow as one second, allowing scripts to run at
+very thin precisions. However, a narrow interval means getting the
+transaction in a block may be more difficult. As a reminder, there's one block
+every 20 seconds on average minted on the Cardano blockchain. Blocks are
+usually propagated fast, but it can take a few minutes under moments of heavy
+load.
+
+## Serialization strategies
+
+There's no canonical serialization of objects on Cardano. While there is indeed
+a CDDL specification for core objects, as mentioned earlier, there are still
+multiple possible interpretations possible of the specification. For example, a
+CDDL specification is unable to express in what order should keys in a map be
+serialized, or whether optional fields with default values (e.g. an optional
+list of elements) should be omitted entirely or specified with an empty default
+value.
+
+While there are attempts, such as
+[CIP-0021](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0021) to
+agree on a canonical serialization; the current Cardano ledger does not provide
+any such guarantee. Consequently, the recommended strategy when dealing with
+deserialized objects that need to be reserialized is to always preserve the
+original bytes and not attempt to reserialize anything. At the same time,
+parsers should not assume one way over another and be ready to deserialize any
+possible representation that is compliant with the CDDL specification.
+
+This means, amongst other things, that there are multiple possible
+serializations of a transaction, and it may lead to surprising situations when
+trying to recalculate the hash of an object.
+
+## Hash digests
+
+Cardano uses mostly only blake2b as a hashing algorithm throughout the
+chain. Saying "mostly" because we can find some examples of SHA-256 in some
+parts of the Byron era, but let's not dwell on that.
+
+Many things called `id` are hash digests of some serialized objects.
+For example, a stake pool id is a hash digest of the pool
+public cold key. A transaction id is a hash digest value of the serialized
+transaction body. And so forth.
+
+Hashes are generally 32-byte long on Cardano (or 256 bits), **except for
+credentials** (i.e. keys or scripts) which are 28-byte long (or 224 bits). This
+is why a policy id is only 28 bytes long: a policy id is the hash digest of
+a tagged script, and scripts can be used as credentials (i.e. part of
+an address). The same goes for any hash digest of a verification key.
+
+## Policy Id
+
+A policy id is a hash digest of a tagged script. Tagged is the keyword here.
+Should you try to calculate the policy id by simply hashing a serialized
+script, you may find yourself with a wrong hash without knowing why.
+
+Raw scripts aren't exact pre-image of their hash digest. Before hashing,
+scripts are prefixed with a certain discriminator byte depending on the
+language. For instance, any native script is prefixed with a `0x00`
+(`0b0000_0000`) byte before hashing.
+
+Here's a table summarizing all discriminators:
+
+| Language    | Discriminator Byte   |
+| ---         | ---                  |
+| `Native`    | `0x00`               |
+| `Plutus V1` | `0x01`               |
+| `Plutus V2` | `0x02`               |
+
+The subsequent versions of Plutus may likely follow the pattern.
+
+## Rewards & Withdrawals
+
+Ouroboros, the consensus algorithm used by Cardano, defines an incentive
+mechanism for stakeholders to participate in the consensus through rewards. Of
+course, you probably know that by now. Rewards are paid every epoch to
+delegators that delegate their stake (i.e. ADA tokens) to a stake pool of the
+network producing blocks on their behalf. Those rewards are, however, not paid
+directly to stakeholders; this would cause the network at every epoch boundary
+to pay out all rewards.
+
+Instead, Cardano has introduced a restricted concept of account, similar to
+what exists on account-based ledgers. This account is, however, singular in
+many ways:
+
+- It is defined by some stake credentials and owned by them;
+- It can only receive rewards from the protocol but not from a user-defined transaction;
+- It is automatically delegated;
+
+It is possible to withdraw funds from the account by issuing a withdrawal
+(which takes the form of a specific field in a transaction). A withdrawal sets
+the balance of an account to 0 and provides a virtual pot of the account value
+to the transaction carrying it as if it was an input of that same value. That
+value can then be dispatched in one or more UTxO, as typically done with
+any input.
+
+The stake credentials associated with the account protect withdrawals as well.
+Who owns the stake credentials owns the right to withdraw from the account.
+This means that reward withdrawals can be commanded by a script (and
+thus an Aiken program)).
+
+## Native Scripts
+
+Before full-blown Plutus scripts, Cardano had a minimalistic scripting language
+usually referred to as _"Native Script"_ or _"Phase-1 scripts"_. It still
+exists and provides simple, albeit useful, programmability features to Cardano.
+Native scripts come in the form of a little domain-specific language with 6
+constructors: `key`, `all-of`, `any-of`, `n-of-m`, `after` and `before`.
+
+In particular, they are quite handy in defining multisig addresses owned by
+multiple tenants. You can find more about native scripts in
+[CIP-1854](https://github.com/cardano-foundation/CIPs/tree/master/CIP-1854#overview)
+and in the [Formal Ledger Specification, Figure 4: Multi-signature via Native
+Scripts](https://github.com/input-output-hk/cardano-ledger/releases/latest/download/shelley-ledger.pdf).
+
+## Developer Portal
+
+There exists plenty of resources available on Cardano. Though there are a bit
+hard to find sometimes. As a rule of thumb (and unfortunately): avoid
+http://docs.cardano.org as it is often inaccurate, plain wrong or missing
+crucial elements.
+
+On the other hand, the [Cardano Developer
+Portal](https://developers.cardano.org/) is a good entry point to many of the
+ecosystem tooling and resources. The "Builder Tools" section is particularly
+furnished. It is community-maintained, curated and under constant evolution.
+Feel free to contribute and ask questions there as well!
