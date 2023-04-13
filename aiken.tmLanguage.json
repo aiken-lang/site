@@ -26,7 +26,7 @@
       "patterns": [
         {
           "name": "keyword.control.aiken",
-          "match": "\\b(if|else|when|is|fn|use|let|pub|type|opaque|const|todo|expect|check|test|trace|error|validator)\\b"
+          "match": "\\b(if|else|when|is|fn|use|let|pub|type|opaque|const|todo|expect|check|test|trace|error|validator|as)\\b"
         },
         {
           "name": "keyword.operator.arrow.aiken",
@@ -51,6 +51,10 @@
         {
           "name": "keyword.operator.other.aiken",
           "match": "\\|"
+        },
+        {
+          "name": "keyword.operator.other.aiken",
+          "match": "?"
         },
         {
           "name": "keyword.operator.arithmetic.aiken",
