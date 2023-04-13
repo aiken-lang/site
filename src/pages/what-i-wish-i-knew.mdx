@@ -47,11 +47,12 @@ _"Shelley addresses"_ when there's a possible ambiguity. Byron addresses are
 considered deprecated today and are likely not something you want to use ever.
 But, you might come across them, for some legacy systems still use them.
 
-<Callout type="warning">
-Outputs locked by a Byron address or inputs corresponding to such outputs
-are **absent** from script contexts! This makes any validator completely blind
-to Byron addresses which may lead to confusing situations if you aren't
-careful about your validation logic.
+<Callout type="info">
+Outputs locked by a Byron address or inputs corresponding to such outputs are
+**forbidden** in transactions that have Plutus scripts! This means that
+on-chain validators should never encounter Byron addresses in a validation
+context. This used to be different in the early days of the Alonzo era but was
+later changed to avoid hazardous situations.
 </Callout>
 
 ## Validity Intervals
