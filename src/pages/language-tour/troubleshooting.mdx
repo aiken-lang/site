@@ -112,13 +112,13 @@ In addition, most tools and libraries that deal with CBOR make it easy to go bac
 
 Here's a little cheatsheet to help you decipher CBOR diagnostics:
 
-| Type        | Examples                              |
-| ---         | ---                                   |
-| `Int`       | `1`, `-14`, `42`                      |
-| `ByteArray` | `h'FF00'`, `h'666f6f'`                |
-| `List`      | `[]`, `[1, 2, 3]`                     |
-| `Map`       | `{}`, `{ 1: h'FF', 2: 14 }`           |
-| `Tag`       | `42(1)`, `10(h'ABCD')`, `1280([1,2])` |
+| Type        | Examples                                     |
+| ---         | ---                                          |
+| `Int`       | `1`, `-14`, `42`                             |
+| `ByteArray` | `h'FF00'`, `h'666f6f'`                       |
+| `List`      | `[]`, `[1, 2, 3]`, `[_ 1, 2, 3]`             |
+| `Map`       | `{}`, `{ 1: h'FF', 2: 14 }`, `{_ 1: "AA" }`  |
+| `Tag`       | `42(1)`, `10(h'ABCD')`, `1280([1, 2])`        |
 
 While most are pretty transparent, the use-case for `Tag` may not strike as obvious. In fact, `Tag` is used to encode custom types on-chain, starting from tag `121` for the first constructor of a data-type, `122` for the next, and so forth. What is tagged corresponds to the fields of the constructors, as a list of objects.
 
@@ -135,16 +135,16 @@ cbor.diagnostic(42) == @"42"
 cbor.diagnostic("foo") == @"h'666F6F'"
 
 // A List becomes a CBOR array
-cbor.diagnostic([1, 2, 3]) == @"[1, 2, 3]"
+cbor.diagnostic([1, 2, 3]) == @"[_ 1, 2, 3]"
 
 // A Tuple becomes a CBOR array
-cbor.diagnostic((1, 2)) == @"[1, 2]"
+cbor.diagnostic((1, 2)) == @"[_ 1, 2]"
 
 // A List of 2-tuples becomes a CBOR map
 cbor.diagnostic([(1, #"ff")]) == @"{ 1: h'FF' }"
 
 // 'Some' is the first constructor of Option → tagged as 121
-cbor.diagnostic(Some(42)) == @"121([42])"
+cbor.diagnostic(Some(42)) == @"121([_ 42])"
 
 // 'None' is the second constructor of Option → tagged as 122
 cbor.diagnostic(None) == @"122([])"
