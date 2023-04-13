@@ -16,6 +16,18 @@ let x = 2
 y + x == 3
 ```
 
+### Expect
+
+You can also introduce new bindings through the `expect` keyword.
+
+```aiken
+expect Some(foo) = my_optional_value
+```
+
+We will see more about the expect keyword when talking about [custom
+types](/language-tour/custom-types#expect). For now, it is sufficient to know
+that it exists.
+
 ## Module constants
 
 Let-bindings aren't allowed in a top-level Aiken module. Yet, Aiken provides
