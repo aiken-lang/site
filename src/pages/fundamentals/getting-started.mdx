@@ -1,0 +1,103 @@
+import { Callout } from "nextra-theme-docs";
+
+# Getting started
+
+## Creating a new project
+
+Use `aiken new` to create a scaffold a new project and follow instructions from
+the generated `README.md` at the root of your project. On success, your project
+should look roughly as follows:
+
+```
+.
+├── README.md
+├── aiken.toml
+├── lib
+│   └── foo
+└── validators
+```
+
+## Compiling a project
+
+Use `aiken build` to compile a project, and `aiken check` to only type-check a
+project and run tests.
+
+If you're writing a library `aiken docs` is a powerful utility to generate HTML
+documentation from types, type annotations and comments. Abuse it!
+
+Finally, once compiled, you may look at the `aiken blueprint` command group to
+generate addresses, apply parameters and convert the build output to various
+formats.
+
+## Project structure
+
+### Folder organisation
+
+Aiken projects divide their source code in two categories: library code, and
+application code. Library code must be located in a `lib` folder, and
+application code (i.e. on-chain validators) located in a `validators` folder.
+
+After compilation, the compiler will generate a Plutus blueprint
+(`plutus.json`), which is an interoperable document that summarizing your
+project. The blueprint also contains compiled code for each validator of your
+project and their corresponding hash digests to be used in addresses.
+
+### Configuration
+
+A project as a top-level `aiken.toml` file at its root containing metadata
+about the projects, as well as dependencies required by it. Here's a sample of
+(documented) project configuration:
+
+```toml filename="aiken.toml"
+# Project's name, as {organisation}/{project}
+name = "acme/foo"
+
+# Project's version, we recommend semantic versioning for libraries
+version = "1.0.0"
+
+# One or more license(s); we recommend Apache-2.0 or MPL-2.0 for open source
+# projects.
+licences = ["Apache-2.0"]
+
+# An informative albeit short description of the project.
+description = "A next-level DeFi platform"
+
+# Optional section, gives additional structured information on a project to
+# show in generated documentation.
+[repository]
+platform = "github"   # Platform type, `github`, `gitlab` or `bitbucket`
+user = "aiken-lang"   # Username or organisation on that platform
+project = "stdlib"    # Repository or project on that platform
+
+# A list of dependencies
+#
+# Leave as:
+#
+#     dependencies = []
+#
+# If you have none.
+#
+# Avoid editing by hand, use `aiken packages` to manage them.
+[[dependencies]]
+name = "aiken-lang/stdlib"   # Project's name
+version = "main"             # Version, as a branch or git commit hash
+source = "github"            # Platform type, `github`, `gitlab` or `bitbucket`
+```
+
+## Well-known packages & modules
+
+### Aiken's prelude
+
+The `prelude` contains a minimum set of functions, constructors and modules
+available _by default_ to all Aiken projects. You can find it on
+[aiken-lang/prelude](https://aiken-lang.github.io/prelude/) and at the bottom
+of this website.
+
+### Aiken's standard library
+
+The standard library (or `stdlib` in short) gathers useful functions and
+data-structures that might come in handy in your Aiken programming journey.
+It's also a good reference of well-written and well-tested Aiken code if you
+need some examples to get started with. You can find it on
+[aiken-lang/stdlib](https://aiken-lang.github.io/stdlib/) and at the bottom of
+this website.

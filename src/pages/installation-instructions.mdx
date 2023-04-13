@@ -1,10 +1,10 @@
 import { Callout } from "nextra-theme-docs";
 
-# Getting Started
+# Installation Instructions
 
-## Installation
+## Compiler & toolkit
 
-### From aikup
+### From `aikup`
 
 First, install `aikup`: a basic utility tool to download and manage Aiken's
 pre-compiled executables:
@@ -24,7 +24,7 @@ aikup
   by specifying a version number. For usage instructions, use `aikup --help`.
 </Callout>
 
-### From source
+### From sources
 
 ```sh
 cargo install --git https://github.com/aiken-lang/aiken.git
@@ -41,27 +41,13 @@ cargo install --git https://github.com/aiken-lang/aiken.git
 nix build github:aiken-lang/aiken#aiken
 ```
 
-## Quickstart
+## Language Server
 
-```sh
-aiken --help
-```
+The `aiken` command-line comes with a built-in [language server](https://microsoft.github.io/language-server-protocol/). If needed, configure your language client with the following configuration (refer to your language client's instructions):
 
-### Aiken's prelude
-
-The `prelude` contains a minimum set of functions, constructors and modules
-available _by default_ to all Aiken projects. You can find it on
-[aiken-lang/prelude](https://aiken-lang.github.io/prelude/) and at the bottom
-of this website.
-
-### Aiken's standard library
-
-The standard library (or `stdlib` in short) gathers useful functions and
-data-structures that might come in handy in your Aiken programming journey.
-It's also a good reference of well-written and well-tested Aiken code if you
-need some examples to get started with. You can find it on
-[aiken-lang/stdlib](https://aiken-lang.github.io/stdlib/) and at the bottom of
-this website.
+- command: `aiken lsp` (the command is hidden from the command-line help usage)
+- root pattern: `aiken.toml`
+- filetype: aiken (`.ak`)
 
 ## Editor integrations
 

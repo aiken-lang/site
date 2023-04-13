@@ -10,7 +10,7 @@
   "user-manual": {
     "title": "Documentation",
     "type": "page",
-    "href": "/getting-started"
+    "href": "/installation-instructions"
   },
   "about": {
     "title": "About",
@@ -21,7 +21,7 @@
     "type": "separator",
     "title": "Basics"
   },
-  "getting-started": "Getting Started",
+  "installation-instructions": "Installation",
   "fundamentals": "Fundamentals",
   "language-tour": "Language Tour",
   "-- Examples --": {
