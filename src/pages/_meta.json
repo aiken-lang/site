@@ -30,6 +30,7 @@
   },
   "example--hello-world": "Hello, World!",
   "example--vesting": "Vesting",
+  "example--gift-card": "Gift Card",
   "-- Advanced --": {
     "type": "separator",
     "title": "Advanced"

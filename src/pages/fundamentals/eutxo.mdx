@@ -23,11 +23,11 @@ complete course on blockchains, it should give you enough insights to build a
 basic understanding of the fundamentals.
 
 <Callout type="warning">
-This course will reference cryptography concepts such as **hash
-digests** or **digital signatures**. We, therefore, expect readers to be either
-familiar with those concepts (at least a tiny bit) or to read up on them. There
-are plenty of resources available in the wild regarding cryptography and this
-crash course **isn't** one of them.
+  This course will reference cryptography concepts such as **hash digests** or
+  **digital signatures**. We, therefore, expect readers to be either familiar
+  with those concepts (at least a tiny bit) or to read up on them. There are
+  plenty of resources available in the wild regarding cryptography and this
+  crash course **isn't** one of them.
 </Callout>
 
 ## Blocks & transactions
@@ -104,7 +104,7 @@ inputs and outputs, blockchain protocols often include other elements that
 modify different parts of the blockchain state (e.g. delegation certificates,
 governance votes, user-defined assets definitions...)
 
-Moreso, like in the database world, a transaction is an all-or-nothing atomic
+More so, like in the database world, a transaction is an all-or-nothing atomic
 series of commands. Either it is valid, and all its changes are applied, or it
 isn't, and none are applied.
 
@@ -174,7 +174,6 @@ protocol makes sure of.
 ┗━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━┛
 ```
 
-
 <Callout type="info">
 Where do the first outputs come from?
 
@@ -193,6 +192,7 @@ out of the scope of the current course. In the case of Cardano, the initial
 distribution resulted from an initial coin offering (abbrev. ICO) where a
 portion of the total Ada supply was sold to stakeholders before the launch of
 the network.
+
 </Callout>
 
 ### TL;DR
@@ -243,7 +243,7 @@ or alternatively
 31c37b1b5dc0669f1d3c61a6fddb2e8fde96be87b881c60bce8e8d542fc37b1b5dc0669f1d3c61a6fddb2e8fde96be87b881c60bce8e8d542f
 ```
 
-We can dissect the latter text string to make the three parts mentionned above more apparent:
+We can dissect the latter text string to make the three parts mentioned above more apparent:
 
 ```
                Type = 3 ┐┌ Network = 1 (1 = mainnet, 0 = testnet)
@@ -258,11 +258,11 @@ As we can see, this address is a type 3, is for mainnet and uses the same
 credentials for both the payment and the delegation part.
 
 <Callout type="info">
-You will often need to convert back-and-forth between bech32-encoded strings
-and hex-encoded strings. A great command-line tool for working with bech32 can
-be found at
-[input-output-hk/bech32](https://github.com/input-output-hk/bech32#bech32-command-line).
-Use it!
+  You will often need to convert back-and-forth between bech32-encoded strings
+  and hex-encoded strings. A great command-line tool for working with bech32 can
+  be found at
+  [input-output-hk/bech32](https://github.com/input-output-hk/bech32#bech32-command-line).
+  Use it!
 </Callout>
 
 ### Payment credentials
@@ -301,7 +301,7 @@ Said differently, they are functions that return a boolean value: `True` or
 `False`. To be considered valid, all scripts in a transaction must return
 `True`. We'll explore how this mechanism works in a short moment.
 
-### Delegation credentials #######
+### Delegation credentials
 
 Addresses may also contain _delegation credentials_, also called a _delegation
 part_. We will only go a little into the details but think of the delegation
@@ -324,12 +324,14 @@ Like payment credentials, delegation credentials comes in two forms: as
 verification key hash digest or as script hash digest.
 
 <Callout type="info">
-More information about addresses and how they work can be found in
-[CIP-0019](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0019/#readme)
+  More information about addresses and how they work can be found in
+  [CIP-0019](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0019/#readme)
 </Callout>
 
 ### TL;DR
+
 #
+
 ```console filename="Address"
                         ┌ For spending
                         │
@@ -399,7 +401,6 @@ with the form handed over to the employee).
 Another way to look at scripts, datums and redeemers is to think of them as a
 parameterised mathematical function.
 
-
 ```console filename="Script, datum and redeemer"
              Script
           ╭─────────╮
@@ -426,11 +427,11 @@ act as local states, and redeemers are user inputs provided in the transaction
 itself.
 
 <Callout type="info">
-If we take a step back and look at the typical public/private key procedure for
-spending funds, we can see how eUTxO is merely a generalization of that.
-Indeed, the public key (hash) can be seen as _the datum_, whereas the signature
-is the _redeemer_. The script is the digital signature verification algorithm
-that controls whether the signature is valid w.r.t the provided key.
+  If we take a step back and look at the typical public/private key procedure
+  for spending funds, we can see how eUTxO is merely a generalization of that.
+  Indeed, the public key (hash) can be seen as _the datum_, whereas the
+  signature is the _redeemer_. The script is the digital signature verification
+  algorithm that controls whether the signature is valid w.r.t the provided key.
 </Callout>
 
 ### Purposes

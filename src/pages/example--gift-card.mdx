@@ -1,0 +1,1151 @@
+import { Callout } from "nextra-theme-docs";
+
+# Gift Card
+
+Let's build a UI to send and redeem a gift card using smart contracts on Cardano.
+
+## Covered in this tutorial
+
+- writing `Aiken` validators
+- parameterizing scripts
+- using [lucid](https://lucid.spacebudz.io/)
+- using [deno fresh](https://fresh.deno.dev/)
+
+<Callout type="info">
+  ★ You can install deno using these
+  [instructions](https://deno.land/manual@v1.29.1/getting_started/installation).
+</Callout>
+
+This time, for lucid, we'll be using the `Kupmios` provider. You'll need a url
+for [kupo](https://github.com/CardanoSolutions/kupo) and [ogmios](https://github.com/CardanoSolutions/ogmios).
+Thankfully it's very easy to get access to an instance of each on [Demeter](https://demeter.run).
+
+<Callout type="info">
+  ★ Demeter has a generous free tier perfect for this situation. Once you have
+  an account you'll need to create a project. In your project dashboard click
+  `Browse Extensions`, there you'll be able to enable ogmios and kupo. In the
+  screen for each connected instance you can expose a url to access the
+  instance. You'll need these urls later.
+</Callout>
+
+## What is a gift card?
+
+In the context of this tutorial a gift card will involve locking some assets
+in a smart contract. While some assets are being locked, we'll mint an NFT in
+the same transaction. This NFT could be sent anywhere and the owner of the NFT
+can burn it to unlock the assets that were previously locked. We can think of
+the NFT as a gift card.
+
+## Aiken is the easy part
+
+Let's go ahead and create a new `Aiken` project:
+
+```sh
+aiken new my-org/gift-card
+cd gift-card
+```
+
+<Callout type="info">
+  `my-org` above can be replaced by any name. We recommend using the name of a
+  Github organization or your own username.
+</Callout>
+
+We've already covered what `aiken new` generates in a previous tutorial so
+let's jump right into some code.
+
+Go ahead and remove the `lib/` folder, we won't be needing that for this tutorial.
+
+```
+rm -rf lib
+```
+
+Now let's create a new file in the `validators/` folder called `oneshot.ak`.
+
+```
+touch validators/oneshot.ak
+```
+
+<Callout type="info">
+  `oneshot.ak` could be named anything. Any file in `validators/` is allowed to
+  export as many validators as you'd like.
+</Callout>
+
+Now let's open the project folder in our favorite editor and define two empty
+validator functions.
+
+```aiken filename="validators/oneshot.ak"
+use aiken/transaction.{ScriptContext}
+
+validator {
+  fn gift_card(rdmr, ctx: ScriptContext) -> Bool {
+    todo @"mint and burn"
+  }
+}
+
+validator {
+  fn redeem(_d: Data, _r: Data, ctx: ScriptContext) -> Bool {
+    todo @"redeem"
+  }
+}
+```
+
+The `gift_card` validator will be used to mint and burn the gift card NFT. The
+`redeem` validator will be used with `gift_card` to redeem the gift card and unlock the assets.
+The life cycle of this gift card will involve two transactions. The first transaction
+will mint the gift card as an NFT and it will send some assets to the `redeem` validator's address.
+The gift card can be sent anywhere in the first transaction. The second transaction will
+burn the NFT and send the locked assets to the address that held the burned NFT.
+
+### Minting a Gift Card
+
+Since this example is for a oneshot minting contract let's add
+some parameters to the validator that we can use to guarantee uniqueness.
+
+```aiken filename="validators/oneshot.ak" /OutputReference/
+use aiken/transaction.{OutputReference, ScriptContext}
+
+validator(token_name: ByteArray, utxo_ref: OutputReference) {
+  fn gift_card(rdmr, ctx: ScriptContext) -> Bool {
+    todo @"mint and burn"
+  }
+}
+```
+
+We'll use the `utxo_ref` parameter to ensure this validator will only allow a mint once. Since
+the Cardano ledger guarantees that utxos can only be spent once, we can leverage them to inherit
+similar guarantees in our validator.
+
+Next let's define a type for `rdmr`. We have two actions that this validator
+will perform. This validator can be used to mint and then burn an NFT.
+
+```aiken filename="validators/oneshot.ak" {3-6,10-15} /Action/2
+use aiken/transaction.{OutputReference, ScriptContext}
+
+type Action {
+  Mint
+  Burn
+}
+
+validator(token_name: ByteArray, utxo_ref: OutputReference) {
+  fn gift_card(rdmr: Action, ctx: ScriptContext) -> Bool {
+    when rdmr is {
+      Mint ->
+        todo @"mint"
+      Burn ->
+        todo @"burn"
+    }
+  }
+}
+```
+
+Next we'll do these things in order so that we have everything we need
+to perform the final check.
+
+- pattern match on the script context to get `transaction` and `purpose`
+- `expect` the `purpose` to be `tx.Mint(policy_id)`
+- pattern match on the `transaction` to get it's `inputs` and `mint` which holds minted assets
+- `expect` minted assets (`mint`) to only have one item which has an `asset_name` and an `amount`
+
+```aiken filename="validators/oneshot.ak" {1,3,12-24} /Transaction/1
+use aiken/dict
+use aiken/transaction.{OutputReference, ScriptContext, Transaction} as tx
+use aiken/transaction/value
+
+type Action {
+  Mint
+  Burn
+}
+
+validator(token_name: ByteArray, utxo_ref: OutputReference) {
+  fn gift_card(rdmr: Action, ctx: ScriptContext) -> Bool {
+    let ScriptContext { transaction, purpose } =
+      ctx
+
+    expect tx.Mint(policy_id) =
+      purpose
+
+    let Transaction { inputs, mint, .. } =
+      transaction
+
+    expect [(asset_name, amount)] =
+      mint
+        |> value.tokens(policy_id)
+        |> dict.to_list()
+
+    when rdmr is {
+      Mint ->
+        todo @"mint"
+      Burn ->
+        todo @"burn"
+    }
+  }
+}
+```
+
+At this point we have all the data we need to perform the final check for the `Mint` action.
+For this validator to succeed we need to ensure that the `utxo_ref` parameter equals one of
+the `inputs` in the transaction. In addition to this, we need to ensure `amount` is equal to one because
+we're minting an NFT. For fun, we'll check that `asset_name` is equal to `token_name` from the parameters.
+
+```aiken filename="validators/oneshot.ak" {2,29-31}
+use aiken/dict
+use aiken/list
+use aiken/transaction.{OutputReference, ScriptContext, Transaction} as tx
+use aiken/transaction/value
+
+type Action {
+  Mint
+  Burn
+}
+
+validator(token_name: ByteArray, utxo_ref: OutputReference) {
+  fn gift_card(rdmr: Action, ctx: ScriptContext) -> Bool {
+    let ScriptContext { transaction, purpose } =
+      ctx
+
+    expect tx.Mint(policy_id) =
+      purpose
+
+    let Transaction { inputs, mint, .. } =
+      transaction
+
+    expect [(asset_name, amount)] =
+      mint
+        |> value.tokens(policy_id)
+        |> dict.to_list()
+
+    when rdmr is {
+      Mint ->
+        expect True =
+          list.any(inputs, fn(input) { input.output_reference == utxo_ref })
+        amount == 1 && asset_name == token_name
+      Burn ->
+        todo @"burn"
+    }
+  }
+}
+```
+
+We have everything we need in this validator to mint a Gift Card. Before
+we start making transactions though, we'll need to finish the `Burn` action and that
+will also be paired with the `redeem` validator.
+
+### Redeeming a Gift Card
+
+To redeem a gift card we'll want a transaction that
+uses two validators. We'll use the `gift_card` validator with
+the `Burn` action to burn the NFT. We'll also use the `redeem` validator
+to unlock the assets at that address.
+
+Let's finish the `Burn` action of the `gift_card` validator. We just need
+to check that `amount` is equal to negative one and that `asset_name` is equal to `token_name`.
+
+```aiken filename="validators/oneshot.ak" {33}
+use aiken/dict
+use aiken/list
+use aiken/transaction.{OutputReference, ScriptContext, Transaction} as tx
+use aiken/transaction/value
+
+type Action {
+  Mint
+  Burn
+}
+
+validator(token_name: ByteArray, utxo_ref: OutputReference) {
+  fn gift_card(rdmr: Action, ctx: ScriptContext) -> Bool {
+    let ScriptContext { transaction, purpose } =
+      ctx
+
+    expect tx.Mint(policy_id) =
+      purpose
+
+    let Transaction { inputs, mint, .. } =
+      transaction
+
+    expect [(asset_name, amount)] =
+      mint
+        |> value.tokens(policy_id)
+        |> dict.to_list()
+
+    when rdmr is {
+      Mint ->
+        expect Some(_input) =
+          list.find(inputs, fn(input) { input.output_reference == utxo_ref })
+        amount == 1 && asset_name == token_name
+      Burn ->
+        amount == -1 && asset_name == token_name
+    }
+  }
+}
+```
+
+Now we can start working on the `redeem` validator. We'll want to parameterize this validator
+with `token_name` and the `policy_id` which is the hash of the `gift_card` validator after having it's
+params applied. We parameterize `redeem` with `gift_card`'s `policy_id` so that we can only use `redeem`
+exclusively with `gift_card`.
+
+```aiken filename="validators/oneshot.ak" {8}
+use aiken/dict
+use aiken/list
+use aiken/transaction.{OutputReference, ScriptContext, Transaction} as tx
+use aiken/transaction/value
+
+// ... gift card validator ...
+
+validator(token_name: ByteArray, policy_id: ByteArray) {
+  fn redeem(_d: Data, _r: Data, ctx: ScriptContext) -> Bool {
+    todo @"redeem"
+  }
+}
+```
+
+Let's add some boilerplate to this validator so that we can get the
+`asset_name` and the `amount` out of the script context's transaction.
+
+```aiken filename="validators/oneshot.ak" {10-19}
+use aiken/dict
+use aiken/list
+use aiken/transaction.{OutputReference, ScriptContext, Transaction} as tx
+use aiken/transaction/value
+
+// ... gift card validator ...
+
+validator(token_name: ByteArray, policy_id: ByteArray) {
+  fn redeem(_d: Data, _r: Data, ctx: ScriptContext) -> Bool {
+    let ScriptContext { transaction, .. } =
+      ctx
+
+    let Transaction { mint, .. } =
+      transaction
+
+    expect [(asset_name, amount)] =
+      mint
+        |> value.tokens(policy_id)
+        |> dict.to_list()
+
+    todo @"redeem"
+  }
+}
+```
+
+Finally we need to confirm that `asset_name` is equal to `token_name`
+and that `amount` is equal to negative one.
+
+```aiken filename="validators/oneshot.ak" {21}
+use aiken/dict
+use aiken/list
+use aiken/transaction.{OutputReference, ScriptContext, Transaction} as tx
+use aiken/transaction/value
+
+// ... gift card validator ...
+
+validator(token_name: ByteArray, policy_id: ByteArray) {
+  fn redeem(_d: Data, _r: Data, ctx: ScriptContext) -> Bool {
+    let ScriptContext { transaction, .. } =
+      ctx
+
+    let Transaction { mint, .. } =
+      transaction
+
+    expect [(asset_name, amount)] =
+      mint
+        |> value.tokens(policy_id)
+        |> dict.to_list()
+
+    amount == -1 && asset_name == token_name
+  }
+}
+```
+
+We should make sure this builds. You've been running `aiken check` along the way right?!?
+
+<Callout type="info">
+  Jokes aside, you're probably using an editor integration. If the editor
+  integration isn't giving you proper feed back or giving you a hard time please
+  come talk to us so we can make things better.
+</Callout>
+
+```sh
+aiken build
+```
+
+## Building a frontend
+
+With the easy part out of the way we can start building a frontend to interact with our
+smart contracts in the browser. Deno fresh is an interesting project for building
+web applications in Deno.
+
+### Setting up
+
+Let's generate a Deno fresh project in the same directory as our Aiken project.
+
+```sh
+deno run -A -r https://fresh.deno.dev .
+```
+
+<Callout type="warning">When prompted to enable Tailwind CSS say yes.</Callout>
+
+We need lucid and we should probably add an alias for better looking imports.
+Let's edit `import_map.json`.
+
+```json filename="import_map.json" {11-12}
+{
+  "imports": {
+    "$fresh/": "...",
+    "preact": "...",
+    "preact/": "...",
+    "preact-render-to-string": "...",
+    "@preact/signals": "...",
+    "@preact/signals-core": "...",
+    "twind": "...",
+    "twind/": "...",
+    "lucid/": "https://deno.land/x/lucid@0.9.5/",
+    "~/": "./"
+  }
+}
+```
+
+We can delete a few things that come with the starter template that we don't need.
+
+```sh
+rm islands/Counter.tsx
+rm -rf routes/api
+rm routes/\[name\].tsx
+```
+
+Let's also add some reusable components to our project.
+
+```tsx filename="components/Button.tsx"
+import { JSX } from "preact";
+import { IS_BROWSER } from "$fresh/runtime.ts";
+
+export function Button(props: JSX.HTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      {...props}
+      disabled={!IS_BROWSER || props.disabled}
+      class={`group inline-flex items-center justify-center rounded-full py-2 px-4 text-sm font-semibold focus:outline-none bg-blue-600 text-white hover:bg-blue-500 active:bg-blue-800 active:text-blue-100 ${props.class}`}
+    />
+  );
+}
+```
+
+<Callout type="info">
+  You can just replace the existing Button component with the above code
+</Callout>
+
+```tsx filename="components/Input.tsx"
+import { ComponentChild, JSX } from "preact";
+
+export function Input({
+  children,
+  id,
+  ...props
+}: JSX.HTMLAttributes<HTMLInputElement>) {
+  return (
+    <div>
+      <label for={id} class="block mb-3 text-sm font-medium text-gray-700">
+        {children}
+      </label>
+      <input
+        {...props}
+        id={id}
+        class="block w-full appearance-none rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-blue-500 sm:text-sm"
+      />
+    </div>
+  );
+}
+```
+
+### Home page
+
+Everything we'll be doing with validators and transactions will happen fully client side.
+This means we can just have our route render a single `island` component and then
+we can write all of our code in this island for the most part.
+
+Let's create a new file `islands/Oneshot.tsx` and add the following code.
+
+```tsx filename="islands/Oneshot.tsx"
+export default function Oneshot() {
+  return <div>Oneshot</div>;
+}
+```
+
+Now inside of `routes/index.tsx` we can import our new island and render it.
+
+```tsx filename="routes/index.tsx" {3,29}
+import { Head } from "$fresh/runtime.ts";
+
+import Oneshot from "~/islands/Oneshot";
+
+export default function Home() {
+  return (
+    <>
+      <Head>
+        <title>One Shot</title>
+      </Head>
+
+      <div class="max-w-2xl mx-auto mt-20 mb-10">
+        <div class="mb-10">
+          <h2 class="text-lg font-semibold text-gray-900">
+            Make a one shot minting and lock contract
+          </h2>
+
+          <h3 class="mt-4 mb-2">Redeem</h3>
+          <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
+            TODO: Render non-parameterized redeem validator
+          </pre>
+
+          <h3 class="mt-4 mb-2">Gift Card</h3>
+          <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
+            TODO: Render non-parameterized gift_card validator
+          </pre>
+        </div>
+
+        <Oneshot />
+      </div>
+    </>
+  );
+}
+```
+
+You can replace everything that was in `routes/index.tsx` with the above code.
+We've left some `TODO`'s in the code to remind us to render the validators. We'll render
+the compiled aiken code as a hex encoded string. There not much of a reason to do this, it's just
+kinda cool to see.
+
+Next we should load the `plutus.json` file and get the compiled aiken code. Let's create
+a file called `utils.ts` and add the following code.
+
+```ts filename="utils.ts"
+import { MintingPolicy, SpendingValidator } from "lucid/mod.ts";
+
+import blueprint from "~/plutus.json" assert { type: "json" };
+
+export type Validators = {
+  redeem: SpendingValidator;
+  giftCard: MintingPolicy;
+};
+
+export function readValidators(): Validators {
+  const redeem = blueprint.validators.find((v) => v.title === "oneshot.redeem");
+
+  if (!redeem) {
+    throw new Error("Redeem validator not found");
+  }
+
+  const giftCard = blueprint.validators.find(
+    (v) => v.title === "oneshot.gift_card"
+  );
+
+  if (!giftCard) {
+    throw new Error("Gift Card validator not found");
+  }
+
+  return {
+    redeem: {
+      type: "PlutusV2",
+      script: redeem.compiledCode,
+    },
+    giftCard: {
+      type: "PlutusV2",
+      script: giftCard.compiledCode,
+    },
+  };
+}
+```
+
+There's nothing particularly special here. We're just reading the `plutus.json` file
+and finding the compiled code for the `redeem` and `gift_card` validators. We're also
+exporting a type for the validators so we can use it in our island later. Having this function
+potentially throw an error is just a way to signal to us that we've done something wrong.
+
+Let's import our new `readValidators` file into our `routes/index.tsx` file and use it to
+in a server side handler. This will allow us to access the data in the `Home` page component
+as page props which we'll then use to render the validator's compiled code.
+
+```tsx filename="routes/index.tsx" {2,5,7-9,11-17} /validators/4-8 /PageProps<Data>/ /data/
+import { Head } from "$fresh/runtime.ts";
+import { Handlers, PageProps } from "$fresh/server.ts";
+
+import Oneshot from "~/islands/Oneshot";
+import { readValidators, Validators } from "~/utils.ts";
+
+interface Data {
+  validators: Validators;
+}
+
+export const handler: Handlers<Data> = {
+  GET(_req, ctx) {
+    const validators = readValidators();
+
+    return ctx.render({ validators });
+  },
+};
+
+export default function Home({ data }: PageProps<Data>) {
+  const { validators } = data;
+
+  return (
+    <>
+      <Head>
+        <title>One Shot</title>
+      </Head>
+
+      <div class="max-w-2xl mx-auto mt-20 mb-10">
+        <div class="mb-10">
+          <h2 class="text-lg font-semibold text-gray-900">
+            Make a one shot minting and lock contract
+          </h2>
+
+          <h3 class="mt-4 mb-2">Redeem</h3>
+          <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
+            {validators.redeem.script}
+          </pre>
+
+          <h3 class="mt-4 mb-2">Gift Card</h3>
+          <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
+            {validators.giftCard.script}
+          </pre>
+        </div>
+
+        <Oneshot validators={validators} />
+      </div>
+    </>
+  );
+}
+```
+
+Your editor will probably complain and say that `Oneshot` doesn't accept a `validators` prop.
+We'll fix that in a moment.
+
+### The island
+
+It's about time we start the real party and we've made it to the juicy part. In this island
+we'll capture some user input, apply some params to our raw validators, and execute some transactions.
+To keep things simple we'll assume [eternl](https://eternl.io/) is setup in your browser. Another thing
+we'll do to keep things simple is have the gift card be sent to ourselves when minted. This way we
+can test the redeeming of the gift card without having to send it to someone else or using a second wallet.
+
+#### Token name
+
+We should give `Oneshot`'s props a type and capture the `token_name` so we can use it to
+apply some params to the raw validators. Lucid also requires initialization so let's get
+some boilerplate out of the way.
+
+```tsx filename="islands/Oneshot.tsx"
+import { useEffect, useState } from "preact/hooks";
+import { Kupmios, Lucid } from "lucid/mod.ts";
+
+import { Input } from "~/components/Input.tsx";
+import { Button } from "~/components/Button.tsx";
+import { Validators } from "~/utils.ts";
+
+export interface OneshotProps {
+  validators: Validators;
+}
+
+export default function Oneshot({ validators }: OneshotProps) {
+  const [lucid, setLucid] = useState<Lucid | null>(null);
+  const [kupoUrl, setKupoUrl] = useState<string>("");
+  const [ogmiosUrl, setOgmiosUrl] = useState<string>("");
+  const [tokenName, setTokenName] = useState<string>("");
+
+  const setupLucid = async (e: Event) => {
+    e.preventDefault();
+
+    const lucid = await Lucid.new(new Kupmios(kupoUrl, ogmiosUrl), "Preprod");
+
+    setLucid(lucid);
+  };
+
+  useEffect(() => {
+    if (lucid) {
+      window.cardano.eternl.enable().then((wallet) => {
+        lucid.selectWallet(wallet);
+      });
+    }
+  }, [lucid]);
+
+  const submitTokenName = async (e: Event) => {
+    e.preventDefault();
+
+    console.log("TODO: apply params to raw validators");
+  };
+
+  return (
+    <div>
+      {!lucid ? (
+        <form class="mt-10 grid grid-cols-1 gap-y-8" onSubmit={setupLucid}>
+          <Input
+            type="text"
+            id="kupoUrl"
+            onInput={(e) => setKupoUrl(e.currentTarget.value)}
+          >
+            Kupo URL
+          </Input>
+          <Input
+            type="text"
+            id="ogmiosUrl"
+            onInput={(e) => setOgmiosUrl(e.currentTarget.value)}
+          >
+            Ogmios URL
+          </Input>
+
+          <Button type="submit">Setup Lucid</Button>
+        </form>
+      ) : (
+        <form class="mt-10 grid grid-cols-1 gap-y-8" onSubmit={submitTokenName}>
+          <Input
+            type="text"
+            name="tokenName"
+            id="tokenName"
+            value={tokenName}
+            onInput={(e) => setTokenName(e.currentTarget.value)}
+          >
+            Token Name
+          </Input>
+
+          {tokenName && <Button type="submit">Make Contracts</Button>}
+        </form>
+      )}
+    </div>
+  );
+}
+```
+
+#### Apply params
+
+We're going to use the `token_name` to apply some params to the raw validators. We can
+create a helper in `utils.ts` to do this for us.
+
+```ts filename="utils.ts" {2-6,8}
+import {
+  applyDoubleCborEncoding,
+  applyParamsToScript,
+  Constr,
+  fromText,
+  Lucid,
+  MintingPolicy,
+  OutRef,
+  SpendingValidator,
+} from "lucid/mod.ts";
+
+// ... export type Validators ...
+
+// ... export function readValidators(): Validators ...
+
+export type AppliedValidators = {
+  redeem: SpendingValidator;
+  giftCard: MintingPolicy;
+  policyId: string;
+  lockAddress: string;
+};
+
+export function applyParams(
+  tokenName: string,
+  outputReference: OutRef,
+  validators: Validators,
+  lucid: Lucid
+): AppliedValidators {
+  const outRef = new Constr(0, [
+    new Constr(0, [outputReference.txHash]),
+    BigInt(outputReference.outputIndex),
+  ]);
+
+  const giftCard = applyParamsToScript(validators.giftCard.script, [
+    fromText(tokenName),
+    outRef,
+  ]);
+
+  const policyId = lucid.utils.validatorToScriptHash({
+    type: "PlutusV2",
+    script: giftCard,
+  });
+
+  const redeem = applyParamsToScript(validators.redeem.script, [
+    fromText(tokenName),
+    policyId,
+  ]);
+
+  const lockAddress = lucid.utils.validatorToAddress({
+    type: "PlutusV2",
+    script: redeem,
+  });
+
+  return {
+    redeem: { type: "PlutusV2", script: applyDoubleCborEncoding(redeem) },
+    giftCard: { type: "PlutusV2", script: applyDoubleCborEncoding(giftCard) },
+    policyId,
+    lockAddress,
+  };
+}
+```
+
+Our `applyParams` function expects a `tokenName`, an `output_Reference` that we'll fetch
+using lucid in the island, `validators` that we got in the props, and a `lucid` instance. First we
+create `outRef` which is `PlutusData` using `outputReference`. Then we apply the `tokenName` and
+`outRef` to the `giftCard` validator. We then use `lucid` to get the `policyId` so that we can
+apply `tokenName` and `policyId` to the `redeem` validator. Finally we use `lucid` to get the
+`lockAddress` so that we can return everything we need from the function. `lockAddress` is just the
+address of the `redeem` validator which is where we'll send some assets that can be redeemed with the
+gift card. At this point we won't need to touch `utils.ts` again. We can use this new function in
+`islands/Oneshot.tsx` when a `tokenName` is submitted.
+
+```tsx filename="islands/Oneshot.tsx" {2,8-9,18-33,39-51}
+// ... other imports ...
+import { AppliedValidators, applyParams, Validators } from "~/utils.ts";
+
+// ... export interface AppProps ...
+
+export default function App({ validators }: AppProps) {
+  // ... other useState ...
+  const [parameterizedContracts, setParameterizedContracts] =
+    useState<AppliedValidators | null>(null);
+
+  // ... const setupLucid = async (blockfrostApiKey: string) ...
+
+  // ... useEffect ...
+
+  const submitTokenName = async (e: Event) => {
+    e.preventDefault();
+
+    const utxos = await lucid?.wallet.getUtxos()!;
+
+    const utxo = utxos[0];
+    const outputReference = {
+      txHash: utxo.txHash,
+      outputIndex: utxo.outputIndex,
+    };
+
+    const contracts = applyParams(
+      tokenName,
+      outputReference,
+      validators,
+      lucid!
+    );
+
+    setParameterizedContracts(contracts);
+  };
+
+  return (
+    <div>
+      {/* ... {!lucid ? ... */}
+      {lucid && parameterizedContracts && (
+        <>
+          <h3 class="mt-4 mb-2">Redeem</h3>
+          <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
+            {parameterizedContracts.redeem.script}
+          </pre>
+
+          <h3 class="mt-4 mb-2">Gift Card</h3>
+          <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
+            {parameterizedContracts.giftCard.script}
+          </pre>
+        </>
+      )}
+    </div>
+  );
+}
+```
+
+We now have the power to create validators, that are usable on-chain, **completely on the fly**
+powered by some user input. You may already be getting all kinds of ideas on how to use this.
+Before you go build the next big thing, let's use these newly generated validators in some
+transactions.
+
+#### Mint and lock
+
+We're going to mint some assets and lock them in the `lockAddress` that we got from
+`applyParams`. For the sake of keeping things simple, we'll only provide an input
+to capture some ADA amount to be locked. Technically the validators allow for any assets
+to be locked but it's easy to just support ADA for now. Along with an input, we want a button
+that when clicked will run a function that builds, signs, and submits a transaction. When
+the transaction is done we'll render the hash and have it link to cardano scan.
+
+```tsx filename="islands/Oneshot.tsx" {2,10-12,20-81,89-122}
+// ... other imports ...
+import { Blockfrost, Constr, Data, fromText, Lucid } from "lucid/mod.ts";
+
+import { AppliedValidators, applyParams, Validators } from "~/utils.ts";
+
+// ... export interface AppProps ...
+
+export default function App({ validators }: AppProps) {
+  // ... other useState ...
+  const [giftADA, setGiftADA] = useState<string | undefined>();
+  const [lockTxHash, setLockTxHash] = useState<string | undefined>(undefined);
+  const [waitingLockTx, setWaitingLockTx] = useState<boolean>(false);
+
+  // ... const setupLucid = async (blockfrostApiKey: string) ...
+
+  // ... useEffect ...
+
+  // ... const submitTokenName = async (e: Event) ...
+
+  const createGiftCard = async (e: Event) => {
+    e.preventDefault();
+
+    setWaitingLockTx(true);
+
+    try {
+      const lovelace = Number(giftADA) * 1000000;
+
+      const assetName = `${parameterizedContracts!.policyId}${fromText(
+        tokenName
+      )}`;
+
+      // Action::Mint
+      // This is how you build the redeemer for gift_card
+      // when you want to perform the Mint action.
+      const mintRedeemer = Data.to(new Constr(0, []));
+
+      const utxos = await lucid?.wallet.getUtxos()!;
+      const utxo = utxos[0];
+
+      const tx = await lucid!
+        .newTx()
+        .collectFrom([utxo])
+        // use the gift_card validator
+        .attachMintingPolicy(parameterizedContracts!.giftCard)
+        // mint 1 of the asset
+        .mintAssets(
+          { [assetName]: BigInt(1) },
+          // this redeemer is the first argument to the gift_card validator
+          mintRedeemer
+        )
+        .payToContract(
+          parameterizedContracts!.lockAddress,
+          {
+            // On unlock this gets passed to the redeem
+            // validator as datum. Our redeem validator
+            // doesn't use it so we can just pass in anything.
+            inline: Data.void(),
+          },
+          { lovelace: BigInt(lovelace) }
+        )
+        .complete();
+
+      const txSigned = await tx.sign().complete();
+
+      const txHash = await txSigned.submit();
+
+      const success = await lucid!.awaitTx(txHash);
+
+      // Wait a little bit longer so ExhaustedUTxOError doesn't happen
+      // in the next Tx
+      setTimeout(() => {
+        setWaitingLockTx(false);
+
+        if (success) {
+          setLockTxHash(txHash);
+        }
+      }, 3000);
+    } catch {
+      setWaitingLockTx(false);
+    }
+  };
+
+  return (
+    <div>
+      {/* ... {!lucid ? ... */}
+      {lucid && parameterizedContracts && (
+        <>
+          {/* ... show applied contracts ... */}
+          <div class="mt-10 grid grid-cols-1 gap-y-8">
+            <Input
+              type="text"
+              name="giftADA"
+              id="giftADA"
+              value={giftADA}
+              onInput={(e) => setGiftADA(e.currentTarget.value)}
+            >
+              ADA Amount
+            </Input>
+
+            <Button
+              onClick={createGiftCard}
+              disabled={waitingLockTx || !!lockTxHash}
+            >
+              {waitingLockTx
+                ? "Waiting for Tx..."
+                : "Create Gift Card (Locks ADA)"}
+            </Button>
+
+            {lockTxHash && (
+              <>
+                <h3 class="mt-4 mb-2">ADA Locked</h3>
+
+                <a
+                  class="mb-2"
+                  target="_blank"
+                  href={`https://preprod.cardanoscan.io/transaction/${lockTxHash}`}
+                >
+                  {lockTxHash}
+                </a>
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+```
+
+With this code, we can now enter some ADA amount and then click a button to perform
+the transaction. The transaction will mint a new asset using our token and send the ADA
+to the `redeem` validator's address, effectively locking the ADA.
+
+<Callout type="warning">
+  It may be tempting to run this right now, but unless you cache some of the
+  data so far into local storage, you may find it hard to recover the locked
+  assets. We'll be writing more code which will require the app to be reloaded
+  and you will lose all your state including the uniquely parameterized `redeem`
+  validator's compiled code.
+</Callout>
+
+#### Burn and unlock
+
+The final step in this example will be to redeem the gift card for the locked assets.
+Similar to the previous section, we'll drive the transaction execution with a button click.
+After the redeem button is clicked and the transaction finishes we'll render the hash and
+have it link to cardano scan like the previous section.
+
+```tsx filename="islands/Oneshot.tsx" {7-10,20-73,96-103,107-119}
+// ... imports ...
+
+// ... export interface AppProps ...
+
+export default function App({ validators }: AppProps) {
+  // ... other useState ...
+  const [unlockTxHash, setUnlockTxHash] = useState<string | undefined>(
+    undefined
+  );
+  const [waitingUnlockTx, setWaitingUnlockTx] = useState<boolean>(false);
+
+  // ... const setupLucid = async (blockfrostApiKey: string) ...
+
+  // ... useEffect ...
+
+  // ... const submitTokenName = async (e: Event) ...
+
+  // ... const createGiftCard = async (e: Event) ...
+
+  const redeemGiftCard = async (e: Event) => {
+    e.preventDefault();
+
+    setWaitingUnlockTx(true);
+
+    try {
+      // get the utxos at the redeem validator's address
+      const utxos = await lucid!.utxosAt(parameterizedContracts!.lockAddress);
+
+      const assetName = `${parameterizedContracts!.policyId}${fromText(
+        tokenName
+      )}`;
+
+      // Action::Burn
+      // This is how you build the redeemer for gift_card
+      // when you want to perform the Burn action.
+      const burnRedeemer = Data.to(new Constr(1, []));
+
+      const tx = await lucid!
+        .newTx()
+        .collectFrom(
+          utxos,
+          // This is the second argument to the redeem validator
+          // and we also don't do anything with it similar to the
+          // inline datum. It's fine to pass in anything in this case.
+          Data.void()
+        )
+        // use the gift_card validator again
+        .attachMintingPolicy(parameterizedContracts!.giftCard)
+        // use the redeem validator
+        .attachSpendingValidator(parameterizedContracts!.redeem)
+        .mintAssets(
+          // notice the negative one here
+          { [assetName]: BigInt(-1) },
+          // this redeemer is the first argument to the gift_card validator
+          burnRedeemer
+        )
+        .complete();
+
+      const txSigned = await tx.sign().complete();
+
+      const txHash = await txSigned.submit();
+
+      const success = await lucid!.awaitTx(txHash);
+
+      setWaitingUnlockTx(false);
+
+      if (success) {
+        setUnlockTxHash(txHash);
+      }
+    } catch {
+      setWaitingUnlockTx(false);
+    }
+  };
+
+  return (
+    <div>
+      {/* ... {!lucid ? ... */}
+      {lucid && parameterizedContracts && (
+        <>
+          {/* ... show applied contracts ... */}
+          <div class="mt-10 grid grid-cols-1 gap-y-8">
+            {/* ... Create gift card ... */}
+
+            {lockTxHash && (
+              <>
+                <h3 class="mt-4 mb-2">ADA Locked</h3>
+
+                <a
+                  class="mb-2"
+                  target="_blank"
+                  href={`https://preprod.cardanoscan.io/transaction/${lockTxHash}`}
+                >
+                  {lockTxHash}
+                </a>
+
+                <Button
+                  onClick={redeemGiftCard}
+                  disabled={waitingLockTx || !!unlockTxHash}
+                >
+                  {waitingUnlockTx
+                    ? "Waiting for Tx..."
+                    : "Redeem Gift Card (Unlocks ADA)"}
+                </Button>
+              </>
+            )}
+
+            {unlockTxHash && (
+              <>
+                <h3 class="mt-4 mb-2">ADA Unlocked</h3>
+
+                <a
+                  class="mb-2"
+                  target="_blank"
+                  href={`https://preprod.cardanoscan.io/transaction/${unlockTxHash}`}
+                >
+                  {unlockTxHash}
+                </a>
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+```
+
+We've now completed the example and have a fun little prototype.
+
+## Conclusion
+
+Hopefully this gives you ideas on what you can build on Cardano. This example should
+also illustrate how most of the code in your dapp isn't even the validators. When designing
+applications that leverage Cardano it's always better to think about what kinds of transactions
+you'll need to construct and then writing your validators to enforce them. A full reference
+to this example can be found [here](https://github.com/aiken-lang/aiken/tree/main/examples/gift_card).
