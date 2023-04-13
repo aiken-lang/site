@@ -49,12 +49,8 @@
           "match": "(&&|\\|\\|)"
         },
         {
-          "name": "keyword.operator.other.aiken",
-          "match": "\\|"
-        },
-        {
-          "name": "keyword.operator.other.aiken",
-          "match": "?"
+          "name": "keyword.operator.traceIfFalse.aiken",
+          "match": "\\?"
         },
         {
           "name": "keyword.operator.arithmetic.aiken",
