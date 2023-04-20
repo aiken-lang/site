@@ -175,7 +175,7 @@ First, we setup Lucid with Blockfrost as a provider. This will allow us to let L
 
 Create a file named `hello_world-lock.ts` in the root of your project and add the following code:
 
-```ts filename="hello_world-lock.ts"
+```ts filename="hello_world-lock.ts" {18}
 import {
   Blockfrost,
   C,
@@ -198,6 +198,17 @@ const lucid = await Lucid.new(
   "Preview"
 );
 ```
+
+<Callout type="warning">
+Note that the highlighted line above looks for an environment variable named `BLOCKFROST_API_KEY` which value must be set to your Blockfrost API key.
+You can define a new environment variable in your terminal by running (in the same session you're also executing the script!):
+
+```console
+export BLOCKFROST_API_KEY=preview...
+```
+
+Replace `preview...` with your actual API key.
+</Callout>
 
 Next, we'll need to read the validator from the blueprint (`plutus.json`) we generated earlier. We'll also need to convert it to a format that Lucid understands. This is done by serializing the validator and then converting it to an hexadecimal text string as shown below:
 
