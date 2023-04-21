@@ -418,12 +418,38 @@ transaction at a later time.
 ```ts filename="vesting_unlock.ts"
 // ^^^ Code above is unchanged. ^^^
 
-const utxo = { txHash: /* Tx ID from vesting_lock */, outputIndex: 0 };
+const scriptAddress = lucid.utils.validatorToAddress(validator);
+
+// we get all the UTXOs sitting at the script address
+const scriptUtxos = await lucid.utxosAt(scriptAddress);
+
+const Datum = Data.Object({
+  lock_until: Data.BigInt, // this is POSIX time, you can check and set it here: https://www.unixtimestamp.com
+  owner: Data.String, // we can pass owner's verification key hash as byte array but also as a string
+  beneficiary: Data.String, // we can beneficiary's hash as byte array but also as a string
+});
+ 
+type Datum = Data.Static<typeof Datum>;
+
+const currentTime = new Date().getTime()
+
+// we filter out all the UTXOs by beneficiary and lock_until
+let utxos = scriptUtxos.filter((utxo) => {
+
+    let datum = Data.from<Datum>(
+      utxo.datum,
+      Datum,
+    );
+
+    return datum.beneficiary === beneficiaryPublicKeyHash && datum.lock_until <= currentTime;
+});
+
+if(utxos.length === 0) { console.log("no utxo found"); return; }
 
 // we don't have any redeemer in our contract but it needs to be empty
 const redeemer = Data.empty();
 
-const txUnlock = await unlock(utxo, { from: validator, using: redeemer });
+const txUnlock = await unlock(utxos, currentTime, { from: validator, using: redeemer });
 
 await lucid.awaitTx(txUnlock);
 
@@ -434,10 +460,8 @@ console.log(`1 ADA recovered from the contract
 
 // --- Supporting functions
 
-async function unlock(ref, { from, redeemer }): Promise<TxHash> {
-  const [utxo] = await lucid.utxosByOutRef([ref]);
+async function unlock(ref, currentTime, { from, redeemer }): Promise<TxHash> {
 
-  const currentTime = new Date().getTime();
   const laterTime = new Date(currentTime + 2 * 60 * 60 * 1000); // add two hours (TTL: time to live)
 
   const tx = await lucid
