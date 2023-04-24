@@ -208,10 +208,11 @@ validator(token_name: ByteArray, utxo_ref: OutputReference) {
         |> dict.to_list()
 
     when rdmr is {
-      Mint ->
+      Mint -> {
         expect True =
           list.any(inputs, fn(input) { input.output_reference == utxo_ref })
         amount == 1 && asset_name == token_name
+      }
       Burn ->
         todo @"burn"
     }
@@ -261,10 +262,11 @@ validator(token_name: ByteArray, utxo_ref: OutputReference) {
         |> dict.to_list()
 
     when rdmr is {
-      Mint ->
+      Mint -> {
         expect Some(_input) =
           list.find(inputs, fn(input) { input.output_reference == utxo_ref })
         amount == 1 && asset_name == token_name
+      }
       Burn ->
         amount == -1 && asset_name == token_name
     }
