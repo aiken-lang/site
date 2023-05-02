@@ -93,6 +93,7 @@ const config: DocsThemeConfig = {
           <ul>
             <li><a href="https://discord.gg/Vc3x8N9nz2">Discord</a></li>
             <li><a href="https://twitter.com/aiken_eng">Twitter</a></li>
+            <li><a href="https://github.com/aiken-lang/awesome-aiken#readme">Awesome list</a></li>
           </ul>
         </nav>
         <nav>
