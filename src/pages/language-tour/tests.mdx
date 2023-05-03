@@ -58,7 +58,7 @@ As you can see, the report group tests by module and gives you, for each test, t
 
 ## Automatic diffing
 
-The Aiken's test runner is (trying to be) intelligent and helpful, notably on test failures. If a test fails, the test runner will do its best to provide some information about what went wrong. This is particularly efficient if you write your tests as assertions using a binary operator (`==`, `>=`, `!=` etc..).
+Aiken's test runner is (trying to be) intelligent and helpful, especially on test failures. If a test fails, the test runner will do its best to provide some information about what went wrong. This is particularly efficient if you write your tests as assertions using a binary operator (`==`, `>=`, `!=` etc..).
 
 For example, let's add a failing test to our example above:
 
@@ -71,7 +71,7 @@ test add_one_3() {
 
 ![](/language_tour_tests_fig_2.png)
 
-Brilliant! We get to see what both operands are evaluated to, and the test runner points us to the problem. As you can see, however, the evaluation is given in [Untyped Plutus Core (a.k.a UPLC)](http://localhost:3000/uplc) for being the actual execution language. We cover UPLC in the next section of this manual. Being able to read UPLC helps debug and understand what's really going on on-chain.
+Brilliant! We get to see what both operands are evaluated to, and the test runner points us to the problem. As you can see, however, the evaluation is given in [Untyped Plutus Core (a.k.a UPLC)](http://localhost:3000/uplc), since this is the actual execution language. We cover UPLC in the next section of this manual. Being able to read UPLC helps debug and understand what's really going on on-chain.
 
 ## Running specific tests
 
