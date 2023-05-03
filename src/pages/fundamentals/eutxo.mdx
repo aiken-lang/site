@@ -294,7 +294,7 @@ This is where the second form gets more interesting. Cardano allows locking
 funds using a script representing the validation logic that must be satisfied
 to spend funds guarded by the address. We typically call such addresses
 "_script addresses_". Similarly to the first form, the entire script must be
-provided as a witness to any transaction spending from a script address, as
+provided as a witness by any transaction spending from a script address, as
 well as any other elements required by the script. Scripts are like predicates.
 Said differently, they are functions that return a boolean value: `True` or
 `False`. To be considered valid, all scripts in a transaction must return
@@ -353,9 +353,9 @@ verification key hash digest or as script hash digest.
 
 Before we move on, let's recap again:
 
-- An _address_ is made of either 2 or 3 parts: a _header_, _payment credentials_ and (optionally) _delegation credentials_;
+- An _address_ is made up of either 2 or 3 parts: a _header_, _payment credentials_ and (optionally) _delegation credentials_;
 - The _header_ describes the _type_ of address and the _network_ it is for;
-- Note that the last part, the _delegation credentials_, while optional is still <u>highly recommended</u>;
+- the _delegation credentials_ part, while optional, is still <u>highly recommended</u>;
 - Credentials (payment or delegation) take one of two forms:
   - a verification key hash;
   - a script hash;
