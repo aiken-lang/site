@@ -153,8 +153,8 @@ out but might be shuffled differently.
 
 An output that hasn't been spent yet (i.e. is still on the wall) is called --
 you guessed it -- an _unspent transaction output_, or UTxO in short. The
-blockchain state results from looking at the entire wall of post-it remaining
-notes. It includes not only the available UTxO, but also any additional data
+blockchain state results from looking at the entire wall of remaining post-it 
+notes. In addition to all of the available UTxOs, the state also includes any additional data
 defined by the protocol.
 
 Okay, back to inputs.
@@ -162,9 +162,9 @@ Okay, back to inputs.
 Technically speaking, an input's _"serial number"_ is the hash digest of the
 transaction that emitted the output it refers to and the position of the output
 within that transaction. These two elements make each input unique. And because
-outputs are removed from the available set (post-it note is destroyed) when
-spent, they can only be spent once. At least, that's what the blockchain
-protocol makes sure of.
+outputs are removed from the available set (the post-it note is destroyed) when
+spent, they can only be spent once. This is ensured by the blockchain
+protocol.
 
 ```console filename="Input"
 ┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
@@ -204,7 +204,7 @@ Let's quickly recap what we've seen so far:
 - A _block_ batches transactions together and has a reference to a parent block;
 - Assets movement are expressed using _inputs_ and _outputs_ in transactions;
 - An _output_ is an object with at least an _address_ and a _value_;
-- An _address_ describes the conditions needed to use the _value_ associated to it;
+- An _address_ describes the conditions needed to use the _value_ associated with it;
 - An _input_ is a reference to a previous _output_.
 
 ## Addresses
@@ -269,12 +269,11 @@ credentials for both the payment and the delegation part.
 
 The next part is the _payment credentials_, also called the _payment part_.
 This is what describes the spending conditions for the address. Remember how
-UTxOs are like post-it notes on a wall? Yet you don't get to hang them or pick
+UTxOs are like post-it notes on a wall? Well, you don't get to hang them or pick
 them up directly yourself. You have to hand over a _transaction_ to the network
 validators. Imagine an employee who's gatekeeping the wall of post-it notes and
-to whom you must give a form that describes what you want to do. Each post-it
-note has written on it the conditions one must meet to pick it up and destroy
-it. That's what the payment credentials are for in the address. They come in
+to whom you must give a form that describes what you want to do. Written on each post-it
+note are the conditions that must be met before it can be picked up and destroyed. That's what the payment credentials are for in the address. They come in
 one of two forms:
 
 - a verification key hash digest; or
@@ -293,9 +292,9 @@ also constrained because it doesn't allow for expressing any elaborate logic.
 
 This is where the second form gets more interesting. Cardano allows locking
 funds using a script representing the validation logic that must be satisfied
-to spend funds guarded by the address. We typically call such addresses:
-_script addresses_. Similarly to the first form, the entire script must be
-provided as a witness by any transaction spending from a script address, as
+to spend funds guarded by the address. We typically call such addresses
+"_script addresses_". Similarly to the first form, the entire script must be
+provided as a witness to any transaction spending from a script address, as
 well as any other elements required by the script. Scripts are like predicates.
 Said differently, they are functions that return a boolean value: `True` or
 `False`. To be considered valid, all scripts in a transaction must return
@@ -304,7 +303,7 @@ Said differently, they are functions that return a boolean value: `True` or
 ### Delegation credentials
 
 Addresses may also contain _delegation credentials_, also called a _delegation
-part_. We will only go a little into the details but think of the delegation
+part_. We will only go a little into the details here, but think of the delegation
 credentials as a way to control what can be done with the _stake_ associated with
 the address. The _stake_ corresponds to the Ada quantity in the output's value
 that the consensus protocol counts to elect block producers. In Cardano,
@@ -354,9 +353,9 @@ verification key hash digest or as script hash digest.
 
 Before we move on, let's recap again:
 
-- An _address_ is made of 2 or 3 parts: a _header_, _payment credentials_ and _delegation credentials_;
+- An _address_ is made of either 2 or 3 parts: a _header_, _payment credentials_ and (optionally) _delegation credentials_;
 - The _header_ describes the _type_ of address and the _network_ it is for;
-- The last part, the _delegation credentials_, is optional though <u>highly recommended</u>;
+- Note that the last part, the _delegation credentials_, while optional is still <u>highly recommended</u>;
 - Credentials (payment or delegation) take one of two forms:
   - a verification key hash;
   - a script hash;
@@ -369,17 +368,17 @@ Before we move on, let's recap again:
 ### Overview
 
 Hang in there! We are almost at the end of this crash course. We've seen what a
-UTxO is what an address is made of. And we spoke a bit about scripts. In
-particular, we said that scripts are like predicates, that is, pure functions
-(in the Mathematical sense) that take a transaction as an argument and return
+UTxO is and what an address is made of. And we spoke a bit about scripts. In
+particular, we said that scripts are like predicates: that is, pure functions
+(in the mathematical sense) that take a transaction as an argument and return
 either `True` or `False`.
 
-Well, _not exactly_. We lied to you (only a tiny bit).
+Well, _not exactly_. We lied to you (but only a tiny bit).
 
 If we only had that, it would be hard to express more elaborate logic. In
 particular, capturing a state, which programs often require, would be
 infeasible. A state and transitions from that state. This is where the
-_extended UTxO_ model strikes in. It adds two new components to what we've
+_extended UTxO_ model comes in. It adds two new components to what we've
 already seen: datums and redeemers.
 
 We mentioned the datum earlier without calling it a datum when we said that
@@ -393,13 +392,13 @@ The redeemer, on the other hand, is another piece of data that is also provided
 with the transaction for any script execution. Notice that the datum and
 redeemer intervene at two distinct moments. A datum is set when the output is
 created (i.e. when the post-it note is hung on the wall, it is part of the
-note). Whereas the redeemer is provided only when spending the output (i.e.
-with the form handed over to the employee).
+note). In contrast,  the redeemer is provided only when spending the output (i.e.
+provided along with the form as it is handed over to the employee).
 
 ### Analogy
 
-Another way to look at scripts, datums and redeemers is to think of them as a
-parameterised mathematical function.
+Another way to look at scripts, datums and redeemers is to think of them as forming a
+parameterised mathematical functions.
 
 ```console filename="Script, datum and redeemer"
              Script
@@ -431,7 +430,7 @@ itself.
   for spending funds, we can see how eUTxO is merely a generalization of that.
   Indeed, the public key (hash) can be seen as _the datum_, whereas the
   signature is the _redeemer_. The script is the digital signature verification
-  algorithm that controls whether the signature is valid w.r.t the provided key.
+  algorithm that controls whether the signature is valid w.r.t. the provided key.
 </Callout>
 
 ### Purposes
