@@ -85,7 +85,7 @@ const config: DocsThemeConfig = {
           <ul>
             <li><a href="https://aiken-lang.github.io/prelude">Prelude</a></li>
             <li><a href="https://aiken-lang.github.io/stdlib">Standard library</a></li>
-            <li><a href="#">Playground (coming soon)</a></li>
+            <li><a href="https://play.aiken-lang.org">Playground</a></li>
           </ul>
         </nav>
         <nav>
