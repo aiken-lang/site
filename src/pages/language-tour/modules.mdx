@@ -103,7 +103,7 @@ fields private so that users of this type can only use the type through
 publicly exported functions.
 
 For example we can create a `Counter` type which holds an int which can be
-incremented. We don't want the user to alter the int value other than by
+incremented. We don't want the user to alter the `Int` value other than by
 incrementing it, so we can make the type opaque to prevent them from being
 able to do this.
 
@@ -157,7 +157,7 @@ The content of the Prelude module is documented in [aiken-lang/prelude](https://
 
 The second module that comes with the language is for exposing useful builtin
 functions from Plutus core. Most underlying platform functions are available
-here using a snake case name. Much of Aiken's syntax ends up compiling to
+here using a "snake_case" name. Much of Aiken's syntax ends up compiling to
 combinations of certain bultins but many aren't "exposed" through the syntax
 and need to be used directly. The standard library wraps these in a more
 Aiken-friendly interface so you'll probably never need to use these directly
@@ -177,7 +177,7 @@ a == b
 
 ## Documentation
 
-You may add user facing documentation at the head of modules with a module
+You may add user-facing documentation at the head of modules with a module
 documentation comment `////` (quadruple slash!) per line. Markdown is supported
 and this text block will be included with the module's entry in generated HTML
 documentation.

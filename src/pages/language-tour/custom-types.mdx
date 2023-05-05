@@ -262,7 +262,7 @@ opaque fashion.
 
 It's also useful for interacting with builtins that operate on raw `Data`. In
 this case, the conversation happens implicitly. Simply expect any function that
-accept `Data` to automatically work on any custom type.
+accepts `Data` to automatically work on any custom type.
 
 ```aiken
 type Datum {
@@ -278,14 +278,13 @@ builtin.serialise_data(datum) // some bytearray
 ### expect
 
 `expect` is a special keyword which works like `let`, but allows to perform
-some potentially unsafe conversions. There are two main use cases to it:
+some potentially unsafe conversions. There are two main use cases for it:
 
 #### Non-exhaustive pattern matching
 
-In case where you have a value of a type that have multiple constructor
-variants, but are only truly interested in one of the possible outcome
-(considering any other like a invalid program), then `expect` is the perfect
-tool. Consider the `Option` type from above.
+In cases where you have a value of a type that has multiple constructor
+variants, but are only truly interested in one of the possible variants as outcomes
+(i.e. any other outcomes invalidate the program), then `expect` is the perfect tool. Consider the `Option` type from above in the following example:
 
 ```aiken
 let x = Some(42)
@@ -303,11 +302,10 @@ expect Some(y) = x
 #### Casting from `Data` into a custom type
 
 Another crucial use of `expect` is to turn some opaque `Data` into a concrete
-representation. In the context of Cardano smart-contract, we can encounter
-`Data` in various places but in general, it's mostly when dealing with datums
-associated to outputs.
+representation. In the context of a Cardano smart-contract, we can encounter
+`Data` in various places although in general it's most likely when dealing with the datums attached to outputs.
 
-Often, we do expect a specific structure for some given datum, and thus, being able
+Often, we do expect a specific structure for some given datum, and so being able
 to safely relay those assumptions in the validators comes in handy.
 
 The syntax is identical to the other use case, but it requires an explicit type

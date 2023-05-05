@@ -48,7 +48,7 @@ Only the trace `is_even` will be captured, because `is_odd` is in fact never eva
 
 On-chain programs are fundamentally nothing more than predicates. Said differently, they are functions that return `True` or `False`. Hence, it is common practice to structure on-chain programs as conjunctions and disjunctions of booleans expressions.
 
-This can be a little hard to reason about however because booleans are "blind". That is, you loose information about the original context as you evaluate complexe boolean expressions.
+This can be a little hard to reason about however because booleans are "blind". That is, you lose information about the original context as you evaluate complex boolean expressions.
 
 Take for example the following simple expression:
 
@@ -59,7 +59,7 @@ let must_spend_token = False
 must_be_after && must_spend_token
 ```
 
-It evaluates to `False`. From just `False`, you can't really tell which branch was actually `False` in the original expression. Yet it is often useful to reason about even larger expression and troubleshoot an issue.
+It evaluates to `False`. From just `False`, you can't really tell which branch was actually `False` in the original expression. Yet it is often useful to reason about even larger expressions to troubleshoot an issue.
 
 This is why Aiken provides the `?` operator (reads as _"trace-if-false operator"_). This postfix operator can be appended to any boolean expression and will trace the expression only if it evaluates to `False`. This is useful to trace an entire evaluation path that led to a final expression being `False`. In the example above, we could have written:
 
@@ -75,7 +75,7 @@ Incidentally, the `?` operator works like `trace` and is therefore affected by t
 
 ## CBOR diagnostic
 
-This is all great but sometimes, you need more. Sometimes, you need to inspect the value of some specific object _at runtime_. This is harder than it seems because a compiled Aiken program has erased any context and any notion of types. Even functions and variable names are replaced by compact indexes which makes it relatively hard to inspect programs and values at runtime. For example, this is what a compiled function may look like in UPLC:
+This is all great but sometimes, you need more. Sometimes, you need to inspect the value of some specific object _at runtime_. This is harder than it seems because a compiled Aiken program has erased any context and any notion of types. Even functions and variable names are replaced by compact indices which makes it relatively hard to inspect programs and values at runtime. For example, this is what a compiled function may look like in UPLC:
 
 ```
 (lam i_31
@@ -104,9 +104,9 @@ pub fn diagnostic(data: Data) -> String
 
 Why use CBOR diagnostics you may ask?
 
-Well, because it is what captures the most faithfully the representation of objects present at runtime and in the interface of on-chain validators. Getting familiar with CBOR diagnostics requires a bit of practice but can be a useful skill to master when working with Cardano in general. CBOR is everywhere in Cardano, including in on-chain validators. Datum and redeemers are, for example, provided as CBOR objects to the validator by the ledger. Transactions are also themselves encoded as CBOR when serialized and propagated to the network.
+Well, because it is what most faithfully captures the representation of objects present at runtime and in the interface of on-chain validators. Getting familiar with CBOR diagnostics requires a bit of practice but can be a useful skill to master when working with Cardano in general. CBOR is everywhere in Cardano, including in on-chain validators. Datum and redeemers are, for example, provided as CBOR objects to the validator by the ledger. Transactions are also themselves encoded as CBOR when serialized and propagated to the network.
 
-A CBOR diagnostic is merely a slightly more human friendly way to visualize a binary object. For example, a serialized list of integers such as `83010203` is represented as `[1, 2, 3]` in diagnostic notation.
+A CBOR diagnostic is merely a slightly more human-friendly way to visualize a binary object. For example, a serialized list of integers such as `83010203` is represented as `[1, 2, 3]` in diagnostic notation.
 
 In addition, most tools and libraries that deal with CBOR make it easy to go back-and-forth between the raw encoding and the diagnostic notation. This is the case of [cbor.me](https://cbor.me) or [cbor-diag](https://github.com/cabo/cbor-diag) for instance.
 
@@ -120,9 +120,9 @@ Here's a little cheatsheet to help you decipher CBOR diagnostics:
 | `Map`       | `{}`, `{ 1: h'FF', 2: 14 }`, `{_ 1: "AA" }`  |
 | `Tag`       | `42(1)`, `10(h'ABCD')`, `1280([1, 2])`        |
 
-While most are pretty transparent, the use-case for `Tag` may not strike as obvious. In fact, `Tag` is used to encode custom types on-chain, starting from tag `121` for the first constructor of a data-type, `122` for the next, and so forth. What is tagged corresponds to the fields of the constructors, as a list of objects.
+While most are pretty transparent, the use-case for `Tag` may not strike many as obvious. In fact, `Tag` is used to encode custom types on-chain, starting from tag `121` for the first constructor of a data-type, `122` for the next, and so forth. What is tagged corresponds to the fields of the constructors, as a list of objects.
 
-Let's see some more examples of diagnostics from real Aiken's values.
+Let's see some more examples of diagnostics from real Aiken values.
 
 ```aiken
 use aiken/cbor

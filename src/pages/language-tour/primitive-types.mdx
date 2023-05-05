@@ -113,6 +113,28 @@ Note how this is different from:
 "666f6f" == #[0x36, 0x36, 0x36, 0x66, 0x36, 0x66] == #[54, 54, 54, 102, 54, 54]
 ```
 
+## Tuples
+
+Aiken has tuples which can be useful for grouping values. Each element in a tuple can have a different type.
+
+```aiken
+(10, "hello") // Type is (Int, ByteArray)
+(1, 4, [0]) // Type is (Int, Int, List<Int>)
+```
+
+Long tuples (i.e. more than 3 elements) are usually discouraged. Indeed, tuples are anonymous constructors, and while they are quick and easy to use, they often impede readability. When types become more complex, one should use records instead (as we'll see later).
+
+Elements of a tuple can be accessed using the dot, followed by the index of the element (ordinal). So for example:
+
+```aiken
+let point = (14, 42, 1337, 0)
+let a = point.1st
+let b = point.2nd
+let c = point.3rd
+let d = point.4th
+(c, d, b, a) // (1337, 0, 42, 14)
+```
+
 ## List
 
 Lists are ordered collections of values. They're one of the most common data structures in Aiken.
@@ -140,29 +162,6 @@ let y = [1, ..x]
 
 x // [2, 3]
 y // [1, 2, 3]
-```
-
-
-## Tuples
-
-Aiken has tuples which can be useful for grouping values. Each element in a tuple can have a different type.
-
-```aiken
-(10, "hello") // Type is (Int, ByteArray)
-(1, 4, [0]) // Type is (Int, Int, List<Int>)
-```
-
-Long tuples (i.e. more than 3 elements) are usually discouraged. Indeed, tuples are anonymous constructors, and while they are quick and easy to use, they often impede readability. When types become more complex, one should use records instead (as we'll see later).
-
-Elements of a tuple can be accessed using the dot, followed by the index of the element (ordinal). So for example:
-
-```aiken
-let point = (14, 42, 1337, 0)
-let a = point.1st
-let b = point.2nd
-let c = point.3rd
-let d = point.4th
-(c, d, b, a) // (1337, 0, 42, 14)
 ```
 
 ## Void

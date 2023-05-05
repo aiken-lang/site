@@ -41,8 +41,7 @@ when some_number is {
 ```
 
 Aiken's `when *expr* is` is an expression, meaning it returns a value and can be used
-anywhere we would use a value. For example, we can name the value of a when
-expression with a `let` binding.
+anywhere we would use a value. For example, we can name the value evaluated from a _when expression_ with a `let` binding.
 
 ```aiken
 type Answer {
@@ -124,7 +123,7 @@ when xs is {
 ### Matching single-variant constructors
 
 Aiken lets you pattern match on values from types that have a single
-constructors using a `let`-binding directly. This is the case for any `Tuple`
+constructor using a `let`-binding directly. This is the case for any `Tuple`
 , for example, or any custom type with a single constructor.
 
 ```aiken
@@ -170,7 +169,7 @@ finished developing some logic. Aiken provides two convenient keywords for
 that: `error` and `todo`.
 
 When encountered, both will halt the evaluation of your program which will be
-considered failed. They differ in their semantic -- that is, how the compiler
+considered failed. They differ in their semantic i.e. how the compiler
 behaves towards them.
 
 In fact, `todo` will trigger warnings at compilation to remind you of those
