@@ -38,7 +38,7 @@ import { Lucid } from "https://deno.land/x/lucid@0.8.3/mod.ts";
 const lucid = await Lucid.new(undefined, "Preview");
 
 const ownerPrivateKey = lucid.utils.generatePrivateKey();
-await Deno.writeTextFile("owner.sk", privateKey);
+await Deno.writeTextFile("owner.sk", ownerPrivateKey);
 
 const ownerAddress = await lucid
   .selectWalletFromPrivateKey(ownerPrivateKey)
@@ -235,7 +235,7 @@ import * as cbor from "https://deno.land/x/cbor@v1.4.1/index.js";
 const lucid = await Lucid.new(
   new Blockfrost(
     "https://cardano-preview.blockfrost.io/api/v0",
-    /* BLOCKFROST API KEY */,
+    Deno.env.get("BLOCKFROST_API_KEY"),
   ),
   "Preview",
 );
@@ -294,7 +294,7 @@ const ownerPublicKeyHash = lucid.utils.getAddressDetails(
 ).paymentCredential.hash;
 
 const beneficiaryPublicKeyHash =
-  lucid.utils.getAddressDetails(/* CONTENT OF 'beneficiary.addr' */)
+  lucid.utils.getAddressDetails(await Deno.readTextFile("beneficiary.addr"))
     .paymentCredential.hash;
 
 const Datum = Data.Object({
@@ -382,7 +382,7 @@ import * as cbor from "https://deno.land/x/cbor@v1.4.1/index.js";
 const lucid = await Lucid.new(
   new Blockfrost(
     "https://cardano-preview.blockfrost.io/api/v0",
-    /* BLOCKFROST API KEY */,
+    Deno.env.get("BLOCKFROST_API_KEY"),
   ),
   "Preview",
 );
@@ -446,7 +446,7 @@ const utxos = scriptUtxos.filter((utxo) => {
 
 if (utxos.length === 0) {
   console.log("No redeemable utxo found. You need to wait a little longer...");
-  return;
+  Deno.exit(1);
 }
 
 // we don't have any redeemer in our contract but it needs to be empty
