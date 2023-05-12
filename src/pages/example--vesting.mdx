@@ -446,7 +446,7 @@ const utxos = scriptUtxos.filter((utxo) => {
 
 if (utxos.length === 0) {
   console.log("No redeemable utxo found. You need to wait a little longer...");
-  return;
+  Deno.exit(1);
 }
 
 // we don't have any redeemer in our contract but it needs to be empty
