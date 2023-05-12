@@ -235,7 +235,7 @@ import * as cbor from "https://deno.land/x/cbor@v1.4.1/index.js";
 const lucid = await Lucid.new(
   new Blockfrost(
     "https://cardano-preview.blockfrost.io/api/v0",
-    /* BLOCKFROST API KEY */,
+    Deno.env.get("BLOCKFROST_API_KEY"),
   ),
   "Preview",
 );
@@ -382,7 +382,7 @@ import * as cbor from "https://deno.land/x/cbor@v1.4.1/index.js";
 const lucid = await Lucid.new(
   new Blockfrost(
     "https://cardano-preview.blockfrost.io/api/v0",
-    /* BLOCKFROST API KEY */,
+    Deno.env.get("BLOCKFROST_API_KEY"),
   ),
   "Preview",
 );
