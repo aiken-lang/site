@@ -294,7 +294,7 @@ const ownerPublicKeyHash = lucid.utils.getAddressDetails(
 ).paymentCredential.hash;
 
 const beneficiaryPublicKeyHash =
-  lucid.utils.getAddressDetails(/* CONTENT OF 'beneficiary.addr' */)
+  lucid.utils.getAddressDetails(await Deno.readTextFile("beneficiary.addr"))
     .paymentCredential.hash;
 
 const Datum = Data.Object({
