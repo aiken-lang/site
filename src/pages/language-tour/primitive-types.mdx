@@ -18,13 +18,13 @@ A `Bool{:ak}` is a boolean value that can be either `True{:ak}` or `False{:ak}`.
 Aiken defines a handful of operators that work with booleans. No doubts that they'll look
 quite familiar.
 
-| Operator          | Description                                                                           |
-| :---------------: | ---------------------------------                                                     |
-| `&&{:ak}`         | Logical conjunction (a.k.a 'AND')                                                     |
-| <code>\|\|</code> | Logical disjunction (a.k.a. 'OR')                                                     |
-| `=={:ak}`         | Equality                                                                              |
-| `!{:ak}`          | Logical negatation (a.k.a 'NOT')                                                      |
-| `?{:ak}`          | Trace if false (see also [Troubleshooting](/language-tour/troubleshooting#-operator)) |
+| Operator          | Description                                                                           | Precedence |
+| :---------------: | ---------------------------------                                                     | ---        |
+| `&&{:ak}`         | Logical conjunction (a.k.a 'AND')                                                     | 3          |
+| <code>\|\|</code> | Logical disjunction (a.k.a. 'OR')                                                     | 2          |
+| `=={:ak}`         | Equality                                                                              | 4          |
+| `!{:ak}`          | Logical negatation (a.k.a 'NOT')                                                      | 1          |
+| `?{:ak}`          | Trace if false (see also [Troubleshooting](/language-tour/troubleshooting#-operator)) | 1          |
 
 ## Int
 
@@ -52,23 +52,23 @@ Aiken also supports writing integer literals in other bases than decimals. Binar
 
 Aiken has several binary arithmetic operators that work with integers.
 
-| Operator | Description                 |
-| :------: | --------------------------- |
-| `+{:ak}` | Arithmetic sum              |
-| `-{:ak}` | Arithmetic difference       |
-| `/{:ak}` | Whole division              |
-| `*{:ak}` | Arithmetic multiplication   |
-| `%{:ak}` | Remainder by whole division |
+| Operator | Description                 | Precedence |
+| :------: | --------------------------- | ---        |
+| `+{:ak}` | Arithmetic sum              | 6          |
+| `-{:ak}` | Arithmetic difference       | 6          |
+| `/{:ak}` | Whole division              | 7          |
+| `*{:ak}` | Arithmetic multiplication   | 7          |
+| `%{:ak}` | Remainder by whole division | 7          |
 
 Integers are also of course comparable, so they work with a variety of binary logical operators too:
 
-| Operator  | Description      |
-| :-------: | ---------------- |
-| `=={:ak}` | Equality         |
-| `>{:ak}`  | Greater than     |
-| `<{:ak}`  | Smaller than     |
-| `>={:ak}` | Greater or equal |
-| `<={:ak}` | Smaller or equal |
+| Operator  | Description      | Precedence |
+| :-------: | ---------------- | ---        |
+| `=={:ak}` | Equality         | 4          |
+| `>{:ak}`  | Greater than     | 4          |
+| `<{:ak}`  | Smaller than     | 4          |
+| `>={:ak}` | Greater or equal | 4          |
+| `<={:ak}` | Smaller or equal | 4          |
 
 ## ByteArray
 
