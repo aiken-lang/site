@@ -154,33 +154,15 @@ they cannot reference other tests!
 use aiken/interval.{Finite, Interval, IntervalBound, PositiveInfinity}
 
 test must_start_after_succeed_when_lower_bound_is_after() {
-  let range: ValidityRange =
-    Interval {
-      lower_bound: IntervalBound { bound_type: Finite(2), is_inclusive: True },
-      upper_bound: IntervalBound { bound_type: PositiveInfinity, is_inclusive: False },
-    }
-
-  must_start_after(range, 1)
+  must_start_after(interval.after(2), 1)
 }
 
 test must_start_after_succeed_when_lower_bound_is_equal() {
-  let range: ValidityRange =
-    Interval {
-      lower_bound: IntervalBound { bound_type: Finite(2), is_inclusive: True },
-      upper_bound: IntervalBound { bound_type: PositiveInfinity, is_inclusive: False },
-    }
-
-  must_start_after(range, 2)
+  must_start_after(interval.after(2), 2)
 }
 
 test must_start_after_fail_when_lower_bound_is_after() {
-  let range: ValidityRange =
-    Interval {
-      lower_bound: IntervalBound { bound_type: Finite(2), is_inclusive: True },
-      upper_bound: IntervalBound { bound_type: PositiveInfinity, is_inclusive: False },
-    }
-
-  !must_start_after(range, 3)
+  !must_start_after(interval.after(2), 3)
 }
 ```
 
