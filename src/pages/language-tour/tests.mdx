@@ -73,6 +73,19 @@ test add_one_3() {
 
 Brilliant! We get to see what both operands are evaluated to, and the test runner points us to the problem. As you can see, however, the evaluation is given in [Untyped Plutus Core (a.k.a UPLC)](http://localhost:3000/uplc), since this is the actual execution language. We cover UPLC in the next section of this manual. Being able to read UPLC helps debug and understand what's really going on on-chain.
 
+## Testing failures
+
+Sometimes, you need to assert that a certain execution path can fail. This is also known as an _"expected failure"_ and is a totally valid way of asserting the behavior of a program. Fortunately, you can do this with Aiken too by prefixing the `test` keyword with a bang `!`. So for example:
+
+```aiken filename="lib/example.ak"
+use aiken/math
+
+!test must_fail() {
+  expect Some(result) = math.sqrt(-42)
+  result == -1
+}
+```
+
 ## Running specific tests
 
 `aiken check` supports flags that allow you to run subsets of all tests in your project.
