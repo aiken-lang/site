@@ -250,7 +250,7 @@ Thus, it's also possible to cast any [custom type](./custom-types.md) into
 
 ```aiken
 fn to_datum(datum: Data) -> Datum {
-    let d: Datum = datum
+    expect d: Datum = datum
     d
 }
 ```
