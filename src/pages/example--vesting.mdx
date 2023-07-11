@@ -371,6 +371,10 @@ const lucid = await Lucid.new(
 
 lucid.selectWalletFromPrivateKey(await Deno.readTextFile("./beneficiary.sk"));
 
+const beneficiaryPublicKeyHash = lucid.utils.getAddressDetails(
+  await lucid.wallet.address()
+).paymentCredential.hash;
+
 const validator = await readValidator();
 
 // --- Supporting functions
@@ -445,12 +449,12 @@ console.log(`1 ADA recovered from the contract
 
 // --- Supporting functions
 
-async function unlock(utxos, currentTime, { from, redeemer }): Promise<TxHash> {
+async function unlock(utxos, currentTime, { from, using }): Promise<TxHash> {
   const laterTime = new Date(currentTime + 2 * 60 * 60 * 1000).getTime(); // add two hours (TTL: time to live)
 
   const tx = await lucid
     .newTx()
-    .collectFrom(utxos, redeemer)
+    .collectFrom(utxos, using)
     .addSigner(await lucid.wallet.address()) // this should be beneficiary address
     .validFrom(currentTime)
     .validTo(laterTime)
