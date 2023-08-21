@@ -299,7 +299,7 @@ const txLock = await lock(1000000, { into: validator, datum: datum });
 
 await lucid.awaitTx(txLock);
 
-console.log(`1 ADA locked into the contract
+console.log(`1 tADA locked into the contract
     Tx ID: ${txLock}
     Datum: ${datum}
 `);
@@ -441,7 +441,7 @@ const txUnlock = await unlock(utxos, currentTime, { from: validator, using: rede
 
 await lucid.awaitTx(txUnlock);
 
-console.log(`1 ADA recovered from the contract
+console.log(`1 tADA recovered from the contract
     Tx ID: ${txUnlock}
     Redeemer: ${redeemer}
 `);
