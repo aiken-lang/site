@@ -240,7 +240,7 @@ async function readValidator(): Promise<SpendingValidator> {
   If you've installed [deno](https://deno.land/manual@v1.29.1/getting_started/installation), you can run the except above by executing:
 
 ```
-deno run --allow-net --allow-read vesting_lock.ts
+deno run --allow-net --allow-read --allow-env vesting_lock.ts
 ```
 
 It assumes that this file (`vesting_lock.ts`) is placed at the root of your `vesting` folder. At this stage, your folder should looks roughly like this:
@@ -472,7 +472,7 @@ async function unlock(utxos, currentTime, { from, using }): Promise<TxHash> {
   As you imagine, we can run this script with the following incantation:
 
 ```
-deno run --allow-net --allow-read vesting_unlock.ts
+deno run --allow-net --allow-read --allow-env vesting_unlock.ts
 ```
 
 </Callout>
