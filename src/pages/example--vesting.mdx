@@ -88,7 +88,7 @@ From there, lets define the `spend` validator itself.
 
 ```aiken filename="validators/vesting.ak"
 use aiken/interval.{Finite}
-use aiken/list.{and, or}
+use aiken/list
 use aiken/transaction.{Transaction, ScriptContext, Spend, ValidityRange}
 
 validator {
@@ -97,15 +97,14 @@ validator {
     // assets). Here we make sure it's only used when 'spending' from a eUTxO
     when ctx.purpose is {
       Spend(_) ->
-        or([
+        or {
           must_be_signed_by(ctx.transaction, datum.owner),
-          and([
+          and {
             must_be_signed_by(ctx.transaction, datum.beneficiary),
             must_start_after(ctx.transaction.validity_range, datum.lock_until),
-          ])
-        ])
-      _ ->
-      False
+          },
+        }
+      _ -> False
     }
   }
 }
