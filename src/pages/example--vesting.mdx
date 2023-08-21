@@ -113,9 +113,9 @@ fn must_be_signed_by(transaction: Transaction, vk: VerificationKeyHash) {
   list.has(transaction.extra_signatories, vk)
 }
 
-fn must_start_after(range: ValidityRange, lower_bound: POSIXTime) {
+fn must_start_after(range: ValidityRange, lock_expiration_time: POSIXTime) {
   when range.lower_bound.bound_type is {
-    Finite(now) -> now >= lower_bound
+    Finite(tx_earliest_time) -> lock_expiration_time <= tx_earliest_time
     _ -> False
   }
 }
@@ -160,7 +160,7 @@ test must_start_after_succeed_when_lower_bound_is_equal() {
   must_start_after(interval.after(2), 2)
 }
 
-test must_start_after_fail_when_lower_bound_is_after() {
+test must_start_after_fail_when_lower_bound_is_before() {
   !must_start_after(interval.after(2), 3)
 }
 ```
