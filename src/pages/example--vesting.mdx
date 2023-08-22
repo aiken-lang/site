@@ -88,7 +88,7 @@ From there, lets define the `spend` validator itself.
 
 ```aiken filename="validators/vesting.ak"
 use aiken/interval.{Finite}
-use aiken/list.{and, or}
+use aiken/list
 use aiken/transaction.{Transaction, ScriptContext, Spend, ValidityRange}
 
 validator {
@@ -97,15 +97,14 @@ validator {
     // assets). Here we make sure it's only used when 'spending' from a eUTxO
     when ctx.purpose is {
       Spend(_) ->
-        or([
+        or {
           must_be_signed_by(ctx.transaction, datum.owner),
-          and([
+          and {
             must_be_signed_by(ctx.transaction, datum.beneficiary),
             must_start_after(ctx.transaction.validity_range, datum.lock_until),
-          ])
-        ])
-      _ ->
-      False
+          },
+        }
+      _ -> False
     }
   }
 }
@@ -114,9 +113,9 @@ fn must_be_signed_by(transaction: Transaction, vk: VerificationKeyHash) {
   list.has(transaction.extra_signatories, vk)
 }
 
-fn must_start_after(range: ValidityRange, lower_bound: POSIXTime) {
+fn must_start_after(range: ValidityRange, lock_expiration_time: POSIXTime) {
   when range.lower_bound.bound_type is {
-    Finite(now) -> now >= lower_bound
+    Finite(tx_earliest_time) -> lock_expiration_time <= tx_earliest_time
     _ -> False
   }
 }
@@ -161,7 +160,7 @@ test must_start_after_succeed_when_lower_bound_is_equal() {
   must_start_after(interval.after(2), 2)
 }
 
-test must_start_after_fail_when_lower_bound_is_after() {
+test must_start_after_fail_when_lower_bound_is_before() {
   !must_start_after(interval.after(2), 3)
 }
 ```
@@ -241,7 +240,7 @@ async function readValidator(): Promise<SpendingValidator> {
   If you've installed [deno](https://deno.land/manual@v1.29.1/getting_started/installation), you can run the except above by executing:
 
 ```
-deno run --allow-net --allow-read vesting_lock.ts
+deno run --allow-net --allow-read --allow-env vesting_lock.ts
 ```
 
 It assumes that this file (`vesting_lock.ts`) is placed at the root of your `vesting` folder. At this stage, your folder should looks roughly like this:
@@ -300,7 +299,7 @@ const txLock = await lock(1000000, { into: validator, datum: datum });
 
 await lucid.awaitTx(txLock);
 
-console.log(`1 ADA locked into the contract
+console.log(`1 tADA locked into the contract
     Tx ID: ${txLock}
     Datum: ${datum}
 `);
@@ -442,7 +441,7 @@ const txUnlock = await unlock(utxos, currentTime, { from: validator, using: rede
 
 await lucid.awaitTx(txUnlock);
 
-console.log(`1 ADA recovered from the contract
+console.log(`1 tADA recovered from the contract
     Tx ID: ${txUnlock}
     Redeemer: ${redeemer}
 `);
@@ -473,7 +472,7 @@ async function unlock(utxos, currentTime, { from, using }): Promise<TxHash> {
   As you imagine, we can run this script with the following incantation:
 
 ```
-deno run --allow-net --allow-read vesting_unlock.ts
+deno run --allow-net --allow-read --allow-env vesting_unlock.ts
 ```
 
 </Callout>
