@@ -59,6 +59,10 @@ export function icon(name, color) {
       svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-fast-forward"><polygon points="13 19 22 12 13 5 13 19"></polygon><polygon points="2 19 11 12 2 5 2 19"></polygon></svg>`
       break;
 
+    case 'icon-play':
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-play"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`
+      break;
+
     default:
       throw new Error(`Unknown icon name: ${name}`);
   }
@@ -239,6 +243,12 @@ export function icon(name, color) {
     header > nav > a:visited {
       font-size: 0.8em;
     }
+  }
+  nav > a.playground::before {
+    content: url("${icon('icon-play', palette.dark.text)}");
+    position: relative;
+    top: 0.25rem;
+    margin-right: 0.25rem;
   }
   main {
     max-width: 75vw;
@@ -550,7 +560,7 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
   <Image src={theCodeOfLife} alt="Credit: © Hurcastock! - https://www.hurcastock.com" loading="eager" />
   <h1>A modern smart contract platform for Cardano</h1>
   <nav>
-    <a href="https://play.aiken-lang.org">Playground</a><a href="/installation-instructions">❯_ Get started</a>
+    <a class="playground" target="_blank" href="https://play.aiken-lang.org">Playground</a><a href="/installation-instructions">❯_ Get started</a>
   </nav>
 </header>
 
