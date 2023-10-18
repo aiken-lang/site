@@ -1,4 +1,5 @@
 import { Callout } from "nextra-theme-docs";
+import { InstallationInstructions } from "../components/installation-instructions";
 
 # Installation Instructions
 
@@ -27,20 +28,11 @@ aikup
 
 ### From sources (All platforms)
 
-```sh
-cargo install aiken --version 1.0.4-alpha
-```
+<InstallationInstructions/>
 
 <Callout type="info">
   `cargo` is a package manager for Rust. To install it, please refer to [the
   Rust book](https://doc.rust-lang.org/stable/book/ch01-01-installation.html)
-</Callout>
-
-<Callout type="warning">
-  `1.0.4-alpha` may not be the latest version. To install the latest version,
-  find the latest version number on
-  [crates.io](https://crates.io/crates/aiken/versions) and replace `1.0.4-alpha`
-  with it when running the command above.
 </Callout>
 
 ### From Nix flakes (Linux & MacOS only)
