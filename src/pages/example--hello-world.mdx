@@ -5,27 +5,29 @@ import { Callout } from "nextra-theme-docs";
 Let's write and execute a smart contract on Cardano in 10 minutes. Yes, you read
 that well.
 
+You can [try out this tutorial](https://aiken-template.meshjs.dev/) or visit [Mesh's Aiken guide](https://meshjs.dev/guides/aiken) to deploy your Aiken app on the web.
+
 <Callout type="info">
-You can find code supporting this tutorial on [Aiken's main repository](https://github.com/aiken-lang/aiken/tree/main/examples/hello_world).
+You can find code supporting this tutorial on [Aiken's main repository](https://github.com/aiken-lang/aiken/tree/main/examples/hello_world) and [Mesh/Demeter starter kit](https://github.com/MeshJS/aiken-next-ts-template/tree/main).
 </Callout>
 
 ## Covered in this tutorial
 
 - Writing a basic `Aiken` validator.
-- Using [Lucid](https://lucid.spacebudz.io/) through [Blockfrost](https://blockfrost.io).
+- Using [Lucid](https://lucid.spacebudz.io/) through [Blockfrost](https://blockfrost.io)
 - Getting test funds from the [Cardano Faucet](https://docs.cardano.org/cardano-testnet/tools/faucet)
 - Using web explorers such as [CardanoScan](https://cardanoscan.io).
 
 ## Pre-requisites
 
 We'll use `Aiken` to write the script, and
-[`Lucid`](https://github.com/spacebudz/lucid) to construct and submit the
+[`Lucid`](https://github.com/spacebudz/lucid) (alternative: [Mesh](https://github.com/MeshJS/aiken-next-ts-template/tree/main) for deploying your web application) to construct and submit the
 transaction. So make sure you have your dev environment ready for some
 TypeScript<sup>★</sup> and have Aiken installed already.
 
 <Callout type="info">
   ★ For TypeScript, we recommend installing
-  [deno](https://deno.land/manual@v1.29.1/getting_started/installation).
+  [deno](https://deno.land/manual@v1.29.1/getting_started/installation). If you prefer to deploy on the web with CIP30 wallets integrations, you can get started with this [Aiken starter kit](https://github.com/MeshJS/aiken-next-ts-template/tree/main).
 </Callout>
 
 ## Scaffolding
@@ -124,7 +126,7 @@ It's now time to build our first contract!
 aiken build
 ```
 
-This command generate a [CIP-0057 Plutus blueprint](https://github.com/cardano-foundation/CIPs/pull/258) as `plutus.json` at the root of your project. This blueprint describes your on-chain contract and its binary interface. In particular, it contains the generated on-chain code that will be executed by the ledger, and a hash of your validator(s) that can be used to construct addresses.
+This command generate a [CIP-0057 Plutus blueprint](https://github.com/cardano-foundation/CIPs/pull/258) as [`plutus.json`](https://github.com/MeshJS/aiken-next-ts-template/blob/main/aiken/plutus.json) at the root of your project. This blueprint describes your on-chain contract and its binary interface. In particular, it contains the generated on-chain code that will be executed by the ledger, and a hash of your validator(s) that can be used to construct addresses.
 
 This format is framework-agnostic and is meant to facilitate interoperability between tools. The blueprint is fully integrated into Aiken, which can automatically generate it based on your type definitions and comments.
 
@@ -459,3 +461,5 @@ If everything worked as planned you should see something resembling the followin
 And, tada 🎉!
 
 We can inspect our [redeeming transaction on CardanoScan](https://preview.cardanoscan.io/transaction/d3d5e828a3989691b0960d22a265c8c9ae4723134b52aa05ec0fb7d40f060392?tab=contracts) and see that it successfully executed our _Hello World_ contract.
+
+Deploy your app with Aiken today on [Demeter](https://github.com/MeshJS/aiken-next-ts-template)!
