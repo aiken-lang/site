@@ -30,19 +30,19 @@ We'll use Aiken to write the script so make the command-line installed already o
 First, let's create a new Aiken project:
 
 ```
-aiken new aiken-lang/hello_world
-cd hello_world
+aiken new aiken-lang/hello-world
+cd hello-world
 ```
 
 This command scaffolds an Aiken project. In particular, it creates a `lib` and `validators` folders in which you can put Aiken source files.
 
 ```
-./hello_world
+./hello-world
 │
 ├── README.md
 ├── aiken.toml
 ├── lib
-│   └── hello_world
+│   └── hello-world
 └── validators
 ```
 
@@ -52,14 +52,14 @@ We'll use the [standard library](https://aiken-lang.github.io/stdlib) for writin
 library to our `aiken.toml` for us. It should look roughly like that:
 
 ```toml filename="aiken.toml"
-name = "aiken-lang/hello_world"
+name = "aiken-lang/hello-world"
 version = "0.0.0"
 license  = "Apache-2.0"
-description = "Aiken contracts for project 'aiken-lang/hello_world'"
+description = "Aiken contracts for project 'aiken-lang/hello-world'"
 
 [repository]
 user = 'aiken-lang'
-project = 'hello_world'
+project = 'hello-world'
 platform = 'github'
 
 [[dependencies]]
@@ -75,8 +75,8 @@ Now, running `aiken check`, we should see dependencies being downloaded. That sh
     Resolving versions
   Downloading packages
    Downloaded 1 package in 0.91s
-    Compiling aiken-lang/stdlib main (/Users/aiken/Documents/aiken-lang/hello_world/build/packages/aiken-lang-stdlib)
-    Compiling aiken-lang/hello_world 0.0.0 (/Users/aiken/Documents/aiken-lang/hello_world)
+    Compiling aiken-lang/stdlib main (/Users/aiken/Documents/aiken-lang/hello-world/build/packages/aiken-lang-stdlib)
+    Compiling aiken-lang/hello-world 0.0.0 (/Users/aiken/Documents/aiken-lang/hello-world)
 
 Summary
     0 error, 0 warning(s)
@@ -84,9 +84,9 @@ Summary
 
 ## Our first validator
 
-Let's write our first validator as `validators/hello_world.ak`:
+Let's write our first validator as `validators/hello-world.ak`:
 
-```aiken filename="validators/hello_world.ak"
+```aiken filename="validators/hello-world.ak"
 use aiken/hash.{Blake2b_224, Hash}
 use aiken/list
 use aiken/transaction.{ScriptContext}
@@ -137,7 +137,7 @@ In a way, validators are nothing more than _predicates_. A predicate is a functi
 
 So let's add a few traces.
 
-```aiken filename="validators/hello_world.ak" {3, 17, 25}
+```aiken filename="validators/hello-world.ak" {3, 17, 25}
 use aiken/hash.{Blake2b_224, Hash}
 use aiken/list
 use aiken/string
@@ -179,7 +179,7 @@ In order to test our validator, we'll need to write a short test.
 
 Aiken has support for tests built-in! As you'll see shortly, tests can also serve as benchmarks since they display the exact memory and steps execution units required to run them. They also collect traces for us. Let's write a simple test which simply runs our validator. Tests are functions without arguments which returns boolean. Yet unlike functions, they are denoted with the keyword `test`. We will need a datum, a redeemer and a script context.
 
-```aiken filename="validators/hello_world.ak"
+```aiken filename="validators/hello-world.ak"
 test hello_world_example() {
   let datum =
     Datum { owner: #"00000000000000000000000000000000000000000000000000000000" }
@@ -217,7 +217,7 @@ This output is already pretty useful. We can see the `trace` that we added in ou
 Let's fix this and ensure that we say `Hello, World!` instead.
 
 
-```aiken filename="validators/hello_world.ak" {6}
+```aiken filename="validators/hello-world.ak" {6}
 test hello_world_example() {
   let datum =
     Datum { owner: #"00000000000000000000000000000000000000000000000000000000" }
@@ -252,7 +252,7 @@ Now, we can run `aiken check` again:
 
 It fails again, as expected, but we got further. Notice how the the `mem` and `cpu` execution units are slightly higher than on the first execution. Now, we have moved to evaluating the second part of the validator requirements `must_be_signed`. To satisfy this requirement, we'll need to add our test owner to the transaction's extra signatories. As such:
 
-```aiken filename="validators/hello_world.ak" {14-17}
+```aiken filename="validators/hello-world.ak" {14-17}
 test hello_world_example() {
   let datum =
     Datum { owner: #"00000000000000000000000000000000000000000000000000000000" }
