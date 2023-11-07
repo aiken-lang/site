@@ -169,15 +169,15 @@ validator {
 
 Here we have done two changes:
 
-1. We've added a manual message using the `trace` keyword. The message is simply the one passed as redeemer. With this, we can check that the value we passed as redeemer is indeed the right one.
+1. We've added a manual message using the `trace` keyword. The message is the one passed as redeemer. With this, we can check that the value seen by the validator is the expected one.
 
 2. Notice how we also added a question mark `?` at the end of each expression `must_say_hello` and `must_be_signed`. This is what we call the `trace-if-false` operator, and is pretty handy to debug things. This operator will trace the expression it is attached to only if it evaluates to `False`. This encourages an approach where validators are built as a conjunction or disjunction of requirements. On unsuccessful executions, all the invalidated requirements will leave a trace!
 
-In order to test our validator, we'll need to write a short test.
+In order to see those traces, we'll need to write a short test.
 
 ## Writing a test
 
-Aiken has support for tests built-in! As you'll see shortly, tests can also serve as benchmarks since they display the exact memory and steps execution units required to run them. They also collect traces for us. Let's write a simple test which simply runs our validator. Tests are functions without arguments which returns boolean. Yet unlike functions, they are denoted with the keyword `test`. We will need a datum, a redeemer and a script context.
+Aiken has support for tests built-in! As you'll see shortly, tests can also serve as benchmarks since they display the exact memory and steps execution units required to run them. They also collect traces for us. Let's write a simple test which invokes runs our validator. Tests are functions without arguments which returns boolean. Yet unlike functions, they are denoted with the keyword `test`. We will need a datum, a redeemer and a script context.
 
 ```aiken filename="validators/hello-world.ak"
 test hello_world_example() {
@@ -250,7 +250,7 @@ Now, we can run `aiken check` again:
   ┕━━━━━━━━━━━━━━━━━━━━━━ 1 tests | 0 passed | 1 failed
 ```
 
-It fails again, as expected, but we got further. Notice how the the `mem` and `cpu` execution units are slightly higher than on the first execution. Now, we have moved to evaluating the second part of the validator requirements `must_be_signed`. To satisfy this requirement, we'll need to add our test owner to the transaction's extra signatories. As such:
+It fails again, as expected, but we got further. Notice how the the `mem` and `cpu` execution units are slightly higher than on the first execution. Now, we have moved to evaluating the second part of the validator requirements: `must_be_signed`. To satisfy this second requirement, we'll need to add our test owner to the transaction's extra signatories. As such:
 
 ```aiken filename="validators/hello-world.ak" {14-17}
 test hello_world_example() {
@@ -276,7 +276,7 @@ test hello_world_example() {
 }
 ```
 
-This should do. Note that, at this point, we do not provide any signature of any kind. This is because we are not performing any of the ledger phase-1 validations. Yet, prior to executing smart contracts, the ledger will verify that the content of the transaction is valid. In particular, it will verify that any `extra_signatories` has a corresponding valid signature in the transaction. Here, we can just go with our placeholder verification key!
+This should do the trick. Note that, at this point, we do not provide any signature of any kind. This is because we are not performing any of the ledger phase-1 validations. Yet, prior to executing smart contracts, the ledger will verify that the content of the transaction is valid. In particular, it will verify that any `extra_signatories` has a corresponding valid signature in the transaction. Here, we can just go with our placeholder verification key!
 
 ```
 ❯ aiken check
@@ -287,11 +287,10 @@ This should do. Note that, at this point, we do not provide any signature of any
   ┕━━━━━━━━━━━━━━━━━━━━━━━ 1 tests | 1 passed | 0 failed
 ```
 
-And, it works! We are left with our `Hello, World!` trace and no failure 🎉! Congratulations, you've made it.
+And, it works! We are left with our `Hello, World!` trace and no failure 🎉! Congratulations, you've made it. Of course, this particular test isn't really interesting. Yet, in practice, validators are more complex and layered. We encourage you to split validators into smaller functions that do one thing at a time, and test those functions independently.
 
 <Callout type="warning">
 Traces can add some overhead to a validator's execution. This is why Aiken _erase_ all traces by default when you build validators. To keep them in the final validators, use the `--keep-traces` flag when building. Conversely, the `check` command _preserves_ traces by default since most of the time, this is what you want. If you need to benchmark an execution without traces, you can always pass the `--no-traces` flag when running tests to remove all traces.
 </Callout>
 
 You are now ready to move on to the next steps and look into performing this end-to-end, with a real transaction! Exciting, isn't it?
-
