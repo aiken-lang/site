@@ -27,6 +27,17 @@ const withNextra = nextra({
   },
 });
 
-module.exports = withNextra({
-  images: { unoptimized: true },
-});
+module.exports = {
+  async redirects() {
+    return [
+      {
+        source: '/example--hello-world',
+        destination: '/example--hello-world/basics',
+        permanent: true,
+      },
+    ]
+  },
+  ...withNextra({
+    images: { unoptimized: true },
+  })
+};
