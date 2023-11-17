@@ -32,6 +32,7 @@ const config: DocsThemeConfig = {
           background-image: linear-gradient(90deg, black 0%, black 90%, #ab31e4 86%, #620df8 92%, #ab31e4 96%);
           background-repeat: repeat;
           background-clip: text;
+          -webkit-background-clip: text;
           background-size: 200% auto;
           color: transparent;
           animation: textclip 5s linear infinite;
