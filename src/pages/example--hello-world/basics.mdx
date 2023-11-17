@@ -177,9 +177,13 @@ In order to see those traces, we'll need to write a short test.
 
 ## Writing a test
 
-Aiken has support for tests built-in! As you'll see shortly, tests can also serve as benchmarks since they display the exact memory and steps execution units required to run them. They also collect traces for us. Let's write a simple test which invokes runs our validator. Tests are functions without arguments which returns boolean. Yet unlike functions, they are denoted with the keyword `test`. We will need a datum, a redeemer and a script context.
+Aiken has support for tests built-in! As you'll see shortly, tests can also serve as benchmarks since they display the exact memory and steps execution units required to run them. They also collect traces for us. Let's write a simple test which invokes runs our validator. Tests are functions without arguments which returns boolean. Yet unlike functions, they are denoted with the keyword `test`. We will need a datum, a redeemer and a script context as well as a few more imports:
 
-```aiken filename="validators/hello-world.ak"
+```aiken filename="validators/hello-world.ak" {1, 5-22}
+use aiken/transaction.{OutputReference, ScriptContext, Spend, TransactionId}
+
+// ... rest of the code is unchanged
+
 test hello_world_example() {
   let datum =
     Datum { owner: #"00000000000000000000000000000000000000000000000000000000" }
@@ -252,7 +256,13 @@ Now, we can run `aiken check` again:
 
 It fails again, as expected, but we got further. Notice how the the `mem` and `cpu` execution units are slightly higher than on the first execution. Now, we have moved to evaluating the second part of the validator requirements: `must_be_signed`. To satisfy this second requirement, we'll need to add our test owner to the transaction's extra signatories. As such:
 
-```aiken filename="validators/hello-world.ak" {14-17}
+```aiken filename="validators/hello-world.ak" {2, 20-23}
+use aiken/transaction.{
+  OutputReference, ScriptContext, Spend, Transaction, TransactionId,
+}
+
+// ...rest of the code is unchanged
+
 test hello_world_example() {
   let datum =
     Datum { owner: #"00000000000000000000000000000000000000000000000000000000" }
