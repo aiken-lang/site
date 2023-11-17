@@ -27,6 +27,23 @@ const config: DocsThemeConfig = {
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Expletus+Sans:wght@700&display=swap" />
         <meta name="twitter:image" content="https://aiken-lang.org/open-graph.png" />
         <meta name="twitter:site:domain" content="aiken-lang.org" />
+        <style>{`
+        .nextra-nav-container > nav > a:nth-child(3) > span {
+          background-image: linear-gradient(90deg, black 0%, black 90%, #ab31e4 86%, #620df8 92%, #ab31e4 96%);
+          background-repeat: repeat;
+          background-clip: text;
+          background-size: 200% auto;
+          color: transparent;
+          animation: textclip 5s linear infinite;
+        }
+        html[class~="dark"] .nextra-nav-container > nav > a:nth-child(3) > span {
+          background-image: linear-gradient(90deg, rgba(243,244,246) 0%, rgba(243,244,246) 90%, #ab31e4 86%, #620df8 92%, #ab31e4 96%);
+        }
+        @keyframes textclip {
+          0% { background-position: 0% center; }
+          30% { background-position: 200% center; }
+          100% { background-position: 200% center; }
+        }`}</style>
     </>
   ),
   project: {
