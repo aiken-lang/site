@@ -1,0 +1,52 @@
+import { Callout } from "nextra-theme-docs";
+
+# Best Practices in Aiken 
+
+This is a little guide or perhaps list of suggestions to improve the readability of your Aiken code, 
+help you write more efficient Aiken code, to introduce Aiken features you might not be aware of,
+and to help you avoid common pitfalls. Keep in mind the Aiken compiler is always improving, so I'll 
+try to keep this up to date with best practices.
+
+# Creating easy to read Aiken code
+
+## Use the Formatter
+First and foremost, USE THE FORMATTER. One it saves time, Two it creates Aiken code in a uniform familiar format
+to all Aiken users, and Three if there is an issue let us know. Any issues we can resolve will improve everyones 
+experience using Aiken.
+
+## Using Pipe Operators
+Another best practice to improve the readability of your Aiken code is to use pipe operators (|>). 
+Pipe operators are used to chain functions together in a way that's easy to read and understand. 
+Instead of nesting function calls, you can use the pipe operator to pass the result of one function 
+as the input to the next. This can make your code cleaner and easier to follow.
+
+For example, consider the following Aiken code without pipe operators:
+
+```aiken
+let result = function3(function2(function1(input), other_input))
+```
+
+This can be rewritten using pipe operators to improve readability:
+
+```aiken
+let result = input 
+              |> function1 
+              |> function2(other_input) 
+              |> function3
+```
+
+In the rewritten code, it's clear that the input is first passed to `function1`, then the result is passed to `function2`, 
+and finally the result of `function2` is passed to `function3`. This makes the code easier to read and understand. 
+By default pipe operators pass the result of the previous operation as the first argument to the next function.
+You can change this by using _ like so:
+
+
+```aiken
+let result = input 
+              |> function1 
+              |> function2(other_input, _) 
+              |> function3
+```
+
+Now the result of function1 is passed as the second argument to function2.
+
