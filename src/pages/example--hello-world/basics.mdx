@@ -2,7 +2,7 @@ import { Callout } from "nextra-theme-docs";
 
 # Hello, World!
 
-Let's write and execute a smart contract on Cardano in 10 minutes. Yes, you read that well.
+Let's write and execute a smart contract on Cardano in 10 minutes. Yes, you read that right.
 
 <Callout type="info">
 You can find code supporting this tutorial on [Aiken's main repository](https://github.com/aiken-lang/aiken/tree/main/examples/hello_world).
@@ -115,7 +115,7 @@ validator {
 
 Our first validator is rudimentary, yet there's already a lot to say about it.
 
-1. It is parameterized by a verification key hash (`owner`) in the datum and a message (`msg`) in the redeemer. Remember that, in the eUTxO model, the **datum** is set **when locking funds** in the contract and can be therefore seen as configuration. Here, we'll indicate the owner of contract and require a signature from them to unlock funds -- very much like it already works on a typical non-script address.
+1. It looks for a verification key hash (`owner`) in the datum and a message (`msg`) in the redeemer. Remember that, in the eUTxO model, the **datum** is set **when locking funds** in the contract and can be therefore seen as configuration. Here, we'll indicate the owner of contract and require a signature from them to unlock funds—very much like it already works on a typical non-script address.
 
 2. Moreover, because there's no "Hello, World!" without a proper "Hello, World!" our little contract also demands this very message, as a UTF-8-encoded byte array, to be passed as redeemer (i.e. when spending from the contract).
 
@@ -133,7 +133,7 @@ Let's see the validator in action!
 
 ## Adding traces
 
-In a way, validators are nothing more than _predicates_. A predicate is a function that return a boolean. It indicates whether the operation is permitted or not. Here, we are writing a `spend` validator which controls who is allowed to spend funds locked by it. Troubleshooting validators can rapidly become difficult as the only real output they give is _yes_ or _no_. To cope with that, you can add _traces_ to a validator. Traces are special commands which tells the ledger -- or whomever is executing the validator -- to collect messages when encountered. On failure, it spits out the messages encountered, thus giving a trace of the program execution.
+In a way, validators are nothing more than _predicates_. A predicate is a function that returns a boolean. It indicates whether the operation is permitted or not. Here, we are writing a `spend` validator which controls who is allowed to spend funds locked by it. Troubleshooting validators can rapidly become difficult as the only real output they give is _yes_ or _no_. To cope with that, you can add _traces_ to a validator. Traces are special commands which tells the ledger—or whomever is executing the validator—to collect messages when encountered. On failure, it spits out the messages encountered, thus giving a trace of the program execution.
 
 So let's add a few traces.
 
@@ -177,7 +177,7 @@ In order to see those traces, we'll need to write a short test.
 
 ## Writing a test
 
-Aiken has support for tests built-in! As you'll see shortly, tests can also serve as benchmarks since they display the exact memory and steps execution units required to run them. They also collect traces for us. Let's write a simple test which invokes runs our validator. Tests are functions without arguments which returns boolean. Yet unlike functions, they are denoted with the keyword `test`. We will need a datum, a redeemer and a script context as well as a few more imports:
+Aiken has support for tests built-in! As you'll see shortly, tests can also serve as benchmarks since they display the exact memory and steps execution units required to run them. They also collect traces for us. Let's write a simple test which runs our validator. Tests are functions without arguments which return boolean. Yet unlike functions, they are denoted with the keyword `test`. We will need a datum, a redeemer and a script context as well as a few more imports:
 
 ```aiken filename="validators/hello-world.ak" {1, 5-22}
 use aiken/transaction.{OutputReference, ScriptContext, Spend, TransactionId}
@@ -300,7 +300,7 @@ This should do the trick. Note that, at this point, we do not provide any signat
 And, it works! We are left with our `Hello, World!` trace and no failure 🎉! Congratulations, you've made it. Of course, this particular test isn't really interesting. Yet, in practice, validators are more complex and layered. We encourage you to split validators into smaller functions that do one thing at a time, and test those functions independently.
 
 <Callout type="warning">
-Traces can add some overhead to a validator's execution. This is why Aiken _erase_ all traces by default when you build validators. To keep them in the final validators, use the `--keep-traces` flag when building. Conversely, the `check` command _preserves_ traces by default since most of the time, this is what you want. If you need to benchmark an execution without traces, you can always pass the `--no-traces` flag when running tests to remove all traces.
+Traces can add some overhead to a validator's execution. This is why Aiken _erases_ all traces by default when you build validators. To keep them in the final validators, use the `--keep-traces` flag when building. Conversely, the `check` command _preserves_ traces by default since most of the time, this is what you want. If you need to benchmark an execution without traces, you can always pass the `--no-traces` flag when running tests to remove all traces.
 </Callout>
 
 You are now ready to move on to the next steps and look into performing this end-to-end, with a real transaction! Exciting, isn't it?
