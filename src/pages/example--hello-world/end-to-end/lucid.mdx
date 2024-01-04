@@ -21,7 +21,7 @@ We assume that you have followed the _Hello, World!_'s [First steps][] and thus,
 
 ## Getting funds
 
-For this tutorial, we will use the validator we built in [First steps][]. Yet, before moving one, we'll need some funds, and a public/private key pair to hold them. We can generate a private key and an address using Lucid.
+For this tutorial, we will use the validator we built in [First steps][]. Yet, before moving on, we'll need some funds, and a public/private key pair to hold them. We can generate a private key and an address using Lucid.
 
 Let's write our first script as `generate-credentials.ts`:
 
@@ -96,7 +96,7 @@ const lucid = await Lucid.new(
 ```
 
 <Callout type="warning">
-Note that the highlighted line above looks for an environment variable named `BLOCKFROST_PROJECT_ID` which value must be set to your Blockfrost project id.
+Note that the highlighted line above looks for an environment variable named `BLOCKFROST_PROJECT_ID` which its value must be set to your Blockfrost project id.
 You can define a new environment variable in your terminal by running (in the same session you're also executing the script!):
 
 ```console
@@ -106,7 +106,7 @@ export BLOCKFROST_PROJECT_ID=preview...
 Replace `preview...` with your actual project id.
 </Callout>
 
-Next, we'll need to read the validator from the blueprint (`plutus.json`) we generated earlier. We'll also need to convert it to a format that Lucid understands. This is done by serializing the validator and then converting it to an hexadecimal text string as shown below:
+Next, we'll need to read the validator from the blueprint (`plutus.json`) we generated earlier. We'll also need to convert it to a format that Lucid understands. This is done by serializing the validator and then converting it to a hexadecimal text string as shown below:
 
 ```ts filename="hello-world-lock.ts"
 lucid.selectWalletFromPrivateKey(await Deno.readTextFile("./me.sk"));
@@ -131,8 +131,8 @@ funds into the contract. The datum must match the representation expected by
 the validator (and as specified in the blueprint), so this is a constructor
 with a single field that is a byte array.
 
-As value for that byte array, we provide a hash digest of our public me. This
-will be needed to unlock the funds.
+As value for that byte array, we provide a hash digest of our public key (from
+the wallet created with our `me.sk`) . This will be needed to unlock the funds.
 
 ```ts filename="hello-world-lock.ts"
 const publicKeyHash = lucid.utils.getAddressDetails(
@@ -183,7 +183,7 @@ The above code requires you to:
 
 - have the file `hello-world-lock.ts` placed at the root of your `hello-world` folder.
 
-At this stage, your folder should looks roughly like this:
+At this stage, your folder should look roughly like this:
 
 ```
 ./hello-world
@@ -212,7 +212,7 @@ If everything went well, you should see something like this:
 
 #### Inspecting the transaction
 
-Now is a good moment to pause and have a look at CardanoScan. Here's [an example of an _Hello World_ transaction](https://preview.cardanoscan.io/transaction/8559f57234407204d8e9a6bf57ef6943c65ec7119eb1c2ca6224f8bad8e71c1e?tab=utxo) that we generated using this tutorial.
+Now is a good moment to pause and have a look at CardanoScan. Here's [an example of a _Hello World_ transaction](https://preview.cardanoscan.io/transaction/8559f57234407204d8e9a6bf57ef6943c65ec7119eb1c2ca6224f8bad8e71c1e?tab=utxo) that we generated using this tutorial.
 
 If you notice the small icon next to the contract output address, we can even [inspect the datum](https://preview.cardanoscan.io/datumInspector?datum=d8799f581c10073fd2997d2f7dc6dadcf24966bd06b01930e5210e5de7aebf792dff):
 
@@ -235,7 +235,7 @@ Finally, as a last step: we now want to spend the UTxO that is locked by our
 To be valid, our transaction must meet two conditions:
 
 - it must provide "Hello, World!" as a redeemer; and
-- it must be signed by the key referenced as datum (i.e the owner).
+- it must be signed by the key referenced as datum (i.e. the owner).
 
 Let's make a new file `hello-world-unlock.ts` and copy over some of the boilerplate
 from the first one.
@@ -290,7 +290,7 @@ to unlock.
 
 <Callout type="warning">
   Note that we need to explicitly add a signer using `.addSigner` so that it
-  gets added to the `extra_signatories` of our transaction -- and becomes
+  gets added to the `extra_signatories` of our transaction—and becomes
   accessible for our script.
 </Callout>
 
