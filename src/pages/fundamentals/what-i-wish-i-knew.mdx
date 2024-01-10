@@ -1,3 +1,7 @@
+---
+mathjax: true
+---
+
 import { Callout } from "nextra-theme-docs";
 
 # What I wish I knew when exploring Cardano
@@ -201,6 +205,86 @@ multiple tenants. You can find more about native scripts in
 [CIP-1854](https://github.com/cardano-foundation/CIPs/tree/master/CIP-1854#overview)
 and in the [Formal Ledger Specification, Figure 4: Multi-signature via Native
 Scripts](https://github.com/input-output-hk/cardano-ledger/releases/latest/download/shelley-ledger.pdf).
+
+## The 'clean' trick: avoid replaying blocks
+
+Sometimes, the Cardano node will perform a complete re-validation of the chain
+as an integrity check. It does so by scanning through its local files, and
+_replaying_ blocks onto each other. On Mainnet, this procedure can take
+multiple hours and is caused, in principle, by mainly two things:
+
+1. A restart after a non-clean shutdown of the node (e.g. a SIGKILL, or power outage);
+2. A critical change in the ledger version.
+
+The detection of the first scenario is sometimes a bit clunky, and the unlucky
+ones amongst us have likely already experienced (sometimes several times) the
+infamous:
+
+```
+Replayed block: slot 3844799 out of 112665654. Progress: 3.41%
+Replayed block: slot 3844783 out of 112665654. Progress: 3.42%
+...
+```
+
+It turns out that there exists a way to skip re-validations of the first kind.
+Indeed, on start-up, the node will look for an empty file named `clean` at the
+root of its database folder.
+
+```
+node.db/
+├── clean              <------------ this fellow
+├── immutable
+├── ledger
+├── lock
+├── protocolMagicId
+└── volatile
+```
+
+When present, the node will not replay blocks, unless it detects a critical
+change in the ledger (second scenario) which happens fairly rarely. So it
+suffices to create such a file (e.g. `touch node.db/clean` to avoid replaying
+blocks unecessarily. This is a useful trick to use when developing with a local
+node, but **totally unsound in a production setting** (especially for SPO).
+
+## Transaction latency vs finality
+
+In a distributed system like Cardano, the notion of _latency_ and _finality_
+are often misunderstood (or swapped). Yet, it is crucial to get them right
+especially when it comes to transactions.
+
+Latency is the time it takes for a transaction to appear on the blockchain, in
+a block. Finality is the time it takes for a transaction to become immutable
+and permanent. Why is that different? Because the system is distributed! And
+that means the information is only *eventually* true. How long is enough
+depends on the interested parties and the type of transaction.
+
+It is hard to give a definite answer because finality directly depends on the
+proportion of adversarial stake in the system. And unfortunately, adversaries
+don't walk the street waving their hands about the fact they are, in fact,
+adversaries. If we call `ε` the proportion of adversaries ([0;0.5]), and consider `g`
+their grinding power we find that under Ouroboros Praos (current Cardano
+consensus algorithm), the *probability of settlement errors* in terms of the
+number of blocks is given by the following equation:
+
+<br/><img src="/settlement_error_probability.light.svg"  class="light" /><img src="/settlement_error_probability.dark.svg"   class="dark" />
+
+Now, what are good values for `ε` and `g` is hard to say. Regarding the
+grinding power, values in the range of `10^9`..`10^10` are quite conservative
+values. The entire Bitcoin network has a grinding power of about `10^12`. So
+unless the entire Bitcoin network is attacking Cardano, `g` is likely smaller
+than `10^12`. For the adversary proportion, as a rule of thumb, it's good to
+look at the total stake of the largest stake pools to get an idea of how much
+power can a single entity gather.
+
+A good recommendation for sensitive transactions is thus to wait around 100-150
+blocks (30-50 min) whereas a few blocks is usually sufficient for small
+payments. If you want to play with the equation, feel free to look at
+[this interactive calculator](https://www.geogebra.org/calculator/rjttcxk8).
+
+
+
+
+
 
 ## Developer Portal
 
