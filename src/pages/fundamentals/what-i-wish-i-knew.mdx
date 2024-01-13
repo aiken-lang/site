@@ -1,6 +1,15 @@
----
-mathjax: true
----
+<style>{`
+html.dark img.light {
+  display: none;
+}
+html.light img.dark {
+  display: none;
+}
+img.img-75 {
+  margin: 1rem auto;
+  width: 75%;
+}
+`}</style>
 
 import { Callout } from "nextra-theme-docs";
 
@@ -104,9 +113,10 @@ load.
 ## Serialization strategies
 
 There's no canonical serialization of objects on Cardano. While there is indeed
-a CDDL specification for core objects, as mentioned earlier, there are still
-multiple possible interpretations possible of the specification. For example, a
-CDDL specification is unable to express in what order should keys in a map be
+a CDDL specification for core objects<sup><a class="nx-text-primary-600 nx-underline nx-decoration-from-font [text-underline-position:from-font]" href="#cddl-files">see
+below</a></sup>, as mentioned earlier, there are still multiple possible
+interpretations possible of the specification. For example, a CDDL
+specification is unable to express in what order should keys in a map be
 serialized, or whether optional fields with default values (e.g. an optional
 list of elements) should be omitted entirely or specified with an empty default
 value.
@@ -123,6 +133,18 @@ possible representation that is compliant with the CDDL specification.
 This means, amongst other things, that there are multiple possible
 serializations of a transaction, and it may lead to surprising situations when
 trying to recalculate the hash of an object.
+
+#### CDDL files
+
+| Era     | CDDL Specification |
+| ---     | ---                |
+| Byron | [byron.cddl](https://github.com/IntersectMBO/cardano-ledger/blob/92fd6688b3cce015abc46c133c68e6ea7baa6503/eras/byron/cddl-spec/byron.cddl) |
+| Shelley | [shelley.cddl](https://github.com/IntersectMBO/cardano-ledger/blob/92fd6688b3cce015abc46c133c68e6ea7baa6503/eras/shelley/impl/cddl-files/shelley.cddl) |
+| Allegra | [allegra.cddl](https://github.com/IntersectMBO/cardano-ledger/blob/92fd6688b3cce015abc46c133c68e6ea7baa6503/eras/allegra/impl/cddl-files/allegra.cddl) |
+| Mary | [mary.cddl](https://github.com/IntersectMBO/cardano-ledger/blob/92fd6688b3cce015abc46c133c68e6ea7baa6503/eras/mary/impl/cddl-files/mary.cddl) |
+| Alonzo | [alonzo.cddl](https://github.com/IntersectMBO/cardano-ledger/blob/92fd6688b3cce015abc46c133c68e6ea7baa6503/eras/alonzo/impl/cddl-files/alonzo.cddl) |
+| Babbage | [babbage.cddl](https://github.com/IntersectMBO/cardano-ledger/blob/92fd6688b3cce015abc46c133c68e6ea7baa6503/eras/babbage/impl/cddl-files/babbage.cddl) |
+| Conway  | [conway.cddl](https://github.com/IntersectMBO/cardano-ledger/blob/92fd6688b3cce015abc46c133c68e6ea7baa6503/eras/conway/impl/cddl-files/conway.cddl)
 
 ## Hash digests
 
@@ -141,7 +163,7 @@ is why a policy id is only 28 bytes long: a policy id is the hash digest of
 a tagged script, and scripts can be used as credentials (i.e. part of
 an address). The same goes for any hash digest of a verification key.
 
-## Policy Id
+## Policy Id and language tags
 
 A policy id is a hash digest of a tagged script. Tagged is the keyword here.
 Should you try to calculate the policy id by simply hashing a serialized
@@ -159,6 +181,7 @@ Here's a table summarizing all discriminators:
 | `Native`    | `0x00`               |
 | `Plutus V1` | `0x01`               |
 | `Plutus V2` | `0x02`               |
+| `Plutus V3` | `0x03`               |
 
 The subsequent versions of Plutus may likely follow the pattern.
 
@@ -261,12 +284,13 @@ depends on the interested parties and the type of transaction.
 It is hard to give a definite answer because finality directly depends on the
 proportion of adversarial stake in the system. And unfortunately, adversaries
 don't walk the street waving their hands about the fact they are, in fact,
-adversaries. If we call `ε` the proportion of adversaries ([0;0.5]), and consider `g`
+adversaries. If we call `ε` the proportion of adversaries (`[0;0.5]`), and consider `g`
 their grinding power we find that under Ouroboros Praos (current Cardano
 consensus algorithm), the *probability of settlement errors* in terms of the
-number of blocks is given by the following equation:
+number of blocks (`x`) is given by the following equation:
 
-<br/><img src="/settlement_error_probability.light.svg"  class="light" /><img src="/settlement_error_probability.dark.svg"   class="dark" />
+<img src="/settlement_error_probability.light.svg" class="light img-75" />
+<img src="/settlement_error_probability.dark.svg"  class="dark  img-75" />
 
 Now, what are good values for `ε` and `g` is hard to say. Regarding the
 grinding power, values in the range of `10^9`..`10^10` are quite conservative
@@ -276,15 +300,12 @@ than `10^12`. For the adversary proportion, as a rule of thumb, it's good to
 look at the total stake of the largest stake pools to get an idea of how much
 power can a single entity gather.
 
+<img src="/settlement_error_probability.png" />
+
 A good recommendation for sensitive transactions is thus to wait around 100-150
 blocks (30-50 min) whereas a few blocks is usually sufficient for small
 payments. If you want to play with the equation, feel free to look at
 [this interactive calculator](https://www.geogebra.org/calculator/rjttcxk8).
-
-
-
-
-
 
 ## Developer Portal
 
