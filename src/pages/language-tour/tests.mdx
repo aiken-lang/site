@@ -75,12 +75,12 @@ Brilliant! We get to see what both operands are evaluated to, and the test runne
 
 ## Testing failures
 
-Sometimes, you need to assert that a certain execution path can fail. This is also known as an _"expected failure"_ and is a totally valid way of asserting the behavior of a program. Fortunately, you can do this with Aiken too by prefixing the `test` keyword with a bang `!`. So for example:
+Sometimes, you need to assert that a certain execution path can fail. This is also known as an _"expected failure"_ and is a totally valid way of asserting the behavior of a program. Fortunately, you can do this with Aiken too by adding `fail` after the test name. So for example:
 
 ```aiken filename="lib/example.ak"
 use aiken/math
 
-!test must_fail() {
+test must_fail() fail {
   expect Some(result) = math.sqrt(-42)
   result == -1
 }
