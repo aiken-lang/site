@@ -2,11 +2,13 @@ import { Callout } from "nextra-theme-docs";
 
 # Tests
 
-## Overview
+Aiken has first-class support for unit tests and property-based tests. And what we mean is that you can write tests in Aiken directly and execute them on-the-fly. Hence the toolkit (`aiken check`) can parse tests, collect them, run them and display a report with (hopefully) helpful details.
 
-Aiken has first-class support for tests. And what we mean is that you can write tests in Aiken directly and execute them on-the-fly. Hence the toolkit (`aiken check`) can parse tests, collect them, run them and display a report with (hopefully) helpful details.
+## Unit tests
 
-To write a test, use the `test` keyword:
+### Writing unit tests
+
+To write a unit test, use the `test` keyword:
 
 ```aiken
 test foo() {
@@ -14,22 +16,13 @@ test foo() {
 }
 ```
 
-A test is a named function that takes no arguments and returns a boolean. More specifically, a test is considered _valid_ (i.e. it passes) if it returns `True`.
+A unit test is a named function that takes no arguments and returns a boolean. More specifically, a test is considered _valid_ (i.e. it passes) if it returns `True`.
 
-You can write tests anywhere in an Aiken module, and they can make calls to functions and use constants all the same. However, tests cannot call other tests! If you need to re-use code between tests, create a function.
+You can write tests anywhere in an Aiken module, and they can make calls to functions and use constants all the same. One exciting thing about tests is that they use the same virtual machine as the one for executing contracts on-chain. Said differently, they are actual snippets of on-chain code you can run and reason about in the same context as your production code.
 
-<Callout>
-  At this stage, the testing framework is rudimentary -- albeit useful! Later,
-  we're planning on introducing arguments to test functions to turn them into
-  full-blown properties. Arguments will be randomly generated, and tests will be
-  executed a hundred times.
-</Callout>
+### Unit test reports
 
-One exciting thing about tests is that they use the same virtual machine as the one for executing contracts on-chain. Said differently, they are actual snippets of on-chain code you can run and reason about in the same context as your production code.
-
-## Test reports
-
-For example, let's write a simple function with some unit tests.
+Let's write a simple function with some unit tests as an example.
 
 ```aiken filename="lib/example.ak"
 fn add_one(n: Int) -> Int {
@@ -53,10 +46,10 @@ As you can see, the report group tests by module and gives you, for each test, t
 
 <Callout type="info">
   Tests can be arbitrarily complex; unlike on-chain scripts, they do not have
-  any execution limit.
+  any execution limit -- or more specifically, their limit is extremely large.
 </Callout>
 
-## Automatic diffing
+### Automatic diffing
 
 Aiken's test runner is (trying to be) intelligent and helpful, especially on test failures. If a test fails, the test runner will do its best to provide some information about what went wrong. This is particularly efficient if you write your tests as assertions using a binary operator (`==`, `>=`, `!=` etc..).
 
@@ -71,7 +64,95 @@ test add_one_3() {
 
 ![](/language_tour_tests_fig_2.png)
 
-Brilliant! We get to see what both operands are evaluated to, and the test runner points us to the problem. As you can see, however, the evaluation is given in [Untyped Plutus Core (a.k.a UPLC)](../uplc), since this is the actual execution language. We cover UPLC in the next section of this manual. Being able to read UPLC helps debug and understand what's really going on on-chain.
+Brilliant! We get to see what both operands are evaluated to, and the test runner points us to the problem.
+
+## Property-based test
+
+### Short introduction
+
+One of Aiken's unique selling point is its property-based testing framework with integrated shrinking. Property-based testing is the art of generating test cases by exploring the realm of possible inputs and looking for general behaviours rather than specific cases.
+
+For example, if you consider a function `list.reverse` that is reversing the order of elements in a list, then it has a nice property that calling it twice puts the list back in its original order. So, you can approach testing that function by generating random list samples and checking that they all satisfy the property.
+
+If a counterexample to the property is found, the framework tries to simplify it to a minimal counterexample so that it is easier to digest and reason about. This is a crucial step since exploring randomly an input domain can lead to arbitrarily large sample values that may obfuscate the actual problem. Imagine a function that operates on a list of integers and that fails for negative integer values. In this example the list `[12, 441, 0, 7863, -2, 1213]` is a valid counterexample but `[-1]` is arguably a much better one. It allows to more directly pinpoint the exact issue.
+
+In classic property-based testing framework, the search of a smaller counterexample can be tedious and is referred to as _shrinking_. It is usually the responsibility of the developer writing the property to also define how to get to smaller counterexamples from an initial value. In Aiken, it is integrated and automatically managed by the framework.
+
+### Writing properties
+
+A property-based test takes the form of a test with a single argument that specifies a `Fuzzer`. A fuzzer, or generator, is an abstraction that specifies how to generate (pseudo-) random values from a source of randomness.
+
+We provide -- _and strongly recommend the use of_ -- a core library for fuzzers: [`aiken/fuzz`](https://github.com/aiken-lang/fuzz). This library contains useful primitives that goes through the hassle of abstracting the management of the pseudo-randomness on your behalf so that writing fuzzers become a bliss. Use it without moderation!
+
+```aiken
+use aiken/fuzz
+
+test prop_is_non_negative(n: Int via fuzz.int()) {
+  n >= 0
+}
+```
+
+A `Fuzzer` is introduced as a special annotation for the argument using the `via` keyword and must be of type `Fuzzer<a>` (although `a` must be instantiated to a concrete type!). In the example above, it is of type `Fuzzer<Int>`. There's thus a direct relation between the type of the argument and the type carried by its fuzzer! The type annotation for the argument is, therefore, fully optional since it is redundant with the fuzzer.
+
+#### Composing fuzzers
+
+Fuzzers can be composed directly inline after the via keyword:
+
+```aiken
+use aiken/fuzz
+
+test prop_list(xs: List<Int> via fuzz.list(fuzz.int())) {
+  todo
+}
+```
+
+They can also be defined into separate functions and called by names:
+
+```aiken
+use aiken/fuzz
+
+fn my_fuzzer() -> Fuzzer<List<Int>> {
+  fuzz.list(fuzz.int())
+}
+
+test prop_list(xs: List<Int> via my_fuzzer()) {
+  todo
+}
+```
+
+### Property test reports
+
+Akin to unit tests, properties are executed using the `aiken check` command. They provide a report highlighting the number of random samples checked as well as, in case of failure, a simplified counterexample. For example, if we run our `prop_is_non_negative` above operating on int, we get the following:
+
+![](/language_tour_tests_fig_3.png)
+
+As you can see, the property is invalidated by negative values generated by the `int()` fuzzer and the counterexample is shown directly in the test report as well as the number of tests that run until a counterexample was found.
+
+### Labelling
+
+Often, one wants to assess that specific paths are being explored in a random walk. This is particularly true of complex generators that explore a large domain space. The [`aiken/fuzz`](https://github.com/aiken-lang/fuzz) library provides labels for that purpose that are automatically gathered by the framework. On success, their distribution across all test runs is shown as part of the report. Labelling can also be useful to assess the correctness of a fuzzer and we do strongly recommend to _test your fuzzers_! A common pitfall of property-based testing are properties not actually testing anything due to wrongly defined fuzzers. For example, let's inspect the `bool()` fuzzer from the [`aiken/fuzz`](https://github.com/aiken-lang/fuzz) library:
+
+```aiken
+test prop_bool_distribution(predicate via fuzz.bool()) {
+  fuzz.label(
+    if predicate {
+      @"True"
+    } else {
+      @"False"
+    },
+  )
+
+  True
+}
+```
+
+As we can see, the generator is mostly uniform between `True` and `False` (phew!). Note that it isn't necessarily exactly 50% due to the random nature of the sample. But it asymptotically converge towards that.
+
+![](/language_tour_tests_fig_4.png)
+
+<Callout type="info">
+  Note that we have have passed an extra option `--max-success=1000` to the `check` command here to increase the number of tests to run and get a better view of the random sample.
+</Callout>
 
 ## Testing failures
 
@@ -85,6 +166,8 @@ test must_fail() fail {
   result == -1
 }
 ```
+
+The `fail` keyword here works for both unit tests and property tests, with a small subtle difference for property tests. Indeed, a property that is expected to fail will run until it does or until it reaches the maximum number of tries (default to 100, like successes). If the test runner finds a 100 tests that satisfies a property expected to fail, then the entire test is considered a failure. Said differently, it doesn't stop at the first _success_.
 
 ## Running specific tests
 
