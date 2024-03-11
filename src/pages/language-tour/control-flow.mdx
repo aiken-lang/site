@@ -147,20 +147,6 @@ when xs is {
 }
 ```
 
-### Clause guards
-
-The `if` keyword can be used to add a guard expression to a when clause. Both
-the patterns have to match and the guard has to evaluate to `True` for the
-clause to match. The guard expression can check for equality or ordering for
-`Int`.
-
-```aiken
-when xs is {
-  [a, b, c] if a == b && b != c -> "ok"
-  _other -> "ko"
-}
-```
-
 ## Error & Todo
 
 Sometimes, you need to halt the evaluation of your program because you've
