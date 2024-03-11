@@ -300,7 +300,7 @@ This should do the trick. Note that, at this point, we do not provide any signat
 And, it works! We are left with our `Hello, World!` trace and no failure 🎉! Congratulations, you've made it. Of course, this particular test isn't really interesting. Yet, in practice, validators are more complex and layered. We encourage you to split validators into smaller functions that do one thing at a time, and test those functions independently.
 
 <Callout type="warning">
-Traces can add some overhead to a validator's execution. This is why Aiken _erases_ all traces by default when you build validators. To keep them in the final validators, use the `--keep-traces` flag when building. Conversely, the `check` command _preserves_ traces by default since most of the time, this is what you want. If you need to benchmark an execution without traces, you can always pass the `--no-traces` flag when running tests to remove all traces.
+Traces can add some overhead to a validator's execution. This is why Aiken _erases_ all traces by default when you build validators. To keep them in the final validators, use the `--trace-level verbose` option when building. Conversely, the `check` command _preserves_ traces by default since most of the time, this is what you want. If you need to benchmark an execution without traces, you can always pass the `--trace-level silent` flag when running tests to remove all traces.
 </Callout>
 
 You are now ready to move on to the next steps and look into performing this end-to-end, with a real transaction! Exciting, isn't it?

@@ -38,8 +38,8 @@ Only the trace `is_even` will be captured, because `is_odd` is in fact never eva
 <Callout type="warning">
   Note that traces are:
 
-  - **Removed by default** when building your project with `aiken build`. They can be preserved using `--keep-traces`;
-  - **Kept by default** when checking your project with `aiken check`. They can be left out using `--no-traces`.
+  - **Removed by default** when building your project with `aiken build`. They can be preserved using `--trace-level verbose`;
+  - **Kept by default** when checking your project with `aiken check`. They can be left out using `--trace-level silent`.
 
   This is because tracing makes compiled code bigger and can add an extra overhead which is often undesired for final production-ready validators. Yet, they are useful for development and when testing. The command-line is thus geared towards those use-cases. Beware that while enabling or disabling traces doesn't change the semantic of your program, it effectively changes its hash value, and thus its associated addresses.
 </Callout>
