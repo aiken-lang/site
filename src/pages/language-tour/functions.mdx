@@ -260,7 +260,7 @@ pub fn option(fuzz_a: Fuzzer<a>) -> Fuzzer<Option<a>> {
 }
 ```
 
-A bit involved, isn't it? Here we can see how `and_then` is used to step through the bool's `Fuzzer`. This can be re-written more simply with backpassing as:
+A bit involved. Here, we can see how `and_then` is used to step through the bool's `Fuzzer`. This can be re-written more simply with backpassing as:
 
 ```aiken
 pub fn option(fuzz_a: Fuzzer<a>) -> Fuzzer<Option<a>> {
@@ -273,7 +273,7 @@ pub fn option(fuzz_a: Fuzzer<a>) -> Fuzzer<Option<a>> {
 }
 ```
 
-Which reads a lot better! In fact, this technique becomes even more useful when there's a lot of nested callbacks as it _flattens_ them into a sequence of backpassed let-bindings.
+Which reads a lot better! In fact, this technique becomes even more helpful when there are a lot of nested callbacks as it _flattens_ them into a sequence of backpassed let-bindings.
 
 ## Generic functions
 
