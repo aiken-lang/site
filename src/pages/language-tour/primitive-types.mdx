@@ -26,6 +26,9 @@ quite familiar.
 | `!{:ak}`          | Logical negatation (a.k.a 'NOT')                                                      | 1          |
 | `?{:ak}`          | Trace if false (see also [Troubleshooting](/language-tour/troubleshooting#-operator)) | 1          |
 
+Like most languages, `&&{:ak}` and `||{:ak}` don't evaluate their second operand
+if the first one gives the answer (i.e. short-circuit).
+
 ## Int
 
 Aiken's only number type is an arbitrary sized integer. This means there is no underflow or overflow.
