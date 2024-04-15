@@ -10,9 +10,9 @@ Let's consider the following basic program:
   <strong>program_1.uplc</strong>
 </p>
 
-```
+```uplc
 (program
-  2.0.0
+  1.0.0
   [ [ (builtin addInteger) (con integer 16) ] (con integer 26) ]
 )
 ```
@@ -49,9 +49,9 @@ program into a function that accepts an argument as follows:
   <strong>program_2.uplc</strong>
 </p>
 
-```
+```uplc
 (program
-  2.0.0
+  1.0.0
   (lam x [ [ (builtin addInteger) (con integer 16) ] x ])
 )
 ```
@@ -79,9 +79,9 @@ can also simply prints the result to stdout using `--print`. For example:
 $ aiken uplc fmt program_2.uplc --print
 ```
 
-```
+```uplc
 (program
-  2.0.0
+  1.0.0
   (lam x [ [ (builtin addInteger) (con integer 16) ] x ])
 )
 ```
@@ -127,9 +127,9 @@ From there, one can recover a UPLC high-level syntax from a flat program using
 $ aiken uplc unflat program_1.flat --print
 ```
 
-```
+```uplc
 (program
-  2.0.0
+  1.0.0
   [ [ (builtin addInteger) (con integer 16) ] (con integer 26) ]
 )
 ```

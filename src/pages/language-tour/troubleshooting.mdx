@@ -38,10 +38,11 @@ Only the trace `is_even` will be captured, because `is_odd` is in fact never eva
 <Callout type="warning">
   Note that traces are:
 
-  - **Removed by default** when building your project with `aiken build`. They can be preserved using `--trace-level verbose`;
-  - **Kept by default** when checking your project with `aiken check`. They can be left out using `--trace-level silent`.
+- **Removed by default** when building your project with `aiken build`. They can be preserved using `--trace-level verbose`;
+- **Kept by default** when checking your project with `aiken check`. They can be left out using `--trace-level silent`.
 
-  This is because tracing makes compiled code bigger and can add an extra overhead which is often undesired for final production-ready validators. Yet, they are useful for development and when testing. The command-line is thus geared towards those use-cases. Beware that while enabling or disabling traces doesn't change the semantic of your program, it effectively changes its hash value, and thus its associated addresses.
+This is because tracing makes compiled code bigger and can add an extra overhead which is often undesired for final production-ready validators. Yet, they are useful for development and when testing. The command-line is thus geared towards those use-cases. Beware that while enabling or disabling traces doesn't change the semantic of your program, it effectively changes its hash value, and thus its associated addresses.
+
 </Callout>
 
 ## `?` operator
@@ -77,7 +78,7 @@ Incidentally, the `?` operator works like `trace` and is therefore affected by t
 
 This is all great but sometimes, you need more. Sometimes, you need to inspect the value of some specific object _at runtime_. This is harder than it seems because a compiled Aiken program has erased any context and any notion of types. Even functions and variable names are replaced by compact indices which makes it relatively hard to inspect programs and values at runtime. For example, this is what a compiled function may look like in UPLC:
 
-```
+```uplc
 (lam i_31
   (lam i_32
     (lam i_33
@@ -112,13 +113,13 @@ In addition, most tools and libraries that deal with CBOR make it easy to go bac
 
 Here's a little cheatsheet to help you decipher CBOR diagnostics:
 
-| Type        | Examples                                     |
-| ---         | ---                                          |
-| `Int`       | `1`, `-14`, `42`                             |
-| `ByteArray` | `h'FF00'`, `h'666f6f'`                       |
-| `List`      | `[]`, `[1, 2, 3]`, `[_ 1, 2, 3]`             |
-| `Map`       | `{}`, `{ 1: h'FF', 2: 14 }`, `{_ 1: "AA" }`  |
-| `Tag`       | `42(1)`, `10(h'ABCD')`, `1280([1, 2])`        |
+| Type        | Examples                                    |
+| ----------- | ------------------------------------------- |
+| `Int`       | `1`, `-14`, `42`                            |
+| `ByteArray` | `h'FF00'`, `h'666f6f'`                      |
+| `List`      | `[]`, `[1, 2, 3]`, `[_ 1, 2, 3]`            |
+| `Map`       | `{}`, `{ 1: h'FF', 2: 14 }`, `{_ 1: "AA" }` |
+| `Tag`       | `42(1)`, `10(h'ABCD')`, `1280([1, 2])`      |
 
 While most are pretty transparent, the use-case for `Tag` may not strike many as obvious. In fact, `Tag` is used to encode custom types on-chain, starting from tag `121` for the first constructor of a data-type, `122` for the next, and so forth. What is tagged corresponds to the fields of the constructors, as a list of objects.
 
@@ -170,4 +171,4 @@ test my_datum_1() {
 }
 ```
 
-You can turn this diagnostic into raw CBOR using tools such as [cbor.me](https://cbor.me/?diag=121([42,%20h%2748656c6c6f2c20576f726c6421%27])).
+You can turn this diagnostic into raw CBOR using tools such as [cbor.me](<https://cbor.me/?diag=121([42,%20h%2748656c6c6f2c20576f726c6421%27])>).

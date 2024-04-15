@@ -20,6 +20,12 @@ const withNextra = nextra({
               grammar: require("./aiken.tmLanguage.json"),
               aliases: ["ak", "aiken"],
             },
+            {
+              id: "uplc",
+              scopeName: "source.uplc",
+              grammar: require("./uplc.tmLanguage.json"),
+              aliases: ["uplc"],
+            },
           ],
         });
       },
@@ -31,13 +37,13 @@ module.exports = {
   async redirects() {
     return [
       {
-        source: '/example--hello-world',
-        destination: '/example--hello-world/basics',
+        source: "/example--hello-world",
+        destination: "/example--hello-world/basics",
         permanent: true,
       },
-    ]
+    ];
   },
   ...withNextra({
     images: { unoptimized: true },
-  })
+  }),
 };
