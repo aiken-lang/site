@@ -18,16 +18,48 @@ A `Bool{:ak}` is a boolean value that can be either `True{:ak}` or `False{:ak}`.
 Aiken defines a handful of operators that work with booleans. No doubts that they'll look
 quite familiar.
 
-| Operator          | Description                                                                           | Precedence |
-| :---------------: | ---------------------------------                                                     | ---        |
-| `&&{:ak}`         | Logical conjunction (a.k.a 'AND')                                                     | 3          |
-| <code>\|\|</code> | Logical disjunction (a.k.a. 'OR')                                                     | 2          |
-| `=={:ak}`         | Equality                                                                              | 4          |
-| `!{:ak}`          | Logical negatation (a.k.a 'NOT')                                                      | 1          |
-| `?{:ak}`          | Trace if false (see also [Troubleshooting](/language-tour/troubleshooting#-operator)) | 1          |
+| Operator  | Description                                                                           | Precedence |
+| :-------: | ------------------------------------------------------------------------------------- | ---------- |
+| `&&{:ak}` | Logical conjunction (a.k.a 'AND')                                                     | 3          |
+|  `\|\|`   | Logical disjunction (a.k.a. 'OR')                                                     | 2          |
+| `=={:ak}` | Equality                                                                              | 4          |
+| `!{:ak}`  | Logical negatation (a.k.a 'NOT')                                                      | 1          |
+| `?{:ak}`  | Trace if false (see also [Troubleshooting](/language-tour/troubleshooting#-operator)) | 1          |
 
 Like most languages, `&&{:ak}` and `||{:ak}` don't evaluate their second operand
 if the first one gives the answer (i.e. short-circuit).
+
+### `and`/`or` keywords
+
+You'll soon come to realize that long chains of logical operators are quite common
+when building validators.
+
+```ak
+True && False && True || False
+```
+
+In this example one could derive the final boolean after thinking for a little
+but it also requires that you carefully consider how precedence affects the expression grouping.
+Although this specific example may be simple, in practice those `True{:ak}` and `False{:ak}`
+literals would actually be expressions of type `Bool`. Considering that these kinds of boolean checks
+are a huge corner stone of validator logic, we've introduced keywords that increase the readability of
+these so called _logical operator chains_.
+
+```ak
+and {
+  True,
+  False,
+  or {
+    True,
+    False,
+  }
+}
+```
+
+With these keywords, the grouping becomes immediately obvious at a glance resulting
+in more readable and maintainable logical operator chains. This shines especially when
+composing large numbers of logical operators (i.e. four or more) but is less impactful when
+there are one or two logical operators.
 
 ## Int
 
@@ -56,7 +88,7 @@ Aiken also supports writing integer literals in other bases than decimals. Binar
 Aiken has several binary arithmetic operators that work with integers.
 
 | Operator | Description                 | Precedence |
-| :------: | --------------------------- | ---        |
+| :------: | --------------------------- | ---------- |
 | `+{:ak}` | Arithmetic sum              | 6          |
 | `-{:ak}` | Arithmetic difference       | 6          |
 | `/{:ak}` | Whole division              | 7          |
@@ -66,7 +98,7 @@ Aiken has several binary arithmetic operators that work with integers.
 Integers are also of course comparable, so they work with a variety of binary logical operators too:
 
 | Operator  | Description      | Precedence |
-| :-------: | ---------------- | ---        |
+| :-------: | ---------------- | ---------- |
 | `=={:ak}` | Equality         | 4          |
 | `>{:ak}`  | Greater than     | 4          |
 | `<{:ak}`  | Smaller than     | 4          |
@@ -201,5 +233,9 @@ Under the hood text strings are [UTF-8](https://en.wikipedia.org/wiki/UTF-8) enc
 ```
 
 <Callout type="warning">
-  Beware the use case for strings is extremely narrow in Aiken and on-chain code. They are only used for _tracing_, a bit like labels attached to specific execution paths of your program. You can't find them in the interface exposed by your validator, for example. So most of the time, you probably want to use a `ByteArray` instead and only resort to `String` for debugging.
+  Beware the use case for strings is extremely narrow in Aiken and on-chain
+  code. They are only used for _tracing_, a bit like labels attached to specific
+  execution paths of your program. You can't find them in the interface exposed
+  by your validator, for example. So most of the time, you probably want to use
+  a `ByteArray` instead and only resort to `String` for debugging.
 </Callout>
