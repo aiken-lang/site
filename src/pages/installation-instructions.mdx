@@ -6,13 +6,35 @@ import { InstallationInstructions } from "../components/installation-instruction
 
 ## Compiler & toolkit
 
-### From `aikup` (Linux & MacOS only)
+### From `aikup`
 
 First, install `aikup`: a basic utility tool to download and manage Aiken's
 pre-compiled executables:
 
+#### Linux & MacOS
+
+> Homebrew is supported
+
 ```sh
-curl -sSfL https://install.aiken-lang.org | bash
+curl --proto '=https' --tlsv1.2 -LsSf https://install.aiken-lang.org | sh
+```
+
+#### Windows
+
+```sh
+powershell -c "irm https://windows.aiken-lang.org | iex"
+```
+
+#### Homebrew
+
+```sh
+brew install aiken-lang/tap/aikup
+```
+
+#### npm
+
+```sh
+npm install -g @aiken-lang/aikup
 ```
 
 Then, simply run:
