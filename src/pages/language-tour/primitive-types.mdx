@@ -257,7 +257,17 @@ come back to it in due time.
 
 Aiken has a specific type for representing a pair of values of two
 not-necessarily equal types. Thus a `Pair<a, b>{:ak}` is akin to a 2-tuple `(a,
-b){:ak}`. So why have another type specifically for pairs? The answer is two folds:
+b){:ak}`. Like for tuples, you can access elements of a pair using the ordinal syntax:
+
+```aiken
+let foo = Pair(14, "aiken")
+
+foo.1st == 14
+
+foo.2nd == "aiken"
+```
+
+So why have another type specifically for pairs? The answer is two folds:
 
 1. This is a specific kind of term that also exists on the underlying Plutus
 Virtual Machine. Hence, given Aiken's proximity to that machine's
