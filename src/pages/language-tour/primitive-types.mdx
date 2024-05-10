@@ -20,14 +20,13 @@ quite familiar.
 
 | Operator  | Description                                                                           | Precedence |
 | :-------: | ------------------------------------------------------------------------------------- | ---------- |
+| `=={:ak}` | Equality                                                                              | 4          |
 | `&&{:ak}` | Logical conjunction (a.k.a 'AND')                                                     | 3          |
 |  `\|\|`   | Logical disjunction (a.k.a. 'OR')                                                     | 2          |
-| `=={:ak}` | Equality                                                                              | 4          |
 | `!{:ak}`  | Logical negatation (a.k.a 'NOT')                                                      | 1          |
 | `?{:ak}`  | Trace if false (see also [Troubleshooting](/language-tour/troubleshooting#-operator)) | 1          |
 
-Like most languages, `&&{:ak}` and `||{:ak}` don't evaluate their second operand
-if the first one gives the answer (i.e. short-circuit).
+Like most languages, `&&{:ak}` and `||{:ak}` are _right-associative_, which means they don't evaluate their second operand if the first one gives the answer (i.e. short-circuit).
 
 ### `and`/`or` keywords
 
@@ -104,6 +103,12 @@ Integers are also of course comparable, so they work with a variety of binary lo
 | `<{:ak}`  | Smaller than     | 4          |
 | `>={:ak}` | Greater or equal | 4          |
 | `<={:ak}` | Smaller or equal | 4          |
+
+<Callout type="info">
+Any _serialisable_ type is comparable through `==` in Aiken. A serialisable type represents any of the primitive type in this guide with the exception of `Fuzzer` and `MillerLoopResult`, as well as any user-defined custom data-type made of serialisable types.
+
+Said differently, you can compare bytestrings, booleans, integers, lists, tuples, etc. using the `==` operator.
+</Callout>
 
 ## ByteArray
 
@@ -207,7 +212,7 @@ y // [1, 2, 3]
 
 ## Data
 
-A `Data{:ak}` is an opaque compound type that can represent any possible user-defined type in Aiken. We'll see more about `Data{:ak}` when we cover custom types. In the meantime, think of _Data_ as a kind of wildcard that can possibly represent _any_ value.
+A `Data{:ak}` is an opaque compound type that can represent any possible user-defined type in Aiken. We'll see more about `Data{:ak}` when we cover custom types. In the meantime, think of _Data_ as a kind of wildcard that can possibly represent _any serialisable_ value.
 
 This is useful when you need to use values from different types in an homogeneous structure. Any user-defined type can be cast to a `Data{:ak}`, and you can try converting from a _Data_ to any custom type in a safe manner. Besides, several language builtins only work with `Data{:ak}` as a way to deal with polymorphism.
 
@@ -239,3 +244,71 @@ Under the hood text strings are [UTF-8](https://en.wikipedia.org/wiki/UTF-8) enc
   by your validator, for example. So most of the time, you probably want to use
   a `ByteArray` instead and only resort to `String` for debugging.
 </Callout>
+
+## Advanced
+
+<Callout emoji="💡">
+If you're just getting started with Aiken, you can probably skip the following
+section as it describes some more advanced types and behaviors. Feel free to
+come back to it in due time.
+</Callout>
+
+### Pair
+
+Aiken has a specific type for representing a pair of values of two
+not-necessarily equal types. Thus a `Pair<a, b>{:ak}` is akin to a 2-tuple `(a,
+b){:ak}`. So why have another type specifically for pairs? The answer is two folds:
+
+1. This is a specific kind of term that also exists on the underlying Plutus
+Virtual Machine. Hence, given Aiken's proximity to that machine's
+representation, it is useful, if not simply necessary, to have ways to
+represent those when needed.
+
+2. There's an ambiguity at the contract's boundary regarding how to serialise
+lists of pairs in CBOR. One way is to use a CBOR array of arrays (of two
+elements). And the other is to use a CBOR map. While the former is more
+intuitive, it is in fact the latter that end up being used by the ledger for
+many internal types. In the first versions of Aiken, the compiler would
+implicitly treat list of pairs as CBOR map in serialisation functions to mimic
+the ledger. This has proven inconvenient and confusing in many scenarios
+involving user-defined data-types, hence the introduction of pairs.
+
+So as a rule of thumb, unless you specifically want to serialize external types
+(in datums and redeemers) as CBOR maps, you probably never want to use a
+`Pair<a, b>{:ak}` and can stick to a 2-tuple `(a, b){:ak}`.
+
+### AList
+
+An associative list is a mere type alias such that: `type AList<a, b> =
+List<Pair<a, b>>{:ak}`. It exists as a convenience since pairs are mainly
+present in validator's script contexts under this form. In addition to
+functions for `List{:ak}` which are also all usable on `AList{:ak}`, the stdlib
+also provides a [dedicated module of
+helpers](https://aiken-lang.github.io/stdlib/aiken/alist.html) specifically
+crafted for associative lists.
+
+### PRNG & Fuzzer
+
+Aiken has an integrated property-based testing framework. Yes, you read that
+right. Property-based test is a first-class citizen here. If you want to read
+more about this, we strongly recommend looking at [our guide about
+property-based test](/language-tour/tests#property-based-test); it should teach
+you everything you need to get started with the framework.
+
+To support this framework, the prelude comes with two pre-defined types. `PRNG{:ak}`
+stands for Pseudo-Random Number Generator. Its definition is opaque and matters
+only to the internals of the test framework. If you're still interested about
+the details, head towards the
+[aiken-lang/fuzz](https://github.com/aiken-lang/fuzz.git)!
+
+Similarly, the `Fuzzer{:ak}` is an interface for building random generators. It
+offers a base set of primitives for a variety of types, and compose nicely with
+one another.
+
+### G1Element, G2Element & MillerLoopResult
+
+Specific to the use of BLS12-381 cryptographic primitives, the `G1Element{:ak}`,
+`G2Element{:ak}` and `MillerLoopResult{:ak}` capture the types of various operands and
+return values of some builtin functions. Their usage is agnostic to Aiken
+itself and described in more details in [CIP-0381: Plutus support for Pairings
+over BLS12-381](https://cips.cardano.org/cip/CIP-0381).
