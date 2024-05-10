@@ -75,39 +75,39 @@ about the projects, as well as dependencies required by it. Here's a sample of
 (documented) project configuration:
 
 ```toml filename="aiken.toml"
-# Project's name, as {organisation}/{project}
+# Project's name, as {organisation}/{repository}
 name = "foo/bar"
 
-# Project's version, we recommend semantic versioning for libraries
+# Project's version, we recommend semantic versioning for libraries. However,
+# any UTF-8 string is accepted.
 version = "1.0.0"
 
-# One or more license(s); we recommend Apache-2.0 or MPL-2.0 for open source
-# projects.
-licences = ["Apache-2.0"]
+# [Optional]
+#
+# A license name. We recommend Apache-2.0 or MPL-2.0 for open source projects.
+licence = "Apache-2.0"
 
+# [Optional]
+#
 # An informative albeit short description of the project.
 description = "A next-level DeFi platform"
 
-# Optional section, gives additional structured information on a project to
-# show in generated documentation.
+# [Optional]
+#
+# Structured information on a project to show in generated documentation.
 [repository]
-platform = "github"   # Platform type, `github`, `gitlab` or `bitbucket`
+platform = "github"   # Platform type, only `github` for now.
 user = "aiken-lang"   # Username or organisation on that platform
 project = "stdlib"    # Repository or project on that platform
 
-# A list of dependencies
+# [Optional]
 #
-# Leave as:
-#
-#     dependencies = []
-#
-# If you have none.
-#
-# Avoid editing by hand, use `aiken packages` to manage them.
+# A list of dependencies. Avoid editing by hand, use `aiken packages` to manage
+# them.
 [[dependencies]]
-name = "aiken-lang/stdlib"   # Project's name
-version = "main"             # Version, as a branch or git commit hash
-source = "github"            # Platform type, `github`, `gitlab` or `bitbucket`
+source = "github"            # Platform type, only `github` for now.
+name = "aiken-lang/stdlib"   # The github project, in the form of {organisation}/{repository}.
+version = "main"             # Version, as a git tag, branch name or git commit hash
 ```
 
 ## Well-known packages & modules
