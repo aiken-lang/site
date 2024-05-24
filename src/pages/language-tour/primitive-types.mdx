@@ -287,14 +287,14 @@ So as a rule of thumb, unless you specifically want to serialize external types
 (in datums and redeemers) as CBOR maps, you probably never want to use a
 `Pair<a, b>{:ak}` and can stick to a 2-tuple `(a, b){:ak}`.
 
-### AList
+### Pairs (former AList)
 
-An associative list is a mere type alias such that: `type AList<a, b> =
+An associative list (a.k.a Pairs) is a mere type alias such that: `type Pairs<a, b> =
 List<Pair<a, b>>{:ak}`. It exists as a convenience since pairs are mainly
 present in validator's script contexts under this form. In addition to
-functions for `List{:ak}` which are also all usable on `AList{:ak}`, the stdlib
+functions for `List{:ak}` which are also all usable on `Pairs{:ak}`, the stdlib
 also provides a [dedicated module of
-helpers](https://aiken-lang.github.io/stdlib/aiken/alist.html) specifically
+helpers](https://aiken-lang.github.io/stdlib/aiken/pairs.html) specifically
 crafted for associative lists.
 
 ### PRNG & Fuzzer
