@@ -30,11 +30,11 @@ In a similar fashion to what we did for the _Hello, World!_ contract, we'll
 need some credentials (and funds) to play around with. Here, we define an extra
 key for the beneficiary. Again, use the [Cardano
 faucet](https://docs.cardano.org/cardano-testnet/tools/faucet) to receive test
-funds. Refer to [Hello World :: Getting
-Funds](/getting-started/hello-world#getting-funds) in case you have any doubts
+funds. Refer to [Hello, World! :: Getting
+Funds](/example--hello-world/end-to-end/lucid#getting-funds) in case you have any doubts
 on the procedure.
 
-```ts filename="deno repl --allow-net --allow-write"
+```ts filename="generate-credentials.ts"
 import { Lucid } from "https://deno.land/x/lucid@0.8.3/mod.ts";
 
 const lucid = await Lucid.new(undefined, "Preview");
@@ -55,6 +55,15 @@ const beneficiaryAddress = await lucid
   .wallet.address();
 await Deno.writeTextFile("beneficiary.addr", beneficiaryAddress);
 ```
+
+<Callout type="info">
+  You can run the instructions above using Deno via:
+
+```console
+deno run --allow-net --allow-write generate-credentials.ts
+```
+</Callout>
+
 
 ## On-Chain code
 

@@ -119,19 +119,19 @@ Next let's define a type for `rdmr`. We have two actions that this validator
 will perform. This validator can be used to mint and then burn an NFT.
 
 ```aiken filename="validators/oneshot.ak" {3-6,10-15} /Action/2
-use aiken/transaction.{OutputReference, ScriptContext}
+use aiken/transaction.{OutputReference, ScriptContext} as tx
 
 type Action {
-  Mint
-  Burn
+  CheckMint
+  CheckBurn
 }
 
 validator(token_name: ByteArray, utxo_ref: OutputReference) {
   fn gift_card(rdmr: Action, ctx: ScriptContext) -> Bool {
     when rdmr is {
-      Mint ->
+      CheckMint ->
         todo @"mint"
-      Burn ->
+      CheckBurn ->
         todo @"burn"
     }
   }
@@ -142,45 +142,45 @@ Next we'll do these things in order so that we have everything we need
 to perform the final check.
 
 - pattern match on the script context to get `transaction` and `purpose`
-- `expect` the `purpose` to be `tx.Mint(policy_id)`
+- `expect` the `purpose` to be `Mint(policy_id)`
 - pattern match on the `transaction` to get it's `inputs` and `mint` which holds minted assets
 - `expect` minted assets (`mint`) to only have one item which has an `asset_name` and an `amount`
 
-```aiken filename="validators/oneshot.ak" {1,3,12-22} /Transaction/1
+```aiken filename="validators/oneshot.ak" {1-3,12-22} /Transaction} as tx/1
 use aiken/dict
-use aiken/transaction.{OutputReference, ScriptContext, Transaction} as tx
+use aiken/transaction.{Mint, OutputReference, ScriptContext, Transaction}
 use aiken/transaction/value
 
 type Action {
-  Mint
-  Burn
+  CheckMint
+  CheckBurn
 }
 
 validator(token_name: ByteArray, utxo_ref: OutputReference) {
   fn gift_card(rdmr: Action, ctx: ScriptContext) -> Bool {
     let ScriptContext { transaction, purpose } = ctx
 
-    expect tx.Mint(policy_id) = purpose
+    expect Mint(policy_id) = purpose
 
     let Transaction { inputs, mint, .. } = transaction
 
-    expect [(asset_name, amount)] =
+    expect [Pair(asset_name, amount)] =
       mint
         |> value.from_minted_value
         |> value.tokens(policy_id)
-        |> dict.to_list()
+        |> dict.to_pairs()
 
     when rdmr is {
-      Mint ->
+      CheckMint ->
         todo @"mint"
-      Burn ->
+      CheckBurn ->
         todo @"burn"
     }
   }
 }
 ```
 
-At this point we have all the data we need to perform the final check for the `Mint` action.
+At this point we have all the data we need to perform the final check for the `CheckMint` action.
 For this validator to succeed we need to ensure that the `utxo_ref` parameter equals one of
 the `inputs` in the transaction. In addition to this, we need to ensure `amount` is equal to one because
 we're minting an NFT. For fun, we'll check that `asset_name` is equal to `token_name` from the parameters.
@@ -188,35 +188,35 @@ we're minting an NFT. For fun, we'll check that `asset_name` is equal to `token_
 ```aiken filename="validators/oneshot.ak" {2,26-30}
 use aiken/dict
 use aiken/list
-use aiken/transaction.{OutputReference, ScriptContext, Transaction} as tx
+use aiken/transaction.{Mint, OutputReference, ScriptContext, Transaction}
 use aiken/transaction/value
 
 type Action {
-  Mint
-  Burn
+  CheckMint
+  CheckBurn
 }
 
 validator(token_name: ByteArray, utxo_ref: OutputReference) {
   fn gift_card(rdmr: Action, ctx: ScriptContext) -> Bool {
     let ScriptContext { transaction, purpose } = ctx
 
-    expect tx.Mint(policy_id) = purpose
+    expect Mint(policy_id) = purpose
 
     let Transaction { inputs, mint, .. } = transaction
 
-    expect [(asset_name, amount)] =
+    expect [Pair(asset_name, amount)] =
       mint
         |> value.from_minted_value
         |> value.tokens(policy_id)
-        |> dict.to_list()
+        |> dict.to_pairs()
 
     when rdmr is {
-      Mint -> {
+      CheckMint -> {
         expect True =
           list.any(inputs, fn(input) { input.output_reference == utxo_ref })
         amount == 1 && asset_name == token_name
       }
-      Burn ->
+      CheckBurn ->
         todo @"burn"
     }
   }
@@ -240,35 +240,35 @@ to check that `amount` is equal to negative one and that `asset_name` is equal t
 ```aiken filename="validators/oneshot.ak" {32}
 use aiken/dict
 use aiken/list
-use aiken/transaction.{OutputReference, ScriptContext, Transaction} as tx
+use aiken/transaction.{Mint, OutputReference, ScriptContext, Transaction}
 use aiken/transaction/value
 
 type Action {
-  Mint
-  Burn
+  CheckMint
+  CheckBurn
 }
 
 validator(token_name: ByteArray, utxo_ref: OutputReference) {
   fn gift_card(rdmr: Action, ctx: ScriptContext) -> Bool {
     let ScriptContext { transaction, purpose } = ctx
 
-    expect tx.Mint(policy_id) = purpose
+    expect Mint(policy_id) = purpose
 
     let Transaction { inputs, mint, .. } = transaction
 
-    expect [(asset_name, amount)] =
+    expect [Pair(asset_name, amount)] =
       mint
         |> value.from_minted_value
         |> value.tokens(policy_id)
-        |> dict.to_list()
+        |> dict.to_pairs()
 
     when rdmr is {
-      Mint -> {
+      CheckMint -> {
         expect Some(_input) =
           list.find(inputs, fn(input) { input.output_reference == utxo_ref })
         amount == 1 && asset_name == token_name
       }
-      Burn ->
+      CheckBurn ->
         amount == -1 && asset_name == token_name
     }
   }
@@ -283,7 +283,7 @@ exclusively with `gift_card`.
 ```aiken filename="validators/oneshot.ak" {8}
 use aiken/dict
 use aiken/list
-use aiken/transaction.{OutputReference, ScriptContext, Transaction} as tx
+use aiken/transaction.{Mint, OutputReference, ScriptContext, Transaction}
 use aiken/transaction/value
 
 // ... gift card validator ...
@@ -301,7 +301,7 @@ Let's add some boilerplate to this validator so that we can get the
 ```aiken filename="validators/oneshot.ak" {10-18}
 use aiken/dict
 use aiken/list
-use aiken/transaction.{OutputReference, ScriptContext, Transaction} as tx
+use aiken/transaction.{Mint, OutputReference, ScriptContext, Transaction}
 use aiken/transaction/value
 
 // ... gift card validator ...
@@ -312,11 +312,11 @@ validator(token_name: ByteArray, policy_id: ByteArray) {
 
     let Transaction { mint, .. } = transaction
 
-    expect [(asset_name, amount)] =
+    expect [Pair(asset_name, amount)] =
       mint
         |> value.from_minted_value
         |> value.tokens(policy_id)
-        |> dict.to_list()
+        |> dict.to_pairs()
 
     todo @"redeem"
   }
@@ -340,11 +340,11 @@ validator(token_name: ByteArray, policy_id: ByteArray) {
 
     let Transaction { mint, .. } = transaction
 
-    expect [(asset_name, amount)] =
+    expect [Pair(asset_name, amount)] =
       mint
         |> value.from_minted_value
         |> value.tokens(policy_id)
-        |> dict.to_list()
+        |> dict.to_pairs()
 
     amount == -1 && asset_name == token_name
   }
