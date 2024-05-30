@@ -152,14 +152,14 @@ when xs is {
 Sometimes, you need to halt the evaluation of your program because you've
 reached a case that is considered invalid or simply because you haven't yet
 finished developing some logic. Aiken provides two convenient keywords for
-that: `error` and `todo`.
+that: `fail` and `todo`.
 
 When encountered, both will halt the evaluation of your program which will be
 considered failed. They differ in their semantic i.e. how the compiler
 behaves towards them.
 
 In fact, `todo` will trigger warnings at compilation to remind you of those
-unfinished parts. `error` will not, as it is assumed to be a desired break
+unfinished parts. `fail` will not, as it is assumed to be a desired break
 point. Note that the warning also includes the expected type of the expression
 that needs to replace the `todo`. This can be a useful way of asking the
 compiler what type is needed if you are ever unsure.
@@ -176,19 +176,19 @@ fn favourite_number() -> Int {
 fn expect_some_value(opt: Option<a>) -> a {
   when opt is {
     Some(a) -> a
-    None -> error // We want this to fail when we encounter 'None'.
+    None -> fail // We want this to fail when we encounter 'None'.
   }
 }
 ```
 
 When this code is built Aiken will type check and compile the code to ensure it
-is valid, and the `todo` or `error` will be replaced with code that crashes the
+is valid, and the `todo` or `fail` will be replaced with code that crashes the
 program if that function is run.
 
 ### Giving a reason
 
 A `String` message can be given as a form of documentation. The message will be
-traced when the `todo` or `error` code is evaluated. Note that this is likely
+traced when the `todo` or `fail` code is evaluated. Note that this is likely
 the only place where you will encounter the type `String` and this is because
 the message needs to be printable -- unlike most `ByteArray` which are often
 plain gibberish.
@@ -201,7 +201,7 @@ fn favourite_number() -> Int {
 fn expect_some_value(opt: Option<a>) -> a {
   when opt is {
     Some(a) -> a
-    None -> error @"Option has no value"
+    None -> fail @"Option has no value"
   }
 }
 ```
