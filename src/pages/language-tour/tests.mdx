@@ -179,7 +179,9 @@ test must_fail() fail {
 }
 ```
 
-The `fail` keyword here works for both unit and property tests, with a subtle difference for property tests. Indeed, a property that is expected to fail will run until it does or until it reaches the maximum number of tries (default to 100, like successes). If the test runner finds 100 tests that satisfy a property expected to fail, the entire test is considered a failure. Said differently, it doesn't stop at the first _success_.
+The `fail` keyword here works for both unit and property tests, with a subtle difference for property tests. Indeed, a property that is expected to fail will still run multiple times and only be considered successful if ALL the execution of the property failed. This is useful to write non-properties, especially if they rely on `fail` or `expect` for checking pre-conditions under the hood. Said differently, a property test flagged as `fail` will stop at the first successful evaluation and be marked as failed.
+
+For properties, it's also possible to indicate `fail once` in order to run a property until it fails or until it reaches the maximum number of tries (default to 100). If the test runner finds 100 tests that satisfy a property expected to _fail once_, the entire test is considered a failure. Said differently, a property test flagged as `fail once` will stop at the first failed evaluation and be marked as a success. If none of the evaluation fails, it is marked as failed.
 
 ## Running specific tests
 
