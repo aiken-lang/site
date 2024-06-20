@@ -64,13 +64,13 @@ When calling the function, it is possible to use the defined labels to pass the
 arguments:
 
 ```aiken
-replace(self: "A,B,C", pattern: ",", replacement: " ")
+replace(self: @"A,B,C", pattern: @",", replacement: @" ")
 
 // Labeled arguments can be given in any order
-replace(pattern: ",", replacement: " ", self: "A,B,C")
+replace(pattern: @",", replacement: @" ", self: @"A,B,C")
 
 // Positional arguments and labels can be mixed
-replace("A,B,C", pattern: ",", replacement: " ")
+replace(@"A,B,C", pattern: @",", replacement: @" ")
 ```
 
 The use of argument labels can allow a function to be called in an expressive,
