@@ -226,15 +226,15 @@ A type alias lets you create a name which is identical to
 another type, without any additional information.
 
 ```aiken
-type MyNumber = Integer
+type MyNumber = Int
 ```
 
 They are most useful for simplifying type signatures.
 
 ```aiken
-type Person = (String, Integer)
+type Person = (String, Int)
 
-fn create_person(name: String, age: Integer) -> Person {
+fn create_person(name: String, age: Int) -> Person {
   (name, age)
 }
 ```
