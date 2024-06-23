@@ -82,13 +82,13 @@ particular, that the return types of both branches have to match.
 Incidentally, you can have as many conditional `else/if` branches as you need:
 
 ```aiken
-fn fibonnaci(n: Int) -> Int {
+fn fibonacci(n: Int) -> Int {
   if n == 0 {
     0
   } else if n == 1 {
     1
   } else {
-    fibonnaci(n-2) + fibonnaci(n-1)
+    fibonacci(n-2) + fibonacci(n-1)
   }
 }
 ```
