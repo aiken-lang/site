@@ -1,0 +1,113 @@
+import { Callout } from "nextra-theme-docs";
+
+<style>{`
+@font-face {
+  font-family: 'Menlo Regular';
+  font-style: normal;
+  font-weight: normal;
+  src: local('Menlo Regular'), url('/fonts/Menlo-Regular.woff') format('woff');
+}
+pre code {
+  line-height: 1rem !important;
+  font-family: "Menlo Regular" !important;
+}
+`}</style>
+
+# EUTxO Patterns and Practices
+
+There are number of design patterns that have been refined and enabled as Plutus has advanced from V1 to V2,
+and now to V3. This document seeks to be a non-exhaustive reference to these design patterns and practices.
+
+## Enforcing Uniqueness
+
+Enforcing uniqueness is of policies, asset names, or new outputs is useful in a number of contexts.
+
+### "One-Shot" Minting Policies
+
+A validator is parameterized with an `OutputReference`, the minting validator enforces that the inputs to
+the transaction contain the corresponding `Input`. By doing this, the minting policy is ensured to only
+validate a single time. In some designs, this logic is used for only a subset of redeemers to allow more
+flexible minting policies.
+
+### Receipts
+
+A validator can mint a unique receipt for a transaction, by requiring that the name of the asset is any
+unique value specific to the transaction where validation is set to occur. In other words, if we enforce
+that only one receipt is to be minted per transaction, we can use `blake2b_256` and `cbor.serialise` to
+get a unique value which can be assigned to the `AssetName` expected for the receipt from the
+`OutputReference` from the first `Input` in our transactions inputs.
+
+### Unique Outputs
+
+In order to prevent a vulnerability called 'Double Satisfaction' (see more below), one pattern is to ensure
+that the output associated with a given input has its datum 'tagged' with a value which is unique to the
+input. Enough info is present in the `OutputReference` of the input to create a unique value.
+
+## On-Chain Data Structures
+
+For multiple reasons maintaining an on-chain data structure can be valuable. There are a growing number of
+libraries and examples to make this easier to handle maintaining these data stuctures. Some data
+structures can be maintained in a single UTxO depending on their contents and structure, others require a
+number of UTxOs and are implemented as linked structures.
+
+Each UTxO contains a reference to the next (and potentially previous) UTxO in the structure, alternatively
+a trie structure could be implemented where each UTxO references any number of children along with a single
+parent.
+
+The contents of a given node on a distributed structure is arbitrary, a key value pair can be held in order
+to create a distributed map using this methodology. Proving exclusion can be done in a single transaction
+as long as there is a cardinal order to the entries, this is done by referencing the two UTxOs which should
+have our entry between them.
+
+## State Thread Tokens
+
+It is often useful to have a mutable state which either changes with each transaction, or on a periodic
+basis. One way to ensure that a datum is not 'spoofed' is to ensure that the input or reference input with
+that datum contains an NFT which has been generated to be unique using one of the method described above.
+
+## Actor Model ??
+
+## Double Satisfaction Anti-Pattern
+
+In PlutusV1 and PlutusV2, a common anti-pattern was to predicate spending upon logic that was specific to
+a given input - without ensuring uniqueness of the corresponding output.
+
+Let's walk through a short example:
+Bob wants to sell 20 SCOIN and wants at least 5 ADA in return; the contract would require that at least 
+5 ADA is paid to Bob, so far we are okay; but Bob also wants to sell 20 XCOIN and wants at least 10 ADA
+in return; the contract would require that at least 10 ADA is paid to Bob.
+
+Now Alice comes and pays Bob 10 ADA, in the same transaction she takes both the 20 SCOIN and 20 XCOIN
+because the contract is only ensuring that at least 10 ADA is paid to Bob.
+
+This can be solved by either ensuring that each input has a corresponding unique output to pay Bob, or
+by predicating the logic of spending any input of the script on all of the inputs and outputs that are
+relevant to the business logic of the dApp.
+
+## Forwarding Validation & Other Withdrawal Tricks
+
+By enforcing a given script hash to be present within the 'withdrawals' present on a given transaction,
+we can effectively 'forward' the validation to this script being evaluated with the `WithdrawFrom`
+script purpose.
+
+We can leverage this to allow a script to be owner of a UTxO present in another script, where we would
+normally ensure that the owner's PKH is present in the required signatories, if the credential is a
+script then we ensure that the script hash is present in the withdrawals of the transaction.
+
+By using this trick in a spending validator, we can reduce the logic in a spending validator to a
+minimum and delegate the logic to either the withdrawal purpose of the same or a different validator.
+This is used by a number of dApps now in production as of mid-2024 in order to optimize evaluation
+budgets and reach a higher throughput for dApps as opposed to tagging outputs as discussed above.
+
+Finally, we can combine on-chain data structures with the ability to force evaluation of a script
+by storing a large number of scripts within a data-structure. Then our primary script defines within
+its redeemer the script hash we are going to include in withdrawals of the tx, the logic of our
+primary script can be limited to only checking that this scripthash is present in our data-structure
+and present in the withdrawal category of the tx. This allows many more logical branches to exist
+for a given dApp than would otherwise be possible.
+
+## Other Reference Material
+
+https://github.com/Anastasia-Labs/design-patterns/
+
+https://github.com/Plutonomicon/plutonomicon/
