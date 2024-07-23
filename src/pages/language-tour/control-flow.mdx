@@ -62,7 +62,7 @@ description == "It's true!"
 
 ### If-Else
 
-Pattern matching on a `Bool` value is discouraged and `if / else`
+Pattern matching on a `Bool{:ak}` value is discouraged and `if / else`
 expressions should be use instead.
 
 ```aiken
@@ -144,6 +144,39 @@ specifying its shape at the same time. We can do this using the `as` keyword.
 when xs is {
   [[_, ..] as inner_list] -> inner_list
   _other -> []
+}
+```
+
+### Soft casting with `if/is`
+
+There are many different payloads of type `Data` that one may encounter which may not necessarily fit into one big multi-constructor type in Aiken. There is a syntax that allows checking if something is of a certain type or otherwise do something else. There is an enhancement to if expressions to be able to attempt casting but without returning an error by using the provided else instead.
+
+```aiken
+type Foo {
+  foo: Int
+}
+
+type Bar {
+  Buzz(Int)
+  Bazz(Int)
+}
+
+test soft_casting() {
+  let d: Data = Foo { foo: 1 }
+  let x: Data = Buzz(2)
+
+  // with no pattern provided
+  if d is Foo {
+    d.foo == 1
+  // with a pattern
+  } else if d is Bazz(y): Bar {
+    y == 1
+  // with a pattern
+  } else if x is Buzz(y): Bar {
+    y == 2
+  } else {
+    False
+  }
 }
 ```
 
