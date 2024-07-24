@@ -14,17 +14,17 @@ For example:
 
 ```aiken
 fn is_even(n: Int) -> Bool {
-  trace "is_even"
+  trace @"is_even"
   n % 2 == 0
 }
 
 fn is_odd(n: Int) -> Bool {
-  trace "is_odd"
+  trace @"is_odd"
   n % 2 != 0
 }
 ```
 
-Traces can be a little hard to grasp initially since Plutus -- and therefore Aiken -- is a purely functional execution engine. There's therefore no _statements_ in a compiled program. There's only _expressions_. A trace will be collected if it is evaluated by the virtual machine. There are two common ways to capture traces in Aiken: when running tests via `aiken check` or when simulating a transaction using `aiken tx simulate`. In both cases, traces captured during evaluation will be printed on screen.
+Traces can be a little hard to grasp initially since Plutus -- and therefore Aiken -- is a purely functional execution engine. There's no _statements_ in a compiled program. There only are _expressions_. A trace will be collected if it is evaluated by the virtual machine. There are two common ways to capture traces in Aiken: when running tests via `aiken check` or when simulating a transaction using `aiken tx simulate`. In both cases, traces captured during evaluation will be printed on screen.
 
 For example, in the following program:
 
@@ -33,12 +33,30 @@ let n = 10
 is_even(n) || is_odd(n)
 ```
 
-Only the trace `is_even` will be captured, because `is_odd` is in fact never evaluated (there's no need because the left-hand side already returns `True`).
+Only the trace `is_even{:ak}` will be captured, because `is_odd{:ak}` is in fact never evaluated (there's no need because the left-hand side already returns `True{:ak}`).
+
+There's more! Traces are quite powerful in Aiken. The `trace{:ak}` keyword is actually variadic: it accepts any number of arguments between 1 and ... please don't go too high. The syntax for it might look a bit surprising, unless you think of the first argument as _a label_.
+
+```aiken
+fn foo() {
+  trace @"A": @"foo", @"bar" // outputs "A: foo, bar"
+  Void
+}
+```
+
+In fact, since `1.0.30-alpha` traces are no longer limited to strings. You can trace any _serialisable_ value auto-magically. The values will be traced using the [diagnostic notation described below](#cbor-diagnostic).
+
+```aiken
+fn foo(my_list: List<Option<Int>>) -> Bool {
+  trace @"foo": my_list
+  list.is_empty(my_list)
+}
+```
 
 <Callout type="warning">
   Note that traces are:
 
-- **Removed by default** when building your project with `aiken build`. They can be preserved using `--trace-level verbose`;
+- **Removed by default** when building your project with `aiken build`. They can be preserved using `--trace-level verbose`. You can also only preserve traces' labels (i.e. first arguments) by using `--trace-level compact`.
 - **Kept by default** when checking your project with `aiken check`. They can be left out using `--trace-level silent`.
 
 This is because tracing makes compiled code bigger and can add an extra overhead which is often undesired for final production-ready validators. Yet, they are useful for development and when testing. The command-line is thus geared towards those use-cases. Beware that while enabling or disabling traces doesn't change the semantic of your program, it effectively changes its hash value, and thus its associated addresses.
