@@ -1,3 +1,5 @@
+import { Callout } from "nextra-theme-docs";
+
 # Functions
 
 ## Named functions
@@ -168,7 +170,51 @@ argument. Syntax is available to substitute specific arguments of functions
 that take more than one argument; for more, look below in the section "Function
 capturing".
 
-## Function capturing
+## Type annotations
+
+Function arguments are normally annotated with their type, and the
+compiler will check these annotations and ensure they are correct.
+
+```aiken
+fn identity(x: some_type) -> some_type {
+  x
+}
+
+fn inferred_identity(x) {
+  x
+}
+```
+
+The Aiken compiler can infer all the types of Aiken code without annotations
+and both annotated and unannotated code is equally safe. It's considered a
+best practice to always write type annotations for your functions as they
+provide useful documentation, and they encourage thinking about types as code
+is being written.
+
+
+## Documentation
+
+You may add user facing documentation in front of function definitions with a
+documentation comment `///` per line. Markdown is supported and this text
+will be included with the module's entry in generated HTML documentation.
+
+```aiken
+/// Always true.
+///
+fn always_true(_a) -> Bool {
+  True
+}
+```
+
+## Advanced
+
+<Callout emoji="💡">
+If you're just **getting started** with Aiken, you can probably **skip** the
+following section as it describes some more function usages and behaviors. Feel
+free to come back to it in due time.
+</Callout>
+
+### Function capturing
 
 There is a shorthand syntax for creating anonymous functions that take one
 argument and call another function. The `_` is used to indicate where the
@@ -221,7 +267,37 @@ as the first argument to the call, e.g. `a |> b(1, 2)` would become `b(a, 1, 2)`
 If not it falls back to calling the result of the right hand side as a function
 , e.g. `b(1, 2)(a)`.
 
-## Backpassing `←`
+### Generic functions
+
+At times you may wish to write functions that are generic over multiple types.
+For example, consider a function that consumes any value and returns a list
+containing two of the value that was passed in. This can be expressed in Aiken
+like this:
+
+```aiken
+fn list_of_two(my_value: a) -> List<a> {
+  [my_value, my_value]
+}
+```
+
+Here the type variable `a` is used to represent any possible type.
+
+You can use any number of different type variables in the same function. This
+function declares type variables `a` and `b`.
+
+```aiken
+fn multi_result(x: a, y: b, condition: Bool) -> Result<a, b> {
+  when condition is {
+    True -> Ok(x)
+    False -> Error(y)
+  }
+}
+```
+
+Type variables can be named anything and may contain underscores (_), but the names must be lowercase. Like other type annotations, they are completely optional,
+but using them may make it easier to understand the code.
+
+### Backpassing `←`
 
 Functions that take a continuation (i.e. callback with a single argument) can be invoked using the backpassing syntax:
 
@@ -278,69 +354,3 @@ pub fn option(fuzz_a: Fuzzer<a>) -> Fuzzer<Option<a>> {
 ```
 
 Which reads a lot better! In fact, this technique becomes even more helpful when there are a lot of nested callbacks as it _flattens_ them into a sequence of backpassed let-bindings.
-
-## Generic functions
-
-At times you may wish to write functions that are generic over multiple types.
-For example, consider a function that consumes any value and returns a list
-containing two of the value that was passed in. This can be expressed in Aiken
-like this:
-
-```aiken
-fn list_of_two(my_value: a) -> List<a> {
-  [my_value, my_value]
-}
-```
-
-Here the type variable `a` is used to represent any possible type.
-
-You can use any number of different type variables in the same function. This
-function declares type variables `a` and `b`.
-
-```aiken
-fn multi_result(x: a, y: b, condition: Bool) -> Result<a, b> {
-  when condition is {
-    True -> Ok(x)
-    False -> Error(y)
-  }
-}
-```
-
-Type variables can be named anything and may contain underscores (_), but the names must be lowercase. Like other type annotations, they are completely optional,
-but using them may make it easier to understand the code.
-
-## Type annotations
-
-Function arguments are normally annotated with their type, and the
-compiler will check these annotations and ensure they are correct.
-
-```aiken
-fn identity(x: some_type) -> some_type {
-  x
-}
-
-fn inferred_identity(x) {
-  x
-}
-```
-
-The Aiken compiler can infer all the types of Aiken code without annotations
-and both annotated and unannotated code is equally safe. It's considered a
-best practice to always write type annotations for your functions as they
-provide useful documentation, and they encourage thinking about types as code
-is being written.
-
-
-## Documentation
-
-You may add user facing documentation in front of function definitions with a
-documentation comment `///` per line. Markdown is supported and this text
-will be included with the module's entry in generated HTML documentation.
-
-```aiken
-/// Always true.
-///
-fn always_true(_a) -> Bool {
-  True
-}
-```

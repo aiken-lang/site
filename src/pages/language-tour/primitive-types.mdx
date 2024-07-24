@@ -2,9 +2,9 @@ import { Callout } from "nextra-theme-docs";
 
 # Primitive Types
 
-Aiken has 6 primitive types that are built in the language and can be typed as literals: booleans, integers, strings, byte arrays, data and void. The language also includes 2 base building blocks for associating types together: lists and tuples.
+Aiken has 6 primitive types that are built in the language and can be typed as literals: booleans, integers, strings, bytearrays, data and void. The language also includes few base building blocks for associating types together: lists, tuples, options, pairs...
 
-Worry not, we'll see later in this manual how to create your own custom types.
+Worry not, we'll see later in this manual how to create your own [custom types](/language-tour/custom-types).
 
 <Callout type="info">
   Inline comments are denoted via `//`. We'll use them to illustrate the value
@@ -204,6 +204,43 @@ x // [2, 3]
 y // [1, 2, 3]
 ```
 
+## Option
+
+We define `Option{:ak}` as a generic type with two constructors (see also [custom types](/language-tour/custom-types) for details about this syntax):
+
+```ak
+type Option<a> {
+  Some(a)
+  None
+}
+```
+
+The type parameter `a{:ak}` indicates that an `Option{:ak}` may be inhabited by any other type. Functions may manipulate it without making assumptions on what this type is, or may require the type to be instantiated to a particular concrete type.
+
+Options are used in situation where function must return optional values. For example:
+
+```ak
+/// Extract the first element of a list, if any.
+fn get_head(xs: List<a>) -> Option<a> {
+  when xs is {
+    [] -> None
+    [head, ..] -> Some(head)
+  }
+}
+
+/// Ensures a number is strictly positive.
+fn to_positive(n: Int) -> Option<Int> {
+  if n <= 0 {
+    None
+  } else {
+    Some(n)
+  }
+}
+```
+
+The `Option{:ak}` type is readily available in Aiken; it is part of the types and constructors available by default. Don't hesitate to use it!
+
+
 ## Void
 
 `Void{:ak}` is a type representing the nullary constructor, or put simply, the absence of value. It is denoted `Void` as a type and constructor. Fundamentally, if you think in terms of tuples, `Void{:ak}` is a tuple with no element in it.
@@ -212,9 +249,9 @@ y // [1, 2, 3]
 
 ## Data
 
-A `Data{:ak}` is an opaque compound type that can represent any possible user-defined type in Aiken. We'll see more about `Data{:ak}` when we cover custom types. In the meantime, think of _Data_ as a kind of wildcard that can possibly represent _any serialisable_ value.
+A `Data{:ak}` is an opaque compound type that can represent any possible user-defined type in Aiken. We'll see more about `Data{:ak}` when we cover [custom types](/language-tour/custom-types). In the meantime, think of _Data_ as a kind of wildcard that can possibly represent _any serialisable_ value.
 
-This is useful when you need to use values from different types in an homogeneous structure. Any user-defined type can be cast to a `Data{:ak}`, and you can try converting from a _Data_ to any custom type in a safe manner. Besides, several language builtins only work with `Data{:ak}` as a way to deal with polymorphism.
+This is useful when you need to use values from different types in an homogeneous structure. Any user-defined type can be cast to a `Data{:ak}`, and you can try converting from a _Data_ to any [custom type](/language-tour/custom-types) in a safe manner. Besides, several language builtins only work with `Data{:ak}` as a way to deal with polymorphism.
 
 ## String
 
@@ -248,9 +285,9 @@ Under the hood text strings are [UTF-8](https://en.wikipedia.org/wiki/UTF-8) enc
 ## Advanced
 
 <Callout emoji="💡">
-If you're just getting started with Aiken, you can probably skip the following
-section as it describes some more advanced types and behaviors. Feel free to
-come back to it in due time.
+If you're just **getting started** with Aiken, you can probably **skip** the
+following section as it describes some more advanced types and behaviors. Feel
+free to come back to it in due time.
 </Callout>
 
 ### Pair
