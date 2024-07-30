@@ -75,7 +75,7 @@ use aiken/hash.{Blake2b_224, Hash}
 use aiken/transaction/credential.{VerificationKey}
 
 type Datum {
-  /// POSIX time in second, e.g. 1672843961000
+  /// POSIX time in millisecond, e.g. 1672843961000
   lock_until: POSIXTime,
   /// Owner's credentials
   owner: VerificationKeyHash,
