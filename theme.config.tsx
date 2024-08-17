@@ -54,6 +54,7 @@ const config: DocsThemeConfig = {
     link: "https://discord.gg/Vc3x8N9nz2",
   },
   toc: {
+    backToTop: true,
     extraContent: <></>,
   },
   i18n: [
@@ -90,6 +91,11 @@ const config: DocsThemeConfig = {
         cardType: "summary_large_image",
       },
     };
+  },
+  sidebar: {
+    defaultMenuCollapseLevel: 1,
+    toggleButton: true,
+    autoCollapse: true,
   },
   footer: {
     component: (<>
