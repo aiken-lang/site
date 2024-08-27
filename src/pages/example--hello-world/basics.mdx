@@ -5,12 +5,13 @@ import { Callout } from "nextra-theme-docs";
 Let's write and execute a smart contract on Cardano in 10 minutes. Yes, you read that right.
 
 <Callout type="info">
-You can find code supporting this tutorial on [Aiken's main repository](https://github.com/aiken-lang/aiken/tree/main/examples/hello_world).
+  You can find code supporting this tutorial on [Aiken's main
+  repository](https://github.com/aiken-lang/aiken/tree/main/examples/hello_world).
 </Callout>
 
 ## Covered in this tutorial
 
-<br/>
+<br />
 
 - [x] Writing a basic Aiken validator;
 - [x] Writing & running tests with Aiken;
@@ -18,7 +19,8 @@ You can find code supporting this tutorial on [Aiken's main repository](https://
 
 <Callout type="info" emoji="📘">
   When encountering an unfamiliar syntax or concept, do not hesitate to refer to
-  the [language-tour](/language-tour/primitive-types) for details and extra examples.
+  the [language-tour](/language-tour/primitive-types) for details and extra
+  examples.
 </Callout>
 
 ## Pre-requisites
@@ -42,7 +44,6 @@ This command scaffolds an Aiken project. In particular, it creates a `lib` and `
 ├── README.md
 ├── aiken.toml
 ├── lib
-│   └── hello-world
 └── validators
 ```
 
@@ -64,7 +65,7 @@ platform = 'github'
 
 [[dependencies]]
 name = "aiken-lang/stdlib"
-version = "1.9.0"
+version = "2.0.0"
 source = "github"
 ```
 
@@ -72,43 +73,48 @@ Now, running `aiken check`, we should see dependencies being downloaded. That sh
 
 ```
 ❯ aiken check
-    Resolving versions
-  Downloading packages
-   Downloaded 1 package in 0.91s
-    Compiling aiken-lang/stdlib 1.9.0 (/Users/aiken/Documents/aiken-lang/hello-world/build/packages/aiken-lang-stdlib)
-    Compiling aiken-lang/hello-world 0.0.0 (/Users/aiken/Documents/aiken-lang/hello-world)
-
-Summary
-    0 error, 0 warning(s)
+    Compiling aiken-lang/hello-world 1.0.0 (examples/hello-world/)
+    Resolving aiken-lang/hello-world
+      Fetched 1 package in 0.01s from cache
+    Compiling aiken-lang/stdlib v2 (/Users/aiken/Documents/aiken-lang/hello-world/build/packages/aiken-lang-stdlib)
+      Summary 0 errors, 0 warnings
 ```
 
 ## Our first validator
 
-Let's write our first validator as `validators/hello-world.ak`:
+Let's write our first validator as `validators/hello_world.ak`:
 
-```aiken filename="validators/hello-world.ak"
-use aiken/hash.{Blake2b_224, Hash}
-use aiken/list
-use aiken/transaction.{ScriptContext}
-use aiken/transaction/credential.{VerificationKey}
+```aiken filename="validators/hello_world.ak"
+use aiken/collection/list
+use cardano/credential.{VerificationKeyHash}
+use cardano/transaction.{OutputReference, Transaction}
 
 type Datum {
-  owner: Hash<Blake2b_224, VerificationKey>,
+  owner: VerificationKeyHash,
 }
 
 type Redeemer {
   msg: ByteArray,
 }
 
-validator {
-  fn hello_world(datum: Datum, redeemer: Redeemer, context: ScriptContext) -> Bool {
-    let must_say_hello =
-      redeemer.msg == "Hello, World!"
+validator hello_world {
+  spend(
+    datum: Option<Datum>,
+    redeemer: Redeemer,
+    _own_ref: OutputReference,
+    context: ScriptContext
+  ) -> Bool {
+    let must_say_hello = redeemer.msg == "Hello, World!"
 
-    let must_be_signed =
-      list.has(context.transaction.extra_signatories, datum.owner)
+    expect Some(Datum { owner }) = datum
+
+    let must_be_signed = list.has(transaction.extra_signatories, owner)
 
     must_say_hello && must_be_signed
+  }
+
+  else(_) {
+    fail
   }
 }
 ```
@@ -138,31 +144,43 @@ In a way, validators are nothing more than _predicates_. A predicate is a functi
 So let's add a few traces.
 
 ```aiken filename="validators/hello-world.ak" {3, 17, 25}
-use aiken/hash.{Blake2b_224, Hash}
-use aiken/list
-use aiken/string
-use aiken/transaction.{ScriptContext}
-use aiken/transaction/credential.{VerificationKey}
+use aiken/collection/list
+use aiken/primitive/string
+use cardano/credential.{VerificationKeyHash}
+use cardano/transaction.{OutputReference, Transaction}
 
 type Datum {
-  owner: Hash<Blake2b_224, VerificationKey>,
+  owner: VerificationKeyHash,
 }
 
 type Redeemer {
   msg: ByteArray,
 }
 
-validator {
-  fn hello_world(datum: Datum, redeemer: Redeemer, context: ScriptContext) -> Bool {
+validator hello_world {
+  spend(
+    datum: Option<Datum>,
+    redeemer: Redeemer,
+    _own_ref: OutputReference,
+    context: ScriptContext
+  ) -> Bool {
     trace string.from_bytearray(redeemer.msg)
 
-    let must_say_hello =
-      redeemer.msg == "Hello, World!"
+    let must_say_hello = redeemer.msg == "Hello, World!"
+
+    expect Some(Datum { owner }) = datum
+
 
     let must_be_signed =
       list.has(context.transaction.extra_signatories, datum.owner)
 
+    let must_be_signed = list.has(transaction.extra_signatories, owner)
+
     must_say_hello? && must_be_signed?
+  }
+
+  else(_) {
+    fail
   }
 }
 ```
@@ -180,7 +198,7 @@ In order to see those traces, we'll need to write a short test.
 Aiken has support for tests built-in! As you'll see shortly, tests can also serve as benchmarks since they display the exact memory and steps execution units required to run them. They also collect traces for us. Let's write a simple test which runs our validator. Tests are functions without arguments which return boolean. Yet unlike functions, they are denoted with the keyword `test`. We will need a datum, a redeemer and a script context as well as a few more imports:
 
 ```aiken filename="validators/hello-world.ak" {1, 5-22}
-use aiken/transaction.{OutputReference, ScriptContext, Spend, TransactionId}
+use cardano/transaction.{OutputReference}
 
 // ... rest of the code is unchanged
 
@@ -192,15 +210,14 @@ test hello_world_example() {
     Redeemer { msg: "Aiken Rocks!" }
 
   let placeholder_utxo =
-    OutputReference { transaction_id: TransactionId(""), output_index: 0 }
+    OutputReference { transaction_id: "", output_index: 0 }
 
-  let context =
-    ScriptContext {
-      purpose: Spend(placeholder_utxo),
-      transaction: transaction.placeholder(),
-    }
-
-  hello_world(datum, redeemer, context)
+  hello_world.spend(
+    Some(datum),
+    redeemer,
+    placeholder_utxo,
+    transaction.placeholder()
+  )
 }
 ```
 
@@ -220,7 +237,6 @@ This output is already pretty useful. We can see the `trace` that we added in ou
 
 Let's fix this and ensure that we say `Hello, World!` instead.
 
-
 ```aiken filename="validators/hello-world.ak" {6}
 test hello_world_example() {
   let datum =
@@ -230,15 +246,14 @@ test hello_world_example() {
     Redeemer { msg: "Hello, World!" }
 
   let placeholder_utxo =
-    OutputReference { transaction_id: TransactionId(""), output_index: 0 }
+    OutputReference { transaction_id: "", output_index: 0 }
 
-  let context =
-    ScriptContext {
-      purpose: Spend(placeholder_utxo),
-      transaction: transaction.placeholder(),
-    }
-
-  hello_world(datum, redeemer, context)
+  hello_world.spend(
+    Some(datum),
+    redeemer,
+    placeholder_utxo,
+    transaction.placeholder()
+  )
 }
 ```
 
@@ -257,9 +272,7 @@ Now, we can run `aiken check` again:
 It fails again, as expected, but we got further. Notice how the the `mem` and `cpu` execution units are slightly higher than on the first execution. Now, we have moved to evaluating the second part of the validator requirements: `must_be_signed`. To satisfy this second requirement, we'll need to add our test owner to the transaction's extra signatories. As such:
 
 ```aiken filename="validators/hello-world.ak" {2, 20-23}
-use aiken/transaction.{
-  OutputReference, ScriptContext, Spend, Transaction, TransactionId,
-}
+use cardano/transaction.{OutputReference, Transaction}
 
 // ...rest of the code is unchanged
 
@@ -271,18 +284,17 @@ test hello_world_example() {
     Redeemer { msg: "Hello, World!" }
 
   let placeholder_utxo =
-    OutputReference { transaction_id: TransactionId(""), output_index: 0 }
+    OutputReference { transaction_id: "", output_index: 0 }
 
-  let context =
-    ScriptContext {
-      purpose: Spend(placeholder_utxo),
-      transaction: transaction.placeholder()
-        |> fn(transaction) {
-             Transaction { ..transaction, extra_signatories: [datum.owner] }
-           }
+  hello_world(
+    Some(datum),
+    redeemer,
+    placeholder_utxo,
+    Transaction {
+      ..transaction.placeholder(),
+      extra_signatories: [datum.owner]
     }
-
-  hello_world(datum, redeemer, context)
+  )
 }
 ```
 
@@ -300,7 +312,13 @@ This should do the trick. Note that, at this point, we do not provide any signat
 And, it works! We are left with our `Hello, World!` trace and no failure 🎉! Congratulations, you've made it. Of course, this particular test isn't really interesting. Yet, in practice, validators are more complex and layered. We encourage you to split validators into smaller functions that do one thing at a time, and test those functions independently.
 
 <Callout type="warning">
-Traces can add some overhead to a validator's execution. This is why Aiken _erases_ all traces by default when you build validators. To keep them in the final validators, use the `--trace-level verbose` option when building. Conversely, the `check` command _preserves_ traces by default since most of the time, this is what you want. If you need to benchmark an execution without traces, you can always pass the `--trace-level silent` flag when running tests to remove all traces.
+  Traces can add some overhead to a validator's execution. This is why Aiken
+  _erases_ all traces by default when you build validators. To keep them in the
+  final validators, use the `--trace-level verbose` option when building.
+  Conversely, the `check` command _preserves_ traces by default since most of
+  the time, this is what you want. If you need to benchmark an execution without
+  traces, you can always pass the `--trace-level silent` flag when running tests
+  to remove all traces.
 </Callout>
 
 You are now ready to move on to the next steps and look into performing this end-to-end, with a real transaction! Exciting, isn't it?
