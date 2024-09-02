@@ -1,67 +1,95 @@
+import { Callout } from "nextra-theme-docs";
+
 # Builtins
+
+<Callout type="info">
+You can find the Aiken equivalents of those builtins in [aiken-lang/prelude](https://aiken-lang.github.io/prelude/aiken/builtin.html).
+</Callout>
 
 | Builtins                                     | Type Args | Term Args                            | Result                |
 | -------------------------------------------- | --------- | ------------------------------------ | --------------------- |
-| `ifThenElse{:uplc}`[^1]                      | (α)       | (bool, (α), (α))                     | α                     |
+| `ifThenElse{:uplc}`[^1]                      | (α)       | (Bool, (α), (α))                     | α                     |
 |                                              |           |                                      |                       |
-| `addInteger{:uplc}`                          | \-        | (integer, integer)                   | integer               |
-| `subtractInteger{:uplc}`                     | \-        | (integer, integer)                   | integer               |
-| `multiplyInteger{:uplc}`                     | \-        | (integer, integer)                   | integer               |
-| `divideInteger{:uplc}`                       | \-        | (integer, integer)                   | integer               |
-| `modInteger{:uplc}`                          | \-        | (integer, integer)                   | integer               |
-| `quotientInteger{:uplc}`                     | \-        | (integer, integer)                   | integer               |
-| `remainderInteger{:uplc}`                    | \-        | (integer, integer)                   | integer               |
-| `equalsInteger{:uplc}`                       | \-        | (integer, integer)                   | bool                  |
-| `lessThanInteger{:uplc}`                     | \-        | (integer, integer)                   | bool                  |
-| `lessThanEqualsInteger{:uplc}`               | \-        | (integer, integer)                   | bool                  |
+| `addInteger{:uplc}`                          | \-        | (Integer, Integer)                   | Integer               |
+| `subtractInteger{:uplc}`                     | \-        | (Integer, Integer)                   | Integer               |
+| `multiplyInteger{:uplc}`                     | \-        | (Integer, Integer)                   | Integer               |
+| `divideInteger{:uplc}`                       | \-        | (Integer, Integer)                   | Integer               |
+| `modInteger{:uplc}`                          | \-        | (Integer, Integer)                   | Integer               |
+| `quotientInteger{:uplc}`                     | \-        | (Integer, Integer)                   | Integer               |
+| `remainderInteger{:uplc}`                    | \-        | (Integer, Integer)                   | Integer               |
+| `equalsInteger{:uplc}`                       | \-        | (Integer, Integer)                   | Bool                  |
+| `lessThanInteger{:uplc}`                     | \-        | (Integer, Integer)                   | Bool                  |
+| `lessThanEqualsInteger{:uplc}`               | \-        | (Integer, Integer)                   | Bool                  |
+| `integerToByteString{:uplc}`                 | \-        | (Bool, Integer, Integer)             | Integer               |
 |                                              |           |                                      |                       |
-| `appendString{:uplc}`                        | \-        | (string, string)                     | string                |
-| `equalsString{:uplc}`                        | \-        | (string, string)                     | bool                  |
-| `encodeUtf8{:uplc}`                          | \-        | (string)                             | bytestring            |
+| `appendString{:uplc}`                        | \-        | (String, String)                     | String                |
+| `equalsString{:uplc}`                        | \-        | (String, String)                     | Bool                  |
+| `encodeUtf8{:uplc}`                          | \-        | (String)                             | Bytestring            |
 |                                              |           |                                      |                       |
-| `appendByteString{:uplc}`                    | \-        | (bytestring, bytestring)             | bytestring            |
-| `consByteString{:uplc}`                      | \-        | (integer, bytestring)                | bytestring            |
-| `indexByteString{:uplc}`                     | \-        | (bytestring, integer)                | integer               |
-| `sliceByteString{:uplc}`                     | \-        | (integer, integer, bytestring)       | bytestring            |
-| `lengthOfByteString{:uplc}`                  | \-        | (bytestring)                         | integer               |
-| `equalsByteString{:uplc}`                    | \-        | (bytestring, bytestring)             | bool                  |
-| `lessThanByteString{:uplc}`                  | \-        | (bytestring, bytestring)             | bool                  |
-| `lessThanEqualsByteString{:uplc}`            | \-        | (bytestring, bytestring)             | bool                  |
-| `decodeUtf8{:uplc}`                          | \-        | (bytestring)                         | string                |
+| `appendByteString{:uplc}`                    | \-        | (Bytestring, Bytestring)             | Bytestring            |
+| `consByteString{:uplc}`                      | \-        | (Integer, Bytestring)                | Bytestring            |
+| `indexByteString{:uplc}`                     | \-        | (Bytestring, Integer)                | Integer               |
+| `sliceByteString{:uplc}`                     | \-        | (Integer, Integer, Bytestring)       | Bytestring            |
+| `lengthOfByteString{:uplc}`                  | \-        | (Bytestring)                         | Integer               |
+| `equalsByteString{:uplc}`                    | \-        | (Bytestring, Bytestring)             | Bool                  |
+| `lessThanByteString{:uplc}`                  | \-        | (Bytestring, Bytestring)             | Bool                  |
+| `lessThanEqualsByteString{:uplc}`            | \-        | (Bytestring, Bytestring)             | Bool                  |
+| `decodeUtf8{:uplc}`                          | \-        | (Bytestring)                         | String                |
+| `byteStringToInteger{:uplc}`                 | \-        | (Bool, Bytestring)                   | Integer               |
 |                                              |           |                                      |                       |
-| `chooseData{:uplc}`[^2]                      | (α)       | (data, (α), (α), (α), (α), (α))      | α                     |
-| `constrData{:uplc}`                          | \-        | (integer, list data)                 | data                  |
-| `unConstrData{:uplc}`                        | \-        | data                                 | (integer, list data)  |
-| `iData{:uplc}`                               | \-        | (integer)                            | data                  |
-| `unIData{:uplc}`                             | \-        | (data)                               | integer               |
-| `bData{:uplc}`                               | \-        | (bytestring)                         | data                  |
-| `unBData{:uplc}`                             | \-        | (data)                               | bytestring            |
-| `mapData{:uplc}`                             | \-        | (list (pair data data))              | data                  |
-| `unMapData{:uplc}`                           | \-        | (data)                               | list (pair data data) |
-| `listData{:uplc}`                            | \-        | (list data)                          | data                  |
-| `unListData{:uplc}`                          | \-        | (data)                               | list data             |
-| `equalsData{:uplc}`                          | \-        | (data, data)                         | bool                  |
-| `serialiseData{:uplc}`                       | \-        | (data)                               | bytestring            |
+| `chooseData{:uplc}`[^2]                      | (α)       | (Data, (α), (α), (α), (α), (α))      | α                     |
+| `constrData{:uplc}`                          | \-        | (Integer, List Data)                 | Data                  |
+| `unConstrData{:uplc}`                        | \-        | Data                                 | (Integer, List Data)  |
+| `iData{:uplc}`                               | \-        | (Integer)                            | Data                  |
+| `unIData{:uplc}`                             | \-        | (Data)                               | Integer               |
+| `bData{:uplc}`                               | \-        | (Bytestring)                         | Data                  |
+| `unBData{:uplc}`                             | \-        | (Data)                               | Bytestring            |
+| `mapData{:uplc}`                             | \-        | (List (Pair Data Data))              | Data                  |
+| `unMapData{:uplc}`                           | \-        | (Data)                               | List (Pair Data Data) |
+| `listData{:uplc}`                            | \-        | (List Data)                          | Data                  |
+| `unListData{:uplc}`                          | \-        | (Data)                               | List Data             |
+| `equalsData{:uplc}`                          | \-        | (Data, Data)                         | Bool                  |
+| `serialiseData{:uplc}`                       | \-        | (Data)                               | Bytestring            |
 |                                              |           |                                      |                       |
-| `chooseList{:uplc}`[^3]                      | (α, β)    | (list (α), (β), (β))                 | β                     |
-| `mkNilData{:uplc}`                           | \-        | (unit)                               | list (data)           |
-| `mkNilPairData{:uplc}`                       | \-        | (unit)                               | list (pair data data) |
-| `mkCons{:uplc}`                              | (α)       | ((α), list (α))                      | list (α)              |
-| `headList{:uplc}`                            | (α)       | (list (α))                           | α                     |
-| `tailList{:uplc}`                            | (α)       | (list (α))                           | list (α)              |
-| `nullList{:uplc}`                            | (α)       | (list (α))                           | bool                  |
+| `chooseList{:uplc}`[^3]                      | (α, β)    | (List (α), (β), (β))                 | β                     |
+| `mkNilData{:uplc}`                           | \-        | (Unit)                               | List (Data)           |
+| `mkNilPairData{:uplc}`                       | \-        | (Unit)                               | List (Pair Data Data) |
+| `mkCons{:uplc}`                              | (α)       | ((α), List (α))                      | List (α)              |
+| `headList{:uplc}`                            | (α)       | (List (α))                           | α                     |
+| `tailList{:uplc}`                            | (α)       | (List (α))                           | List (α)              |
+| `nullList{:uplc}`                            | (α)       | (List (α))                           | Bool                  |
 |                                              |           |                                      |                       |
-| `mkPairData{:uplc}`                          | \-        | (data, data)                         | pair (data) (data)    |
-| `fstPair{:uplc}`                             | (α, β)    | pair (α) (β)                         | α                     |
-| `sndPair{:uplc}`                             | (α, β)    | pair (α) (β)                         | β                     |
+| `mkPairData{:uplc}`                          | \-        | (Data, Data)                         | Pair (Data) (Data)    |
+| `fstPair{:uplc}`                             | (α, β)    | Pair (α) (β)                         | α                     |
+| `sndPair{:uplc}`                             | (α, β)    | Pair (α) (β)                         | β                     |
 |                                              |           |                                      |                       |
-| `sha2_256{:uplc}`                            | \-        | (bytestring)                         | bytestring            |
-| `sha3_256{:uplc}`                            | \-        | (bytestring)                         | bytestring            |
-| `blake2b_256{:uplc}`                         | \-        | (bytestring)                         | bytestring            |
+| `blake2b_224{:uplc}`                         | \-        | (Bytestring)                         | Bytestring            |
+| `blake2b_256{:uplc}`                         | \-        | (Bytestring)                         | Bytestring            |
+| `keccak_256{:uplc}`                          | \-        | (Bytestring)                         | Bytestring            |
+| `sha2_256{:uplc}`                            | \-        | (Bytestring)                         | Bytestring            |
+| `sha3_256{:uplc}`                            | \-        | (Bytestring)                         | Bytestring            |
 |                                              |           |                                      |                       |
-| `verifyEd25519Signature{:uplc}`[^4]          | \-        | (bytestring, bytestring, bytestring) | bool                  |
-| `verifyEcdsaSecp256k1Signature{:uplc}`[^4]   | \-        | (bytestring, bytestring, bytestring) | bool                  |
-| `verifySchnorrSecp256k1Signature{:uplc}`[^4] | \-        | (bytestring, bytestring, bytestring) | bool                  |
+| `verifyEd25519Signature{:uplc}`[^4]          | \-        | (Bytestring, Bytestring, Bytestring) | Bool                  |
+| `verifyEcdsaSecp256k1Signature{:uplc}`[^4]   | \-        | (Bytestring, Bytestring, Bytestring) | Bool                  |
+| `verifySchnorrSecp256k1Signature{:uplc}`[^4] | \-        | (Bytestring, Bytestring, Bytestring) | Bool                  |
+|                                              |           |                                      |                       |
+| `bls12_381_G1_add{:uplc}`                    | \-        | (G1Element, G1Element)               | G1Element             |
+| `bls12_381_G1_scalarMul{:uplc}`              | \-        | (Integer, G1Element)                 | G1Element             |
+| `bls12_381_G1_neg{:uplc}`                    | \-        | G1Element                            | G1Element             |
+| `bls12_381_G1_equal{:uplc}`                  | \-        | (G1Element, G1Element)               | Bool                  |
+| `bls12_381_G1_compress{:uplc}`               | \-        | G1Element                            | bytestring            |
+| `bls12_381_G1_uncompress{:uplc}`             | \-        | bytestring                           | G1Element             |
+| `bls12_381_G1_hashToGroup{:uplc}`            | \-        | (Bytestring, Bytestring)             | G1Element             |
+| `bls12_381_G2_add{:uplc}`                    | \-        | (G2Element, G2Element)               | G2Element             |
+| `bls12_381_G2_scalarMul{:uplc}`              | \-        | (Integer, G2Element)                 | G2Element             |
+| `bls12_381_G2_neg{:uplc}`                    | \-        | G2Element                            | G2Element             |
+| `bls12_381_G2_equal{:uplc}`                  | \-        | (G2Element, G2Element)               | Bool                  |
+| `bls12_381_G2_compress{:uplc}`               | \-        | G2Element                            | bytestring            |
+| `bls12_381_G2_uncompress{:uplc}`             | \-        | Bytestring                           | G2Element             |
+| `bls12_381_G2_hashToGroup{:uplc}`            | \-        | (Bytestring, Bytestring)             | G2Element             |
+| `bls12_381_millerLoop{:uplc}`                | \-        | (G1Element, G2Element)               | MillerLoopResult      |
+| `bls12_381_mulMlResult{:uplc}`               | \-        | (MillerLoopResult, MillerLoopResult) | MillerLoopResult      |
+| `bls12_381_finalVerify{:uplc}`               | \-        | (MillerLoopResult, MillerLoopResult) | Bool                  |
 |                                              |           |                                      |                       |
 | `trace{:uplc}`                               | (α)       | (string, (α))                        | α                     |
 
