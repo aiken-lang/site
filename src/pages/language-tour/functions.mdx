@@ -2,9 +2,11 @@ import { Callout } from "nextra-theme-docs";
 
 # Functions
 
-## Named functions
+## Defining functions
 
-Named functions in Aiken are defined using the `fn` keyword. Functions can have (typed) arguments, and always have a return type. Because in Aiken, pretty much everything is an expression, functions do not have an explicit _return_ keyword. Instead, they implicitly return whatever they evaluate to.
+### Named functions
+
+Named functions in Aiken are defined using the `fn{:ak}` keyword. Functions can have (typed) arguments, and always have a return type. Because in Aiken, pretty much everything is an expression, functions do not have an explicit _return_ keyword. Instead, they implicitly return whatever they evaluate to.
 
 ```aiken
 fn add(x: Int, y: Int) -> Int {
@@ -17,7 +19,7 @@ fn multiply(x: Int, y: Int) -> Int {
 ```
 
 Functions are first class values and so can be assigned to variables, passed to
-other functions, or anything else you might do with any other data type.
+other functions, or anything else you might do with any other data type with the exception of: being part of a data-type definition. We'll see more on that in the next section about [Custom Types](./custom-types).
 
 ```aiken
 /// This function takes a function as an argument
@@ -34,9 +36,9 @@ fn add_two(x: Int) -> Int {
 }
 ```
 
-## Anonymous functions
+### Anonymous functions
 
-Anonymous functions can be defined with a similar syntax.
+Anonymous functions can be defined with a similar syntax and assigned to an identifier using a let-binding. The identifier then serves as a name to call and pass the function around.
 
 ```aiken
 fn run() {
@@ -45,6 +47,10 @@ fn run() {
   add(1, 2)
 }
 ```
+
+<Callout type="warning">
+One cannot define a _recursive anonymous function_. If you need recursion, make it a top-level definition.
+</Callout>
 
 ## Labeled arguments
 
@@ -94,82 +100,6 @@ fn insert(self: List<(String, Int)>, key k: String, value v: Int) {
 Externally, the function can still be called using `key` and `value` as
 labelled, but in the function body, they are named `k` and `v` for conciseness.
 
-## Validators
-
-In Aiken, you can promote some functions to _validators_ using the keyword
-`validator`.
-
-```ak
-validator {
-  fn foo(redeemer: Data, script_context: Data) {
-    ..
-  }
-
-  fn bar(datum: Data, redeemer: Data, script_context: Data) {
-    ..
-  }
-}
-```
-
-Functions present in a `validator` block must abide by the following rules:
-
-- [x] They must have exactly 2 or 3 arguments.
-- [x] They must be named
-- [x] There may be one or two functions, in a single block, but no more.
-
-### Parameters
-
-Validators themselves can take _parameters_, which represent configuration
-elements that must be provided to create an instance of the validator. Once
-provided, parameters are embedded within the compiled validator and part of the
-generated code. Hence they must be provided before any address can be
-calculated for the corresponding validator.
-
-```ak
-validator(utxo_ref: ByteArray) {
-  fn foo(redeemer: Data, script_context: Data) {
-    ..
-  }
-}
-```
-
-We see more examples of validators in the examples presented later in this user
-manual.
-
-## Pipe Operator
-
-| Operator   | Precedence |
-| :-----:    | ---------- |
-| `\|>{:ak}` |          0 |
-
-Aiken provides syntax for passing the result of one function to the arguments
-of another function, the pipe operator (`|>`). This is similar in functionality
-to the same operator in Elixir or F#.
-
-The pipe operator allows you to chain function calls without using a lot of
-parenthesis and nesting. For a simple example, consider the following
-implementation of an imaginary `string.reverse` in Aiken:
-
-```aiken
-string_builder.to_string(string_builder.reverse(string_builder.from_string(string)))
-```
-
-This can be expressed more naturally using the pipe operator, eliminating the
-need to track parenthesis closure.
-
-```aiken
-string
-|> string_builder.from_string
-|> string_builder.reverse
-|> string_builder.to_string
-```
-
-Each line of this expression applies the function to the result of the previous
-line. This works easily because each of these functions takes only one
-argument. Syntax is available to substitute specific arguments of functions
-that take more than one argument; for more, look below in the section "Function
-capturing".
-
 ## Type annotations
 
 Function arguments are normally annotated with their type, and the
@@ -195,15 +125,50 @@ is being written.
 ## Documentation
 
 You may add user facing documentation in front of function definitions with a
-documentation comment `///` per line. Markdown is supported and this text
+documentation comment `///{:ak}` per line. Markdown is supported and this text
 will be included with the module's entry in generated HTML documentation.
 
 ```aiken
-/// Always true.
-///
-fn always_true(_a) -> Bool {
+/// Always **true**.
+fn always_true(_) -> Bool {
   True
 }
+```
+
+<Callout type="info">
+Unlike constants and data-types definitions, functions are exported and appear
+in generated documentation in the same order they are defined. This enables one
+to group similar functions together to build a coherent module API.
+</Callout>
+
+### Section headings
+
+Library modules generally export several (many) functions which can rapidly
+becomes overwhelming. Hence, Aiken provides means of organizing functions by
+allowing and processing section headings. A section headings is a double-slash
+comment `//{:ak}` whose payload starts with a markdown heading (`#{:md}`,
+`##{:md}`, `###{:md}`...).
+
+Such comment headings can be interspersed in the module to indicate the
+documentation generation tool to create a new heading in the sidebar as well as
+in the function main content. The size and margins surrounding the heading
+depends on its importance (`#{:md}` being the most important).
+
+So for example:
+
+```aiken
+// ## Constructing
+
+/// Construct a new `MyType` holding a value.
+fn new(value) -> MyType {}
+
+/// Construct an empty `MyType`.
+fn empty() -> MyType {}
+
+// ## Inspecting
+
+/// Obtain the value, if any, at the given key.
+fn get(self, key) -> Option <value> {}
 ```
 
 ## Advanced
@@ -213,6 +178,25 @@ If you're just **getting started** with Aiken, you can probably **skip** the
 following section as it describes some more function usages and behaviors. Feel
 free to come back to it in due time.
 </Callout>
+
+### Argument destructuring
+
+It is possible to use [destructuring](./custom-types#destructuring) directly on
+function arguments. It is particularly handy to pull fields out of records
+while keeping the code concise:
+
+```aiken
+use aiken/math
+
+pub type Point {
+  x: Int,
+  y: Int,
+}
+
+fn distance(Point { x, y }: Point, Point { x: x_r, y: y_r }: Point) -> Option<Int> {
+  math.sqrt(math.pow2(x_r - x) + math.pow2(y_r - y))
+}
+```
 
 ### Function capturing
 
@@ -227,12 +211,11 @@ fn add(x, y) {
 
 fn run() {
   let add_one = add(1, _)
-
   add_one(2)
 }
 ```
 
-The function capture syntax is often used with the pipe operator to create
+The function capture syntax is often used with the [pipe operator](./control-flow#piping) to create
 a series of transformations on some data.
 
 ```aiken
@@ -243,9 +226,9 @@ fn add(x: Int , y: Int ) -> Int {
 fn run() {
   // This is the same as add(add(add(1, 3), 6), 9)
   1
-  |> add(_, 3)
-  |> add(_, 6)
-  |> add(_, 9)
+    |> add(_, 3)
+    |> add(_, 6)
+    |> add(_, 9)
 }
 ```
 
@@ -255,9 +238,9 @@ In fact, this usage is so common that there is a special shorthand for it.
 fn run() {
   // This is the same as the example above
   1
-  |> add(3)
-  |> add(6)
-  |> add(9)
+    |> add(3)
+    |> add(6)
+    |> add(9)
 }
 ```
 

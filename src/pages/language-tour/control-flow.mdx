@@ -23,6 +23,40 @@ Expression blocks can be used instead of parenthesis to change the precedence of
 let celsius = { fahrenheit - 32 } * 5 / 9
 ```
 
+## Piping
+
+| Operator   | Precedence |
+| :-----:    | ---------- |
+| `\|>{:ak}` |          0 |
+
+Aiken provides syntax for passing the result of one function to the arguments
+of another function: the pipe operator (`|>`). This is similar in functionality
+to the same operator in Elixir, Elm or F#.
+
+The pipe operator allows you to chain function calls without using a lot of
+parenthesis and nesting. For a simple example, consider the following
+implementation of an imaginary `string.reverse` in Aiken:
+
+```aiken
+string_builder.to_string(string_builder.reverse(string_builder.from_string(string)))
+```
+
+This can be expressed more naturally using the pipe operator, eliminating the
+need to track parenthesis closure.
+
+```aiken
+string
+  |> string_builder.from_string
+  |> string_builder.reverse
+  |> string_builder.to_string
+```
+
+Each line of this expression applies the function to the result of the previous
+line. This works easily because each of these functions takes only one
+argument. Syntax is available to substitute specific arguments of functions
+that take more than one argument; for more, look below in the section "Function
+capturing".
+
 ## Looping through recursion
 
 Aiken is a functional programming language, and as such, doesn't provide any

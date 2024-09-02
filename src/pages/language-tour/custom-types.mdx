@@ -441,25 +441,43 @@ At runtime custom types become an opaque Plutus' Data. In Aiken's type system
 `Data` matches with any user-defined type (but with none of the primitive
 types).
 
-Thus, it's also possible to cast any [custom type](./custom-types.md) into
-`Data`. Extracting from `Data` however requires the use of
-[`expect{:ak}`](./control-flow#expect) or [`if *pattern*
-is{:ak}`](./control-flow#if-is) as explained in the next section.
+### Upcasting
 
-This implicit conversion is handy for interacting with builtins that operate on
-raw `Data`. Any function that accepts `Data` will automatically work with any
-custom type.
+Thus, it's also possible to cast any custom type **into** `Data{:ak}` (a.k.a
+_upcasting_). This implicit conversion is handy for interacting with builtin
+functions that operate on raw `Data{:ak}`. Any function that accepts
+`Data{:ak}` will automatically work with any custom type.
 
 ```aiken
 type Datum {
   count: Int,
 }
 
-let datum = Datum { count: 1 }
+let datum: Datum = Datum { count: 1 }
 
 // fn(Data) -> ByteArray
-builtin.serialise_data(datum) // some bytearray
+builtin.serialise_data(datum)
+
+// Or similarly, by providing an annotation.
+let as_data: Data = datum
 ```
+
+### Downcasting
+
+Extracting **from** `Data{:ak}` into a custom type (a.k.a _downcasting_)
+however requires the use of [`expect{:ak}`](./control-flow#expect) or an [`if
+*pattern* is{:ak}`](./control-flow#if-is) as explained in the [next section:
+Control Flow](./control-flow).
+
+While upcasting is always possible and safe, downcasting is not and can fail. How one chooses to handle failure drives the choice between `expect{:ak}` (fail immediately and loudly) and `if/is{:ak}` (fallback gracefully).
+
+In summary:
+
+| From              | To                | Crash on failure?  | How                                            |
+| ---               | ---               | ---                | ---                                            |
+| _any custom type_ | `Data{:ak}`       | \- _(cannot fail)_ | let-binding + type-annotation                  |
+| `Data{:ak}`       | _any custom type_ | no                 | [`if *pattern* is{:ak}`](./control-flow#if-is) |
+| `Data{:ak}`       | _any custom type_ | yes                | [`expect{:ak}`](./control-flow#expect)         |
 
 ## Type aliases
 
@@ -481,3 +499,28 @@ fn create_person(name: String, age: Int) -> Person {
   (name, age)
 }
 ```
+
+<Callout type="info">
+While they are fully erased at runtime, type-aliases information are preserved during type-checking and when generating the validator(s) final blueprint(s). Said differently, type aliases will appear in error messages and generated documentation as well.
+</Callout>
+
+## Documentation
+
+You may add user facing documentation to any data-type definition and
+constructor with a documentation comment starting with `///{:ak}`. Markdown is
+supported and this text will be included with the module's entry in generated
+HTML documentation.
+
+```aiken
+/// A **incredibly useful** comment to tell you that this type represents: a person.
+type Person {
+  /// The number of years elapsed since birth.
+  age: Int,
+  /// The word other people shout to catch this person's attention
+  name: String,
+}
+```
+
+<Callout type="info">
+When exported as module documentation, types-definition are alphabetically sorted (in ascending order).
+</Callout>

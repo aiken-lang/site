@@ -114,7 +114,7 @@ Said differently, you can compare bytestrings, booleans, integers, lists, tuples
 
 A _ByteArray_ is exactly what it seems, an array of bytes. Aiken supports three notations to declare ByteArray literals.
 
-#### 1 - As an array of bytes
+#### As an array of bytes
 
 First, as list of integers ranging from 0 to 255 (a.k.a. _bytes_):
 
@@ -129,7 +129,7 @@ Syntax rules for literal integers also apply to byte arrays. Thus, the following
 #[0xff, 0x42]
 ```
 
-#### 2 - As a byte string
+#### As a byte string
 
 Second, as a UTF-8 encoded byte string. This is generally how common text strings are represented under the hood. In Aiken, simply use double-quotes for that:
 
@@ -137,7 +137,7 @@ Second, as a UTF-8 encoded byte string. This is generally how common text string
 "foo" == #[0x66, 0x6f, 0x6f] == #[102, 111, 111]
 ```
 
-#### 3 - As a hex-encoded byte string
+#### As a hex-encoded byte string
 
 Because it is quite common to manipulate base16-encoded byte strings in a blockchain context (e.g. transaction id, policy id, etc..); Aiken also supports a shorthand syntax for declaring bytearrays as an hexadecimal string.
 
@@ -151,28 +151,6 @@ Note how this is different from:
 
 ```aiken
 "666f6f" == #[0x36, 0x36, 0x36, 0x66, 0x36, 0x66] == #[54, 54, 54, 102, 54, 54]
-```
-
-## Tuples
-
-Aiken has tuples which can be useful for grouping values. Each element in a tuple can have a different type.
-
-```aiken
-(10, "hello") // Type is (Int, ByteArray)
-(1, 4, [0]) // Type is (Int, Int, List<Int>)
-```
-
-Long tuples (i.e. more than 3 elements) are usually discouraged. Indeed, tuples are anonymous constructors, and while they are quick and easy to use, they often impede readability. When types become more complex, one should use records instead (as we'll see later).
-
-Elements of a tuple can be accessed using the dot, followed by the index of the element (ordinal). So for example:
-
-```aiken
-let point = (14, 42, 1337, 0)
-let a = point.1st
-let b = point.2nd
-let c = point.3rd
-let d = point.4th
-(c, d, b, a) // (1337, 0, 42, 14)
 ```
 
 ## List
@@ -203,6 +181,64 @@ let y = [1, ..x]
 x // [2, 3]
 y // [1, 2, 3]
 ```
+
+## Tuple(s)
+
+Aiken has tuples which can be useful for grouping values. Unlike lists, each element in a tuple can have a different type.
+
+```aiken
+(10, "hello") // Type is (Int, ByteArray)
+(1, 4, [0]) // Type is (Int, Int, List<Int>)
+```
+
+Long tuples (i.e. more than 3 elements) are usually discouraged. Indeed, tuples are anonymous constructors, and while they are quick and easy to use, they often impede readability. When types become more complex, one should use records instead (as we'll see later).
+
+Elements of a tuple can be accessed using the dot, followed by the index of the element (ordinal). So for example:
+
+```aiken
+let point = (14, 42, 1337, 0)
+let a = point.1st
+let b = point.2nd
+let c = point.3rd
+let d = point.4th
+(c, d, b, a) // (1337, 0, 42, 14)
+```
+
+### Pair
+
+Aiken has a specific type for representing a pair of values of two
+not-necessarily equal types. Thus a `Pair<a, b>{:ak}` is akin to a 2-tuple `(a,
+b){:ak}`. Like for tuples, you can access elements of a pair using the ordinal syntax:
+
+```aiken
+let foo = Pair(14, "aiken")
+
+foo.1st == 14
+
+foo.2nd == "aiken"
+```
+
+So why have another type specifically for pairs? The answer is two folds:
+
+1. This is a specific kind of term that also exists on the underlying Plutus
+Virtual Machine. Hence, given Aiken's proximity to that machine's
+representation, it is useful, if not simply necessary, to have ways to
+represent those when needed.
+
+2. There's an ambiguity at the contract's boundary regarding how to serialise
+lists of pairs in CBOR. One way is to use a CBOR array of arrays (of two
+elements). And the other is to use a CBOR map. While the former is more
+intuitive, it is in fact the latter that end up being used by the ledger for
+many internal types. In the first versions of Aiken, the compiler would
+implicitly treat list of pairs as CBOR map in serialisation functions to mimic
+the ledger. This has proven inconvenient and confusing in many scenarios
+involving user-defined data-types, hence the introduction of pairs.
+
+So as a rule of thumb, unless you specifically want to serialize external types
+(in datums and redeemers) as CBOR maps, you probably never want to use a
+`Pair<a, b>{:ak}` and can stick to a 2-tuple `(a, b){:ak}`.
+
+
 
 ## Option
 
@@ -240,6 +276,15 @@ fn to_positive(n: Int) -> Option<Int> {
 
 The `Option{:ak}` type is readily available in Aiken; it is part of the types and constructors available by default. Don't hesitate to use it!
 
+### Never
+
+In some rare cases, it is needed to refer to an `Option` that can only ever be `None`. This is the case in some parts of the standard library and mainly due to unforeseen bugs in the ledger and backward compatibility concerns. For these scenarios, we introduce a `Never` type, which has a single constructor of the same name. It is identical in all points to `None` and serialises down to the same binary structure. Said differently, we have:
+
+```aiken
+let some: Data = None
+let never: Data = Never
+some == never
+```
 
 ## Void
 
@@ -290,41 +335,7 @@ following section as it describes some more advanced types and behaviors. Feel
 free to come back to it in due time.
 </Callout>
 
-### Pair
-
-Aiken has a specific type for representing a pair of values of two
-not-necessarily equal types. Thus a `Pair<a, b>{:ak}` is akin to a 2-tuple `(a,
-b){:ak}`. Like for tuples, you can access elements of a pair using the ordinal syntax:
-
-```aiken
-let foo = Pair(14, "aiken")
-
-foo.1st == 14
-
-foo.2nd == "aiken"
-```
-
-So why have another type specifically for pairs? The answer is two folds:
-
-1. This is a specific kind of term that also exists on the underlying Plutus
-Virtual Machine. Hence, given Aiken's proximity to that machine's
-representation, it is useful, if not simply necessary, to have ways to
-represent those when needed.
-
-2. There's an ambiguity at the contract's boundary regarding how to serialise
-lists of pairs in CBOR. One way is to use a CBOR array of arrays (of two
-elements). And the other is to use a CBOR map. While the former is more
-intuitive, it is in fact the latter that end up being used by the ledger for
-many internal types. In the first versions of Aiken, the compiler would
-implicitly treat list of pairs as CBOR map in serialisation functions to mimic
-the ledger. This has proven inconvenient and confusing in many scenarios
-involving user-defined data-types, hence the introduction of pairs.
-
-So as a rule of thumb, unless you specifically want to serialize external types
-(in datums and redeemers) as CBOR maps, you probably never want to use a
-`Pair<a, b>{:ak}` and can stick to a 2-tuple `(a, b){:ak}`.
-
-### Pairs (former AList)
+### Pairs
 
 An associative list (a.k.a Pairs) is a mere type alias such that: `type Pairs<a, b> =
 List<Pair<a, b>>{:ak}`. It exists as a convenience since pairs are mainly
