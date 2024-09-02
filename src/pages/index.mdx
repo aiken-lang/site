@@ -63,6 +63,18 @@ export function icon(name, color) {
       svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-play"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`
       break;
 
+    case 'icon-package':
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-package"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"></line><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>`
+      break;
+
+    case 'icon-activity':
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-activity"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>`
+      break;
+
+    case 'icon-map':
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-map"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>`
+      break;
+
     default:
       throw new Error(`Unknown icon name: ${name}`);
   }
@@ -377,27 +389,36 @@ export function icon(name, color) {
       font-size: 1.25em;
     }
   }
+  section#roadmap h3 > span {
+    font-size: 0.75em;
+  }
   section#roadmap h3 {
     margin-bottom: 0.5rem;
+    font-size: 1.1em;
+    font-weight: bold;
+  }
+  section#roadmap h3::before {
+    display: inline;
+    margin-right: 0.25rem;
+    vertical-align: middle;
+  }
+  section#roadmap h3.icon-package::before {
+    content: url("${icon('icon-package', palette.dark.text)}");
+  }
+  section#roadmap h3.icon-activity::before {
+    content: url("${icon('icon-activity', palette.dark.text)}");
+  }
+  section#roadmap h3.icon-map::before {
+    content: url("${icon('icon-map', palette.dark.text)}");
   }
   section#roadmap > div {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
   section#roadmap article {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-  }
-  section#roadmap article > h3::after {
-    border-top: 1px solid var(--color-border-text);
-    content: '';
-    display: block;
-    margin-left: 5em;
-    margin-top: -0.75rem;
-    position: relative;
-    width: 100%;
-    width: calc(100% - 2rem - 5em);
   }
   @media(max-width: 900px) {
     section#roadmap {
@@ -506,20 +527,19 @@ export function icon(name, color) {
   }
 `}</style>
 
-export const aikenCodeExample = `<span class="hljs-keyword"><span class="hljs-keyword">validator</span></span> {
-  <span class="hljs-keyword">fn</span> <span class="hljs-function"><span class="hljs-title function_">hello_world</span></span>(datum, redeemer, context) <span class="hljs-operator">-&gt;</span> <span class="hljs-title">Bool</span> {
-    <span class="hljs-keyword"><span class="hljs-keyword">let</span></span> must_say_hello <span class="hljs-operator">=</span>
+export const aikenCodeExample = `<span class="hljs-keyword">validator </span>hello_world <span class="hljs-keyword">{</span>
+  <span class="hljs-function"><span class="hljs-title function_">spend</span></span><span class="hljs-title function_ invoke__">(</span>datum, redeemer, input, self<span class="hljs-title function_ invoke__">)</span> <span class="hljs-keyword">{</span>
+    <span class="hljs-keyword">expect</span> <span class="hljs-type">Some</span><span class="hljs-type">(</span><span class="hljs-type">Datum</span> <span class="hljs-keyword">{</span> owner <span class="hljs-keyword">}</span><span class="hljs-type">)</span> <span class="hljs-operator">=</span> datum
+
+    <span class="hljs-keyword">let</span></span> must_say_hello <span class="hljs-operator">=</span>
       redeemer <span class="hljs-operator">==</span> <span class="hljs-string">"Hello, World!"</span>
 
     <span class="hljs-keyword"><span class="hljs-keyword">let</span></span> must_be_signed <span class="hljs-operator">=</span>
-      list<span class="hljs-operator">.</span><span class="hljs-title function_ invoke__">has</span><span class="hljs-ponctuation">(</span>
-        context<span class="hljs-operator">.</span>transaction<span class="hljs-operator">.</span>extra_signatories,
-        datum<span class="hljs-operator">.</span>owner,
-      )
+      list<span class="hljs-operator">.</span><span class="hljs-title function_ invoke__">has</span><span class="hljs-title function_ invoke__">(</span>self<span class="hljs-operator">.</span>extra_signatories, owner<span class="hljs-title function_ invoke__">)</span>
 
     must_say_hello<span class="hljs-operator">?</span> <span class="hljs-operator">&amp;&amp;</span> must_be_signed<span class="hljs-operator">?</span>
-  }
-}`;
+  <span class="hljs-keyword">}</span>
+<span class="hljs-keyword">}</span>`;
 
 
 export const aikenErrorExample = `<strong>Error:</strong> <span class="hljs-error">err::aiken::check::unknown_record_field</span>
@@ -540,7 +560,7 @@ export const aikenErrorExample = `<strong>Error:</strong> <span class="hljs-erro
 <span class="hljs-title">help</span>: <i>Did you mean <span class="hljs-title function_">'extra_signatories'</span>?</i>`;
 
 
-export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compiling</strong></span> aiken-lang/stdlib 0.0.0
+export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compiling</strong></span> aiken-lang/stdlib 2.0.0
   <span class="fadein1"><span class="hljs-keyword"><strong>Testing</strong></span> ...</span>
 
 <span class="fadein2">    ┍━ <span class="hljs-title"><strong>aiken/option</strong></span> ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -571,7 +591,7 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
       <ul>
         <li>Small and easy to learn</li>
         <li>Strong static typing with inference</li>
-        <li>First-class functions, everything is an expression</li>
+        <li>First-class functions and expressions, referential transparency</li>
         <li>Custom types, recursion, modules, generics...</li>
         <li>Modules, imports and package manager</li>
       </ul>
@@ -589,7 +609,8 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
         <li>Quick and friendly feedback with helpful error diagnotics</li>
         <li>Language-Server Protocol (LSP) with auto-formatting</li>
         <li>Easy-to-produce and beautiful libraries documentation</li>
-        <li>Editors integration (VSCode + NeoVim)</li>
+        <li>Editors integration (VSCode, NeoVim, Emacs, Zed...)</li>
+        <li>Tree-sitter support</li>
       </ul>
     </div>
     <div class="terminal">
@@ -602,7 +623,8 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
       <h2>A toolkit for working with Plutus</h2>
       <ul>
         <li>Baked-in unit test framework</li>
-        <li>Optimized for on-chain execution</li>
+        <li>Property test framework with integrated shrinking</li>
+        <li>UPLC type reification into Aiken types</li>
         <li>Full-blown Plutus interpreter & disassembler</li>
         <li>Execution cost evaluation with trace reporting</li>
         <li>Low-level scripts arguments injection</li>
@@ -618,10 +640,10 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
       <h2>A truly open source ecosystem</h2>
       <ul>
         <li>Written in Rust, licensed under <i>Apache-2.0</i></li>
-        <li>Open contribution process with clear guidelines</li>
-        <li>40+ contributors from the Cardano community</li>
+        <li>200+ contributors from the Cardano community</li>
+        <li><a target="_blank" href="https://github.com/aiken-lang/aiken/issues/947">Open contribution process</a> with clear guidelines</li>
         <li>Fully documented with end-to-end examples</li>
-        <li>Initiated by <a href="https://txpipe.io">TxPipe</a>, Nurtured by the <a href="https://cardanofoundation.org/">Cardano Foundation</a></li>
+        <li>Initiated by <a target="_blank" href="https://txpipe.io">TxPipe</a>, nurtured by <a target="_blank" href="https://cardanofoundation.org/">Cardano Foundation</a>, <br/>Elevated by <a target="_blank" href="https://pragma.io">PRAGMA</a></li>
       </ul>
     </div>
     <div id="socials">
@@ -657,83 +679,33 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
   <h2>Roadmap</h2>
   <div>
     <article>
-      <h3>Q3 2022</h3>
+      <h3 class="icon-package">Recently delivered ― <span>see the <a href="https://github.com/aiken-lang/aiken/blob/main/CHANGELOG.md#changelog">full CHANGELOG</a></span></h3>
       <ul>
-        <li>Binary flat encoding/encoding</li>
-        <li>Untyped Plutus Core (UPLC) parsing</li>
-        <li>UPLC pretty-printing</li>
-        <li>Native Plutus core interpreter</li>
-        <li>Cost and evaluation of Plutus programs</li>
-        <li>Aiken's language Proof-of-concept</li>
+        <li>Plutus V3 support (language & virtual machine), and Plutus V3 transaction evaluation</li>
+        <li>New standard library v2 ― see <a target="_blank" href="https://aiken-lang.github.io/stdlib/">aiken-lang/stdlib</a></li>
+        <li>Conditional environment and configuration modules</li>
+        <li>Softcasting (a.k.a <code>if/is</code> syntax)</li>
+        <li>Supercharged constants</li>
+        <li>Variadic traces with baked-in CBOR diagnostics</li>
       </ul>
     </article>
 
     <article>
-      <h3>Q4 2022</h3>
+      <h3 class="icon-activity">Currently working on ― <span>see <a href="https://github.com/orgs/aiken-lang/projects/2">project tracking</a></span></h3>
       <ul>
-        <li>Aiken's Lexer/Parser with highlight</li>
-        <li>Type checking with beautiful errors</li>
-        <li>LSP, code formatting, editors integrations</li>
-        <li>Standard library, user manual &amp; basic tooling</li>
-        <li>Modules &amp; package management</li>
-        <li>Unit test framework</li>
+        <li class="todo">Additional LSP quickfixes</li>
+        <li class="todo">Support for mono-repo ― see <a href="https://github.com/aiken-lang/aiken/issues/951">aiken-lang/aiken#951</a></li>
+        <li class="todo">Ecosystem packages registry & search tool</li>
       </ul>
     </article>
 
     <article>
-      <h3>Q1 2023</h3>
+      <h3 class="icon-map">Future steps & ideas ― <span>see <a href="https://github.com/aiken-lang/aiken/discussions">ongoing discussions</a></span></h3>
       <ul>
-        <li>Tutorials & user-guides</li>
-        <li>Interoperable smart-contract blueprints ([CIP-0057](https://github.com/cardano-foundation/CIPs/pull/258))</li>
-        <li>LSP on-the-fly compilation &amp; feedback</li>
-        <li>Alpha release with first pioneers</li>
-      </ul>
-    </article>
-
-    <article>
-      <h3>Q2 2023</h3>
-      <ul>
-        <li>Online playground</li>
-        <li>Onboarding projects, old and new</li>
-        <li>Improving stability and developer experience</li>
-        <li>Compiler fine-tuning &amp; optimizations</li>
-      </ul>
-    </article>
-
-    <article>
-      <h3>Q3 2023</h3>
-      <ul>
-        <li>End-to-end examples</li>
-        <li>Standard library refinements</li>
-        <li>More tooling & developer experience improvements</li>
-        <li>More LSP improvements (auto-import, go-to def, ...)</li>
-      </ul>
-    </article>
-
-    <article>
-      <h3>Q4 2023</h3>
-      <ul>
-        <li>Plutus V3 integration (BLS12-381, case/constr, ...)</li>
-        <li>Fixes, testing and various quality of life improvements</li>
-      </ul>
-    </article>
-
-    <article>
-      <h3>Q1 2024</h3>
-      <ul>
-        <li>Property-based testing framework</li>
-        <li>Plutus V3 bitwise primitves</li>
-        <li>Improved safety and devX on boundaries</li>
-      </ul>
-    </article>
-
-    <article>
-      <h3>Q2 2024</h3>
-      <ul>
-        <li>Export arbitrary functions to UPLC</li>
-        <li class="todo">Separate pairs from 2-tuples</li>
-        <li class="todo">Pass all marlowe acceptance tests</li>
-        <li class="todo">Beta release &amp; mainnet readiness</li>
+        <li class="todo">Code coverage tooling ― see <a href="https://github.com/aiken-lang/aiken/discussions/933">aiken-lang/aiken#933</a></li>
+        <li class="todo">More aggressive UPLC optimizations</li>
+        <li class="todo">First-class zero-knowledge support</li>
+        <li class="todo">Layer-2 builtin support ― see <a href="https://github.com/aiken-lang/aiken/discussions/976">aiken-lang/aiken#976</a></li>
       </ul>
     </article>
   </div>
@@ -745,7 +717,7 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
   <details open>
     <summary><h3>What is Aiken?</h3></summary>
     <p>
-      Aiken is a new <strong>programming language and toolkit for developing
+      Aiken is a modern <strong>programming language and toolkit for developing
       smart contracts</strong> on the <a href="https://cardano.org/"
       target="_blank">Cardano</a> blockchain. It is geared towards robustness
       and developer experience.
@@ -810,7 +782,7 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
       produced UPLC from a high-level syntax was called <i>'Plutus-Tx'</i> and
       happened to be a Haskell framework.
       <br/>
-      Aiken changes the game by introducing a new framework that compiles
+      Aiken changes the game by providing a modern framework that compiles
       straight to UPLC.
     </p>
   </details>
