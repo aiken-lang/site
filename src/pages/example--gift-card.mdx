@@ -5,27 +5,31 @@ import { Callout } from "nextra-theme-docs";
 Let's build a UI to send and redeem a gift card using smart contracts on Cardano.
 
 <Callout type="info">
-You can find code supporting this tutorial on [Aiken's main repository](https://github.com/aiken-lang/aiken/tree/main/examples/gift_card).
+  You can find code supporting this tutorial on [Aiken's main
+  repository](https://github.com/aiken-lang/aiken/tree/main/examples/gift_card).
 </Callout>
 
 ## Covered in this tutorial
 
-<br/>
+<br />
 
 - [x] Writing `Aiken` inter-dependent `mint` & `spend` validators.
 - [x] Parameterizing validators.
 - [x] Using [Lucid](https://lucid.spacebudz.io/) with [Blockfrost](https://blockfrost.io)<sup>★</sup>.
   <sub>
-    ★ We'll once again be using the `Blockfrost` provider. So have your Blockfrost API key ready.
+    ★ We'll once again be using the `Blockfrost` provider. So have your
+    Blockfrost API key ready.
   </sub>
 - [x] Using [Deno fresh](https://fresh.deno.dev/)<sup>★</sup>.
   <sub>
-  ★ You can install deno using these [instructions](https://deno.land/manual@v1.29.1/getting_started/installation).
+    ★ You can install deno using these
+    [instructions](https://deno.land/manual@v1.29.1/getting_started/installation).
   </sub>
 
 <Callout type="info" emoji="📘">
   When encountering an unfamiliar syntax or concept, do not hesitate to refer to
-  the [language-tour](language-tour/primitive-types) for details and extra examples.
+  the [language-tour](language-tour/primitive-types) for details and extra
+  examples.
 </Callout>
 
 ## What is a gift card?
@@ -74,25 +78,23 @@ Now let's open the project folder in our favorite editor and define two empty
 validator functions.
 
 ```aiken filename="validators/oneshot.ak"
-use aiken/transaction.{ScriptContext}
+use cardano/transaction.{Transaction, PolicyId}
 
-validator {
-  fn gift_card(rdmr, ctx: ScriptContext) -> Bool {
-    todo @"mint and burn"
-  }
-}
-
-validator {
-  fn redeem(_d: Data, _r: Data, ctx: ScriptContext) -> Bool {
+validator gift_card {
+  spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
     todo @"redeem"
+  }
+
+  mint(_r: Data, policy_id: PolicyId, tx: Transaction) -> Bool {
+    todo @"mint and burn"
   }
 }
 ```
 
-The `gift_card` validator will be used to mint and burn the gift card NFT. The
-`redeem` validator will be used with `gift_card` to redeem the gift card and unlock the assets.
+The `gift_card` validator will be used to mint and burn the gift card NFT via the `mint` handler. The
+`spend` handler will be used to redeem the gift card and unlock the assets.
 The life cycle of this gift card will involve two transactions. The first transaction
-will mint the gift card as an NFT and it will send some assets to the `redeem` validator's address.
+will mint the gift card as an NFT and it will send some assets to the `gift_card` validator's address.
 The gift card can be sent anywhere in the first transaction. The second transaction will
 burn the NFT and send the locked assets to the address that held the burned NFT.
 
@@ -102,10 +104,14 @@ Since this example is for a oneshot minting contract let's add
 some parameters to the validator that we can use to guarantee uniqueness.
 
 ```aiken filename="validators/oneshot.ak" /OutputReference/
-use aiken/transaction.{OutputReference, ScriptContext}
+use cardano/transaction.{OutputReference, Transaction, PolicyId}
 
-validator(token_name: ByteArray, utxo_ref: OutputReference) {
-  fn gift_card(rdmr, ctx: ScriptContext) -> Bool {
+validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
+  spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
+    todo @"redeem"
+  }
+
+  mint(_rdmr: Data, policy_id: PolicyId, tx: Transaction) -> Bool {
     todo @"mint and burn"
   }
 }
@@ -119,15 +125,19 @@ Next let's define a type for `rdmr`. We have two actions that this validator
 will perform. This validator can be used to mint and then burn an NFT.
 
 ```aiken filename="validators/oneshot.ak" {3-6,10-15} /Action/2
-use aiken/transaction.{OutputReference, ScriptContext} as tx
+use cardano/transaction.{OutputReference, Transaction, PolicyId}
 
 type Action {
   CheckMint
   CheckBurn
 }
 
-validator(token_name: ByteArray, utxo_ref: OutputReference) {
-  fn gift_card(rdmr: Action, ctx: ScriptContext) -> Bool {
+validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
+  spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
+    todo @"redeem"
+  }
+
+  mint(rdmr: Action, policy_id: PolicyId, tx: Transaction) -> Bool {
     when rdmr is {
       CheckMint ->
         todo @"mint"
@@ -141,28 +151,26 @@ validator(token_name: ByteArray, utxo_ref: OutputReference) {
 Next we'll do these things in order so that we have everything we need
 to perform the final check.
 
-- pattern match on the script context to get `transaction` and `purpose`
-- `expect` the `purpose` to be `Mint(policy_id)`
 - pattern match on the `transaction` to get it's `inputs` and `mint` which holds minted assets
 - `expect` minted assets (`mint`) to only have one item which has an `asset_name` and an `amount`
 
 ```aiken filename="validators/oneshot.ak" {1-3,12-22} /Transaction} as tx/1
-use aiken/dict
-use aiken/transaction.{Mint, OutputReference, ScriptContext, Transaction}
-use aiken/transaction/value
+use aiken/collection/dict
+use cardano/transaction.{OutputReference, PolicyId, Transaction}
+use cardano/transaction/value
 
 type Action {
   CheckMint
   CheckBurn
 }
 
-validator(token_name: ByteArray, utxo_ref: OutputReference) {
-  fn gift_card(rdmr: Action, ctx: ScriptContext) -> Bool {
-    let ScriptContext { transaction, purpose } = ctx
+validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
+  spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
+    todo @"redeem"
+  }
 
-    expect Mint(policy_id) = purpose
-
-    let Transaction { inputs, mint, .. } = transaction
+  mint(rdmr: Action, policy_id: PolicyId, tx: Transaction) -> Bool {
+    let Transaction { inputs, mint, .. } = tx
 
     expect [Pair(asset_name, amount)] =
       mint
@@ -186,22 +194,22 @@ the `inputs` in the transaction. In addition to this, we need to ensure `amount`
 we're minting an NFT. For fun, we'll check that `asset_name` is equal to `token_name` from the parameters.
 
 ```aiken filename="validators/oneshot.ak" {2,26-30}
-use aiken/dict
-use aiken/list
-use aiken/transaction.{Mint, OutputReference, ScriptContext, Transaction}
-use aiken/transaction/value
+use aiken/collection/dict
+use aiken/collection/list
+use cardano/transaction.{OutputReference, PolicyId, Transaction}
+use cardano/transaction/value
 
 type Action {
   CheckMint
   CheckBurn
 }
 
-validator(token_name: ByteArray, utxo_ref: OutputReference) {
-  fn gift_card(rdmr: Action, ctx: ScriptContext) -> Bool {
-    let ScriptContext { transaction, purpose } = ctx
+validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
+  spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
+    todo @"redeem"
+  }
 
-    expect Mint(policy_id) = purpose
-
+  mint(rdmr: Action, policy_id: PolicyId, tx: Transaction) -> Bool {
     let Transaction { inputs, mint, .. } = transaction
 
     expect [Pair(asset_name, amount)] =
@@ -214,6 +222,7 @@ validator(token_name: ByteArray, utxo_ref: OutputReference) {
       CheckMint -> {
         expect True =
           list.any(inputs, fn(input) { input.output_reference == utxo_ref })
+
         amount == 1 && asset_name == token_name
       }
       CheckBurn ->
@@ -225,35 +234,35 @@ validator(token_name: ByteArray, utxo_ref: OutputReference) {
 
 We have everything we need in this validator to mint a Gift Card. Before
 we start making transactions though, we'll need to finish the `Burn` action and that
-will also be paired with the `redeem` validator.
+will also be paired with the `spend` handler.
 
 ### Redeeming a Gift Card
 
 To redeem a gift card we'll want a transaction that
-uses two validators. We'll use the `gift_card` validator with
-the `Burn` action to burn the NFT. We'll also use the `redeem` validator
+uses two handlers at once. We'll use the `mint` handler with
+the `Burn` action to burn the NFT. We'll also use the `spend` handler
 to unlock the assets at that address.
 
-Let's finish the `Burn` action of the `gift_card` validator. We just need
+Let's finish the `Burn` action of the `mint` handler. We just need
 to check that `amount` is equal to negative one and that `asset_name` is equal to `token_name`.
 
 ```aiken filename="validators/oneshot.ak" {32}
-use aiken/dict
-use aiken/list
-use aiken/transaction.{Mint, OutputReference, ScriptContext, Transaction}
-use aiken/transaction/value
+use aiken/collection/dict
+use aiken/collection/list
+use cardano/transaction.{OutputReference, PolicyId, Transaction}
+use cardano/transaction/value
 
 type Action {
   CheckMint
   CheckBurn
 }
 
-validator(token_name: ByteArray, utxo_ref: OutputReference) {
-  fn gift_card(rdmr: Action, ctx: ScriptContext) -> Bool {
-    let ScriptContext { transaction, purpose } = ctx
+validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
+  spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
+    todo @"redeem"
+  }
 
-    expect Mint(policy_id) = purpose
-
+  mint(rdmr: Action, policy_id: PolicyId, tx: Transaction) -> Bool {
     let Transaction { inputs, mint, .. } = transaction
 
     expect [Pair(asset_name, amount)] =
@@ -275,42 +284,40 @@ validator(token_name: ByteArray, utxo_ref: OutputReference) {
 }
 ```
 
-Now we can start working on the `redeem` validator. We'll want to parameterize this validator
-with `token_name` and the `policy_id` which is the hash of the `gift_card` validator after having it's
-params applied. We parameterize `redeem` with `gift_card`'s `policy_id` so that we can only use `redeem`
-exclusively with `gift_card`.
+Now we can start working on the `spend` handler.
 
 ```aiken filename="validators/oneshot.ak" {8}
-use aiken/dict
-use aiken/list
-use aiken/transaction.{Mint, OutputReference, ScriptContext, Transaction}
-use aiken/transaction/value
+use aiken/collection/dict
+use aiken/collection/list
+use cardano/transaction.{OutputReference, PolicyId, Transaction}
+use cardano/transaction/value
 
-// ... gift card validator ...
-
-validator(token_name: ByteArray, policy_id: ByteArray) {
-  fn redeem(_d: Data, _r: Data, ctx: ScriptContext) -> Bool {
+validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
+  spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
     todo @"redeem"
   }
+
+  // ... mint handler ...
 }
 ```
 
-Let's add some boilerplate to this validator so that we can get the
-`asset_name` and the `amount` out of the script context's transaction.
+Let's add some boilerplate to this handler so that we can get the
+`asset_name` and the `amount` out of the transaction.
 
 ```aiken filename="validators/oneshot.ak" {10-18}
-use aiken/dict
-use aiken/list
-use aiken/transaction.{Mint, OutputReference, ScriptContext, Transaction}
-use aiken/transaction/value
+use aiken/collection/dict
+use aiken/collection/list
+use cardano/transaction.{OutputReference, PolicyId, Transaction}
+use cardano/transaction/value
 
-// ... gift card validator ...
+validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
+  spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
+    let Transaction { mint, inputs, .. } = transaction
 
-validator(token_name: ByteArray, policy_id: ByteArray) {
-  fn redeem(_d: Data, _r: Data, ctx: ScriptContext) -> Bool {
-    let ScriptContext { transaction, .. } = ctx
+    expect Some(own_input) =
+      list.find(inputs, fn(input) { input.output_reference == own_ref })
 
-    let Transaction { mint, .. } = transaction
+    expect Script(policy_id) = own_input.output.address.payment_credential
 
     expect [Pair(asset_name, amount)] =
       mint
@@ -320,6 +327,8 @@ validator(token_name: ByteArray, policy_id: ByteArray) {
 
     todo @"redeem"
   }
+
+  // ... mint handler ...
 }
 ```
 
@@ -327,18 +336,20 @@ Finally we need to confirm that `asset_name` is equal to `token_name`
 and that `amount` is equal to negative one.
 
 ```aiken filename="validators/oneshot.ak" {20}
-use aiken/dict
-use aiken/list
-use aiken/transaction.{OutputReference, ScriptContext, Transaction} as tx
-use aiken/transaction/value
+use aiken/collection/dict
+use aiken/collection/list
+use cardano/transaction.{OutputReference, PolicyId, Transaction}
+use cardano/transaction/value
 
-// ... gift card validator ...
-
-validator(token_name: ByteArray, policy_id: ByteArray) {
-  fn redeem(_d: Data, _r: Data, ctx: ScriptContext) -> Bool {
-    let ScriptContext { transaction, .. } = ctx
-
+validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
+  spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
     let Transaction { mint, .. } = transaction
+
+
+    expect Some(own_input) =
+      list.find(inputs, fn(input) { input.output_reference == own_ref })
+
+    expect Script(policy_id) = own_input.output.address.payment_credential
 
     expect [Pair(asset_name, amount)] =
       mint
@@ -348,6 +359,8 @@ validator(token_name: ByteArray, policy_id: ByteArray) {
 
     amount == -1 && asset_name == token_name
   }
+
+  // ... mint handler ...
 }
 ```
 
