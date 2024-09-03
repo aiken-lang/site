@@ -15,16 +15,14 @@ Let's build a UI to send and redeem a gift card using smart contracts on Cardano
 
 - [x] Writing `Aiken` inter-dependent `mint` & `spend` validators.
 - [x] Parameterizing validators.
-- [x] Using [Lucid](https://lucid.spacebudz.io/) with [Blockfrost](https://blockfrost.io)<sup>★</sup>.
+- [x] Using [Blaze](https://github.com/butaneprotocol/blaze-cardano/) with Blockfrost<sup>★</sup>.
   <sub>
-    ★ We'll once again be using the `Blockfrost` provider. So have your
-    Blockfrost API key ready.
+    ★ You can easily get access by using [Demeter](https://demeter.run). Go
+    there and grab your API key by creating a Blockfrost instance on their
+    dashboard.
   </sub>
-- [x] Using [Deno fresh](https://fresh.deno.dev/)<sup>★</sup>.
-  <sub>
-    ★ You can install deno using these
-    [instructions](https://deno.land/manual@v1.29.1/getting_started/installation).
-  </sub>
+- [x] Using [SvelteKit](https://kit.svelte.dev/)<sup>★</sup>.
+  <sub>★ Make sure you have Node.js installed.</sub>
 
 <Callout type="info" emoji="📘">
   When encountering an unfamiliar syntax or concept, do not hesitate to refer to
@@ -387,152 +385,121 @@ aiken build
 ## Building a frontend
 
 With the easy part out of the way we can start building a frontend to interact with our
-smart contracts in the browser. Deno fresh is an interesting project for building
-web applications in Deno.
+smart contracts in the browser. SvelteKit is an interesting framework for building
+web applications.
 
 ### Setting up
 
-Let's generate a Deno fresh project in the same directory as our Aiken project.
+Let's generate a SvelteKit project in the same directory as our Aiken project.
 
 ```sh
-deno run -A -r https://fresh.deno.dev .
+npm create svelte@latest .
 ```
 
-<Callout type="warning">When prompted to enable Tailwind CSS say yes.</Callout>
+<Callout type="warning">
+  When prompted use the current directory, continue even though directory is not
+  empty, choose a skeleton project, use Svelte 5, and enable typescript.
+</Callout>
 
-We need lucid and we should probably add an alias for better looking imports.
-Let's edit `import_map.json`.
-
-```json filename="import_map.json" {11-12}
-{
-  "imports": {
-    "$fresh/": "...",
-    "preact": "...",
-    "preact/": "...",
-    "preact-render-to-string": "...",
-    "@preact/signals": "...",
-    "@preact/signals-core": "...",
-    "twind": "...",
-    "twind/": "...",
-    "lucid/": "https://deno.land/x/lucid@0.9.5/",
-    "~/": "./"
-  }
-}
-```
-
-We can delete a few things that come with the starter template that we don't need.
+We need to add Blaze now.
 
 ```sh
-rm islands/Counter.tsx
-rm -rf routes/api
-rm routes/\[name\].tsx
+npm add @blaze-cardano/sdk@latest @blaze-cardano/core@latest @blaze-cardano/query@latest @blaze-cardano/uplc@latest @blaze-cardano/wallet@latest @blaze-cardano/tx@latest
 ```
+
+Let's add tailwindcss to our project.
+
+```sh
+npx svelte-add@latest tailwindcss
+```
+
+<Callout type="warning">When prompted just say yes to everything.</Callout>
 
 Let's also add some reusable components to our project.
 
-```tsx filename="components/Button.tsx"
-import { JSX } from "preact";
-import { IS_BROWSER } from "$fresh/runtime.ts";
+```svelte filename="src/lib/components/Button.svelte"
+<script lang="ts">
+  import type { Snippet } from 'svelte';
 
-export function Button(props: JSX.HTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      {...props}
-      disabled={!IS_BROWSER || props.disabled}
-      class={`group inline-flex items-center justify-center rounded-full py-2 px-4 text-sm font-semibold focus:outline-none bg-blue-600 text-white hover:bg-blue-500 active:bg-blue-800 active:text-blue-100 ${props.class}`}
-    />
-  );
-}
+  type Props = {
+    disabled?: boolean;
+    children: Snippet;
+  };
+
+  let { disabled = false, children }: Props = $props();
+</script>
+
+<button
+  {disabled}
+  class="group inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 focus:outline-none active:bg-blue-800 active:text-blue-100"
+  >{@render children()}</button
+>
 ```
 
-<Callout type="info">
-  You can just replace the existing Button component with the above code
-</Callout>
+```svelte filename="src/lib/components/Input.svelte"
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+  import type { HTMLInputAttributes } from 'svelte/elements';
 
-```tsx filename="components/Input.tsx"
-import { ComponentChild, JSX } from "preact";
+  interface Props extends HTMLInputAttributes {
+    children: Snippet<[]>;
+  }
 
-export function Input({
-  children,
-  id,
-  ...props
-}: JSX.HTMLAttributes<HTMLInputElement>) {
-  return (
-    <div>
-      <label for={id} class="block mb-3 text-sm font-medium text-gray-700">
-        {children}
-      </label>
-      <input
-        {...props}
-        id={id}
-        class="block w-full appearance-none rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-blue-500 sm:text-sm"
-      />
-    </div>
-  );
-}
+  let { id, children, ...props }: Props = $props();
+</script>
+
+<div>
+  <label for={id} class="mb-3 block text-sm font-medium text-gray-700">
+    {@render children()}
+  </label>
+  <input
+    {...props}
+    {id}
+    class="block w-full appearance-none rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-blue-500 sm:text-sm"
+  />
+</div>
 ```
 
 ### Home page
 
 Everything we'll be doing with validators and transactions will happen fully client side.
-This means we can just have our route render a single `island` component and then
-we can write all of our code in this island for the most part.
+This means we can just have our app render a single `+page.svelte` component and then
+we can write all of our code in this page component for the most part.
 
-Let's create a new file `islands/Oneshot.tsx` and add the following code.
+Let's edit `src/routes/+page.svelte` to contain the following code.
 
-```tsx filename="islands/Oneshot.tsx"
-export default function Oneshot() {
-  return <div>Oneshot</div>;
-}
+```svelte filename="src/routes/+page.svelte"
+<svelte:head>
+  <title>One Shot</title>
+</svelte:head>
+
+<div class="mx-auto mb-10 mt-20 max-w-2xl">
+  <div class="mb-10">
+    <h2 class="text-lg font-semibold text-gray-900">Make a one shot minting and lock contract</h2>
+
+    <h3 class="mb-2 mt-4">Redeem</h3>
+    <pre class="overflow-x-scroll rounded bg-gray-200 p-2">
+      TODO: Render non-parameterized redeem validator
+    </pre>
+
+    <h3 class="mb-2 mt-4">Gift Card</h3>
+    <pre class="overflow-x-scroll rounded bg-gray-200 p-2">
+      TODO: Render non-parameterized gift_card validator
+    </pre>
+  </div>
+
+  <div>Oneshot</div>
+</div>
 ```
 
-Now inside of `routes/index.tsx` we can import our new island and render it.
-
-```tsx filename="routes/index.tsx" {3,29}
-import { Head } from "$fresh/runtime.ts";
-
-import Oneshot from "~/islands/Oneshot";
-
-export default function Home() {
-  return (
-    <>
-      <Head>
-        <title>One Shot</title>
-      </Head>
-
-      <div class="max-w-2xl mx-auto mt-20 mb-10">
-        <div class="mb-10">
-          <h2 class="text-lg font-semibold text-gray-900">
-            Make a one shot minting and lock contract
-          </h2>
-
-          <h3 class="mt-4 mb-2">Redeem</h3>
-          <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
-            TODO: Render non-parameterized redeem validator
-          </pre>
-
-          <h3 class="mt-4 mb-2">Gift Card</h3>
-          <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
-            TODO: Render non-parameterized gift_card validator
-          </pre>
-        </div>
-
-        <Oneshot />
-      </div>
-    </>
-  );
-}
-```
-
-You can replace everything that was in `routes/index.tsx` with the above code.
-We've left some `TODO`'s in the code to remind us to render the validators. We'll render
+We've left a `TODO` in the code to remind us to render the validator. We'll render
 the compiled aiken code as a hex encoded string. There not much of a reason to do this, it's just
 kinda cool to see.
 
 Next we should load the `plutus.json` file and get the compiled aiken code. Let's create
-a file called `utils.ts` and add the following code.
+a file called `lib/utils.ts` and add the following code.
 
-```ts filename="utils.ts"
+```ts filename="lib/utils.ts"
 import { MintingPolicy, SpendingValidator } from "lucid/mod.ts";
 
 import blueprint from "~/plutus.json" assert { type: "json" };
@@ -788,7 +755,10 @@ export function applyParams(
 
   return {
     redeem: { type: "PlutusV2", script: applyDoubleCborEncoding(redeem) },
-    giftCard: { type: "PlutusV2", script: applyDoubleCborEncoding(giftCard) },
+    giftCard: {
+      type: "PlutusV2",
+      script: applyDoubleCborEncoding(giftCard),
+    },
     policyId,
     lockAddress,
   };
