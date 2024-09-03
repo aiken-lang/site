@@ -500,24 +500,15 @@ Next we should load the `plutus.json` file and get the compiled aiken code. Let'
 a file called `lib/utils.ts` and add the following code.
 
 ```ts filename="lib/utils.ts"
-import { MintingPolicy, SpendingValidator } from "lucid/mod.ts";
-
-import blueprint from "~/plutus.json" assert { type: "json" };
+import blueprint from "../../plutus.json" assert { type: "json" };
 
 export type Validators = {
-  redeem: SpendingValidator;
-  giftCard: MintingPolicy;
+  giftCard: string;
 };
 
 export function readValidators(): Validators {
-  const redeem = blueprint.validators.find((v) => v.title === "oneshot.redeem");
-
-  if (!redeem) {
-    throw new Error("Redeem validator not found");
-  }
-
   const giftCard = blueprint.validators.find(
-    (v) => v.title === "oneshot.gift_card"
+    (v) => v.title === "oneshot.gift_card.spend"
   );
 
   if (!giftCard) {
@@ -525,173 +516,148 @@ export function readValidators(): Validators {
   }
 
   return {
-    redeem: {
-      type: "PlutusV2",
-      script: redeem.compiledCode,
-    },
-    giftCard: {
-      type: "PlutusV2",
-      script: giftCard.compiledCode,
-    },
+    giftCard: giftCard.compiledCode,
   };
 }
 ```
 
 There's nothing particularly special here. We're just reading the `plutus.json` file
-and finding the compiled code for the `redeem` and `gift_card` validators. We're also
-exporting a type for the validators so we can use it in our island later. Having this function
+and finding the compiled code for the `gift_card` validator. We're also
+exporting a type for the validators so we can use it in our page later. Having this function
 potentially throw an error is just a way to signal to us that we've done something wrong.
 
-Let's import our new `readValidators` file into our `routes/index.tsx` file and use it to
-in a server side handler. This will allow us to access the data in the `Home` page component
+Let's import our new `readValidators` file into `src/routes/+page.server.ts` file and use it to
+in a server side loader. This will allow us to access the data in the `+page.svelte` page component
 as page props which we'll then use to render the validator's compiled code.
 
-```tsx filename="routes/index.tsx" {2,5,7-9,11-17} /validators/4-8 /PageProps<Data>/ /data/
-import { Head } from "$fresh/runtime.ts";
-import { Handlers, PageProps } from "$fresh/server.ts";
+```ts filename="src/routes/+page.server.ts"
+import { readValidators } from "$lib/utils";
+import type { PageServerLoad } from "./$types";
 
-import Oneshot from "~/islands/Oneshot";
-import { readValidators, Validators } from "~/utils.ts";
+export const load: PageServerLoad = async () => {
+  const validator = readValidators().giftCard;
 
-interface Data {
-  validators: Validators;
-}
-
-export const handler: Handlers<Data> = {
-  GET(_req, ctx) {
-    const validators = readValidators();
-
-    return ctx.render({ validators });
-  },
+  return { validator };
 };
-
-export default function Home({ data }: PageProps<Data>) {
-  const { validators } = data;
-
-  return (
-    <>
-      <Head>
-        <title>One Shot</title>
-      </Head>
-
-      <div class="max-w-2xl mx-auto mt-20 mb-10">
-        <div class="mb-10">
-          <h2 class="text-lg font-semibold text-gray-900">
-            Make a one shot minting and lock contract
-          </h2>
-
-          <h3 class="mt-4 mb-2">Redeem</h3>
-          <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
-            {validators.redeem.script}
-          </pre>
-
-          <h3 class="mt-4 mb-2">Gift Card</h3>
-          <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
-            {validators.giftCard.script}
-          </pre>
-        </div>
-
-        <Oneshot validators={validators} />
-      </div>
-    </>
-  );
-}
 ```
 
-Your editor will probably complain and say that `Oneshot` doesn't accept a `validators` prop.
-We'll fix that in a moment.
+```svelte filename="src/routes/+page.svelte"
+<script lang="ts">
+  import type { PageData } from './$types';
 
-### The island
+  type Props = {
+    data: PageData;
+  };
+
+  let { data }: Props = $props();
+</script>
+
+<svelte:head>
+  <title>One Shot</title>
+</svelte:head>
+
+<div class="mx-auto mb-10 mt-20 max-w-2xl">
+  <div class="mb-10">
+    <h2 class="text-lg font-semibold text-gray-900">Make a one shot minting and lock contract</h2>
+
+    <h3 class="mb-2 mt-4">Gift Card</h3>
+    <pre class="overflow-x-scroll rounded bg-gray-200 p-2">{data.validator}</pre>
+  </div>
+
+  <div>Oneshot</div>
+</div>
+```
+
+### The App
 
 It's about time we start the real party and we've made it to the juicy part. In this island
-we'll capture some user input, apply some params to our raw validators, and execute some transactions.
+we'll capture some user input, apply some params to our raw validator, and execute some transactions.
 To keep things simple we'll assume [eternl](https://eternl.io/) is setup in your browser. Another thing
 we'll do to keep things simple is have the gift card be sent to ourselves when minted. This way we
 can test the redeeming of the gift card without having to send it to someone else or using a second wallet.
 
 #### Token name
 
-We should give `Oneshot`'s props a type and capture the `token_name` so we can use it to
-apply some params to the raw validators. Lucid also requires initialization so let's get
-some boilerplate out of the way.
+We need to capture the `token_name` so we can use it to apply some params to the raw validators.
+Blaze also requires initialization so let's get some boilerplate out of the way.
 
-```tsx filename="islands/Oneshot.tsx"
-import { useEffect, useState } from "preact/hooks";
-import { Blockfrost, Lucid } from "lucid/mod.ts";
+```svelte filename="src/routes/+page.svelte"
+<script lang="ts">
+  import { Blaze, Blockfrost, WebWallet } from '@blaze-cardano/sdk';
 
-import { Input } from "~/components/Input.tsx";
-import { Button } from "~/components/Button.tsx";
-import { Validators } from "~/utils.ts";
+  // Components
+  import Input from '$lib/components/Input.svelte';
+  import Button from '$lib/components/Button.svelte';
 
-export interface OneshotProps {
-  validators: Validators;
-}
+  // Local Types
+  import type { PageData } from './$types';
 
-export default function Oneshot({ validators }: OneshotProps) {
-  const [lucid, setLucid] = useState<Lucid | null>(null);
-  const [blockfrostAPIKey, setBlockfrostAPIKey] = useState<string>("");
-  const [tokenName, setTokenName] = useState<string>("");
-
-  const setupLucid = async (e: Event) => {
-    e.preventDefault();
-
-    const lucid = await Lucid.new(
-      new Blockfrost(
-        "https://cardano-preprod.blockfrost.io/api/v0",
-        blockfrostAPIKey
-      ),
-      "Preprod"
-    );
-
-    setLucid(lucid);
+  // Props
+  type Props = {
+    data: PageData;
   };
 
-  useEffect(() => {
-    if (lucid) {
-      window.cardano.eternl.enable().then((wallet) => {
-        lucid.selectWallet(wallet);
-      });
+  let { data }: Props = $props();
+
+  // Page Local State
+  let blaze: Blaze<Blockfrost, WebWallet> | undefined = $state();
+
+  let blockfrostAPIKey = $state('');
+
+  let tokenName = $state('');
+
+  async function setupBlaze(e: Event) {
+    e.preventDefault();
+
+    const walletApi = await window.cardano?.eternl.enable();
+
+    if (walletApi) {
+      blaze = await Blaze.from(
+        new Blockfrost({ network: 'cardano-preview', projectId: blockfrostAPIKey }),
+        new WebWallet(walletApi)
+      );
     }
-  }, [lucid]);
+  }
 
-  const submitTokenName = async (e: Event) => {
+  function submitTokenName(e: Event) {
     e.preventDefault();
 
-    console.log("TODO: apply params to raw validators");
-  };
+    console.log('TODO: apply params to raw validators');
+  }
+</script>
 
-  return (
-    <div>
-      {!lucid ? (
-        <form class="mt-10 grid grid-cols-1 gap-y-8" onSubmit={setupLucid}>
-          <Input
-            type="password"
-            id="blockfrostAPIKey"
-            onInput={(e) => setBlockfrostAPIKey(e.currentTarget.value)}
-          >
-            Blockfrost API Key
-          </Input>
+<svelte:head>
+  <title>One Shot</title>
+</svelte:head>
 
-          <Button type="submit">Setup Lucid</Button>
-        </form>
-      ) : (
-        <form class="mt-10 grid grid-cols-1 gap-y-8" onSubmit={submitTokenName}>
-          <Input
-            type="text"
-            name="tokenName"
-            id="tokenName"
-            value={tokenName}
-            onInput={(e) => setTokenName(e.currentTarget.value)}
-          >
-            Token Name
-          </Input>
+<div class="mx-auto mb-10 mt-20 max-w-2xl">
+  <div class="mb-10">
+    <h2 class="text-lg font-semibold text-gray-900">Make a one shot minting and lock contract</h2>
 
-          {tokenName && <Button type="submit">Make Contracts</Button>}
-        </form>
-      )}
-    </div>
-  );
-}
+    <h3 class="mb-2 mt-4">Gift Card</h3>
+    <pre class="overflow-x-scroll rounded bg-gray-200 p-2">{data.validator}</pre>
+  </div>
+
+  <div>
+    {#if blaze}
+      <form class="mt-10 grid grid-cols-1 gap-y-8" onsubmit={setupBlaze}>
+        <Input type="password" id="blockfrostAPIKey" bind:value={blockfrostAPIKey}>
+          Blockfrost API Key
+        </Input>
+
+        <Button type="submit">Setup Blaze</Button>
+      </form>
+    {:else}
+      <form class="mt-10 grid grid-cols-1 gap-y-8" onsubmit={submitTokenName}>
+        <Input type="text" name="tokenName" id="tokenName" bind:value={tokenName}>Token Name</Input>
+
+        {#if tokenName.length > 0}
+          <Button type="submit">Make Contract</Button>
+        {/if}
+      </form>
+    {/if}
+  </div>
+</div>
 ```
 
 #### Apply params
