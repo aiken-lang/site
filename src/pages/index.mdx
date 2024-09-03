@@ -64,15 +64,15 @@ export function icon(name, color) {
       break;
 
     case 'icon-package':
-      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-package"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"></line><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>`
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-package"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"></line><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>`
       break;
 
     case 'icon-activity':
-      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-activity"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>`
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-activity"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>`
       break;
 
     case 'icon-map':
-      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-map"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>`
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-map"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>`
       break;
 
     default:
@@ -337,6 +337,27 @@ export function icon(name, color) {
     background-clip: text;
     -webkit-background-clip: text;
   }
+  main article#trusted-by {
+    display: flex;
+    flex-direction: column;
+  }
+  main article#trusted-by > div {
+    margin-top: 2rem;
+    display: flex;
+    gap: 3.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  main article#trusted-by img {
+    height: 4rem;
+    width: auto;
+  }
+  main article#trusted-by img.white {
+    filter: brightness(0) invert(1);
+  }
+  main article#trusted-by h2 {
+    text-align: center;
+  }
   @media(max-width: 1000px) {
     main {
       max-width: 100vw;
@@ -394,18 +415,28 @@ export function icon(name, color) {
     section#roadmap h2 {
       font-size: 1.5em;
     }
+    section#roadmap h3 > span {
+      display: none;
+    }
   }
   section#roadmap h3 > span {
     font-size: 0.75em;
+    padding: 0 0.5rem;
+    font-variant: small-caps;
+  }
+  section#roadmap h3 > span + span {
+    padding-left: 0;
   }
   section#roadmap h3 {
     font-size: 1.25em;
     font-weight: bold;
+    display: flex;
+    align-items: center;
   }
   section#roadmap h3::before {
-    display: inline;
-    margin-right: 0.25rem;
-    vertical-align: middle;
+    position: relative;
+    top: 0.25rem;
+    margin-right: 0.5rem;
   }
   section#roadmap h3.icon-package::before {
     content: url("${icon('icon-package', palette.dark.text)}");
@@ -653,7 +684,6 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
       </ul>
     </div>
     <div id="socials">
-
       <LightDarkIframe
         src={{
           dark: "https://cardanosolutions.github.io/github-buttons/github-btn.html?user=aiken-lang&repo=aiken&type=star&count=true&size=large&title=aiken-lang%2Faiken&background=%23111111",
@@ -679,13 +709,28 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
       </div>
     </div>
   </article>
+
+  <article id="trusted-by">
+    <h2>Trusted by builders at</h2>
+    <div>
+      <img src="/companies/minswap.svg" alt="MinSwap" />
+      <img src="/companies/jpg-store.svg" alt="jpg.store" />
+      <img src="/companies/sundae-labs.svg" alt="Sundae Labs" />
+      <img src="/companies/cardano-foundation.svg" alt="Cardano Foundation" />
+      <img src="/companies/txpipe.svg" alt="TxPipe" class="white"/>
+      <img src="/companies/iohk.svg" alt="Input Output HK" class="white"/>
+      <img src="/companies/lenfi.svg" alt="Lenfi" class="white" />
+      <img src="/companies/butane.webp" alt="Butane" class="white" />
+      <img src="/companies/book.png" alt="Book.io" class="white" />
+    </div>
+  </article>
 </main>
 
 <section id="roadmap">
   <h2>Roadmap</h2>
   <div>
     <article>
-      <h3 class="icon-package">Recently delivered ― <span>see the <a href="https://github.com/aiken-lang/aiken/blob/main/CHANGELOG.md#changelog">full CHANGELOG</a></span></h3>
+      <h3 class="icon-package">Recently delivered<span> ― </span><span>see the <a href="https://github.com/aiken-lang/aiken/blob/main/CHANGELOG.md#changelog">full CHANGELOG</a></span></h3>
       <ul>
         <li>Plutus V3 support (language & virtual machine), and Plutus V3 transaction evaluation</li>
         <li>New standard library v2 ― see <a target="_blank" href="https://aiken-lang.github.io/stdlib/">aiken-lang/stdlib</a></li>
@@ -697,7 +742,7 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
     </article>
 
     <article>
-      <h3 class="icon-activity">Currently working on ― <span>see <a href="https://github.com/orgs/aiken-lang/projects/2">project tracking</a></span></h3>
+      <h3 class="icon-activity">Currently working on<span> ― </span><span>see <a href="https://github.com/orgs/aiken-lang/projects/2">project tracking</a></span></h3>
       <ul>
         <li class="todo">Additional LSP quickfixes</li>
         <li class="todo">Support for mono-repo ― see <a href="https://github.com/aiken-lang/aiken/issues/951">aiken-lang/aiken#951</a></li>
@@ -706,7 +751,7 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
     </article>
 
     <article>
-      <h3 class="icon-map">Future steps & ideas ― <span>see <a href="https://github.com/aiken-lang/aiken/discussions">ongoing discussions</a></span></h3>
+      <h3 class="icon-map">Future steps & ideas<span> ― </span><span>see <a href="https://github.com/aiken-lang/aiken/discussions">ongoing discussions</a></span></h3>
       <ul>
         <li class="todo">Code coverage tooling ― see <a href="https://github.com/aiken-lang/aiken/discussions/933">aiken-lang/aiken#933</a></li>
         <li class="todo">More aggressive UPLC optimizations</li>
