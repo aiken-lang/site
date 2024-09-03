@@ -65,7 +65,7 @@ platform = 'github'
 
 [[dependencies]]
 name = "aiken-lang/stdlib"
-version = "2.0.0"
+version = "v2"
 source = "github"
 ```
 
@@ -86,14 +86,14 @@ Let's write our first validator as `validators/hello_world.ak`:
 
 ```aiken filename="validators/hello_world.ak"
 use aiken/collection/list
-use cardano/credential.{VerificationKeyHash}
+use aiken/crypto.{VerificationKeyHash}
 use cardano/transaction.{OutputReference, Transaction}
 
-type Datum {
+pub type Datum {
   owner: VerificationKeyHash,
 }
 
-type Redeemer {
+pub type Redeemer {
   msg: ByteArray,
 }
 
@@ -102,19 +102,15 @@ validator hello_world {
     datum: Option<Datum>,
     redeemer: Redeemer,
     _own_ref: OutputReference,
-    context: ScriptContext
-  ) -> Bool {
-    let must_say_hello = redeemer.msg == "Hello, World!"
-
+    self: Transaction
+  ) {
     expect Some(Datum { owner }) = datum
 
-    let must_be_signed = list.has(transaction.extra_signatories, owner)
+    let must_say_hello = redeemer.msg == "Hello, World!"
+
+    let must_be_signed = list.has(self.extra_signatories, owner)
 
     must_say_hello && must_be_signed
-  }
-
-  else(_) {
-    fail
   }
 }
 ```
@@ -143,17 +139,17 @@ In a way, validators are nothing more than _predicates_. A predicate is a functi
 
 So let's add a few traces.
 
-```aiken filename="validators/hello-world.ak" {3, 17, 25}
+```aiken filename="validators/hello-world.ak" {3, 21, 29}
 use aiken/collection/list
+use aiken/crypto.{VerificationKeyHash}
 use aiken/primitive/string
-use cardano/credential.{VerificationKeyHash}
 use cardano/transaction.{OutputReference, Transaction}
 
-type Datum {
+pub type Datum {
   owner: VerificationKeyHash,
 }
 
-type Redeemer {
+pub type Redeemer {
   msg: ByteArray,
 }
 
@@ -162,25 +158,17 @@ validator hello_world {
     datum: Option<Datum>,
     redeemer: Redeemer,
     _own_ref: OutputReference,
-    context: ScriptContext
-  ) -> Bool {
-    trace string.from_bytearray(redeemer.msg)
-
-    let must_say_hello = redeemer.msg == "Hello, World!"
+    self: Transaction,
+  ) {
+    trace @"redeemer": string.from_bytearray(redeemer.msg)
 
     expect Some(Datum { owner }) = datum
 
+    let must_say_hello = redeemer.msg == "Hello, World!"
 
-    let must_be_signed =
-      list.has(context.transaction.extra_signatories, datum.owner)
-
-    let must_be_signed = list.has(transaction.extra_signatories, owner)
+    let must_be_signed = list.has(self.extra_signatories, owner)
 
     must_say_hello? && must_be_signed?
-  }
-
-  else(_) {
-    fail
   }
 }
 ```
@@ -197,9 +185,7 @@ In order to see those traces, we'll need to write a short test.
 
 Aiken has support for tests built-in! As you'll see shortly, tests can also serve as benchmarks since they display the exact memory and steps execution units required to run them. They also collect traces for us. Let's write a simple test which runs our validator. Tests are functions without arguments which return boolean. Yet unlike functions, they are denoted with the keyword `test`. We will need a datum, a redeemer and a script context as well as a few more imports:
 
-```aiken filename="validators/hello-world.ak" {1, 5-22}
-use cardano/transaction.{OutputReference}
-
+```aiken filename="validators/hello-world.ak" {0, 3-21}
 // ... rest of the code is unchanged
 
 test hello_world_example() {
@@ -216,7 +202,7 @@ test hello_world_example() {
     Some(datum),
     redeemer,
     placeholder_utxo,
-    transaction.placeholder()
+    transaction.placeholder
   )
 }
 ```
@@ -227,9 +213,10 @@ Here, we have a test! A failing test, but we'll get it to pass, no worries. But 
 ❯ aiken check
         
   ┍━ hello_world ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  │ FAIL [mem: 22531, cpu: 8042312] hello_world_example
-  │ ↳ Aiken Rocks!
-  │ ↳ must_say_hello ? False
+  │ FAIL [mem: 20729, cpu: 7480240] hello_world_example
+  │ · with traces
+  │ | redeemer: Hello, World!
+  │ | must_say_hello ? False
   ┕━━━━━━━━━━━━━━━━━━━━━━ 1 tests | 0 passed | 1 failed
 ```
 
@@ -252,7 +239,7 @@ test hello_world_example() {
     Some(datum),
     redeemer,
     placeholder_utxo,
-    transaction.placeholder()
+    transaction.placeholder
   )
 }
 ```
@@ -263,17 +250,16 @@ Now, we can run `aiken check` again:
 ❯ aiken check
         
   ┍━ hello_world ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  │ FAIL [mem: 23332, cpu: 8306868] hello_world_example
-  │ ↳ Hello, World!
-  │ ↳ must_be_signed ? False
+  │ FAIL [mem: 20729, cpu: 7480240] hello_world_example
+  │ · with traces
+  │ | redeemer: Hello, World!
+  │ | must_be_signed ? False
   ┕━━━━━━━━━━━━━━━━━━━━━━ 1 tests | 0 passed | 1 failed
 ```
 
 It fails again, as expected, but we got further. Notice how the the `mem` and `cpu` execution units are slightly higher than on the first execution. Now, we have moved to evaluating the second part of the validator requirements: `must_be_signed`. To satisfy this second requirement, we'll need to add our test owner to the transaction's extra signatories. As such:
 
-```aiken filename="validators/hello-world.ak" {2, 20-23}
-use cardano/transaction.{OutputReference, Transaction}
-
+```aiken filename="validators/hello-world.ak" {17-20}
 // ...rest of the code is unchanged
 
 test hello_world_example() {
@@ -286,12 +272,12 @@ test hello_world_example() {
   let placeholder_utxo =
     OutputReference { transaction_id: "", output_index: 0 }
 
-  hello_world(
+  hello_world.spend(
     Some(datum),
     redeemer,
     placeholder_utxo,
     Transaction {
-      ..transaction.placeholder(),
+      ..transaction.placeholder,
       extra_signatories: [datum.owner]
     }
   )
@@ -304,8 +290,9 @@ This should do the trick. Note that, at this point, we do not provide any signat
 ❯ aiken check
         
   ┍━ hello_world ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  │ PASS [mem: 37686, cpu: 13337425] hello_world_example
-  │ ↳ Hello, World!
+  │ PASS [mem: 35683, cpu: 12515496] hello_world_example
+  │ · with traces
+  │ | redeemer: Hello, World!
   ┕━━━━━━━━━━━━━━━━━━━━━━━ 1 tests | 1 passed | 0 failed
 ```
 
