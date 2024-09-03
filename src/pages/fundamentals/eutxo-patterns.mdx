@@ -1,19 +1,6 @@
 import { Callout } from "nextra-theme-docs";
 
-<style>{`
-@font-face {
-  font-family: 'Menlo Regular';
-  font-style: normal;
-  font-weight: normal;
-  src: local('Menlo Regular'), url('/fonts/Menlo-Regular.woff') format('woff');
-}
-pre code {
-  line-height: 1rem !important;
-  font-family: "Menlo Regular" !important;
-}
-`}</style>
-
-# EUTxO Patterns and Practices
+# Common Design Patterns
 
 There are number of design patterns that have been refined and enabled as Plutus has advanced from V1 to V2,
 and now to V3. This document seeks to be a non-exhaustive reference to these design patterns and practices.
@@ -24,77 +11,96 @@ Enforcing the uniqueness of policies, asset names, or new outputs is useful in a
 
 ### "One-Shot" Minting Policies
 
-A validator is parameterized with an `OutputReference`, the minting validator enforces that the inputs to
-the transaction contain the corresponding `Input`. By doing this, the minting policy is ensured to only
-validate a single time. In some designs, this logic is used for only a subset of redeemers to allow more
-flexible minting policies.
-
+A validator is parameterized with an `OutputReference`, the minting validator
+enforces that the inputs to the transaction contain the corresponding `UTxO` as
+input. By doing this, the minting policy is ensured to only validate once and
+only once (since an unspent transaction output can only be spent once, by
+definition). In some designs, this logic is used for only a subset of redeemers
+to allow more flexible minting policies.
 
 #### Example:
+
 An NFT (Non-Fungible Token) can be created using a one-shot minting policy that ensures each minted value
 is validated by spending a specific UTxO provided through the transaction inputs. This minting policy uses
-a validator parameter of OutputReference to confirm that the transaction spends the UTxO. Additionally, the 
+a validator parameter of OutputReference to confirm that the transaction spends the UTxO. Additionally, the
 policy guarantees that only one token is minted, ensuring the NFT's uniqueness.
 
-First define OutputReference as parameter and set the action type to mint or burn the token based on the 
+First define OutputReference as parameter and set the action type to mint or burn the token based on the
 value provided in the redeemer.
 
 ``` aiken
-type Action {
+use cardano/transaction.{OutputReference, Transaction}
+use cardano/assets.{PolicyId}
+
+pub type Action {
   Minting
   Burning
 }
 
-validator(utxo_ref: OutputReference) {
-  fn nft(action: Action, ctx: ScriptContext) -> Bool {
-      todo @"mint and burn"      
+validator one_shot(utxo_ref: OutputReference) {
+  mint(redeemer: Action, policy_id: PolicyId, self: Transaction) {
+      todo @"mint and burn"
     }
   }
 }
 ```
 
-The validator expects a minting script purpose and ensures that only one value is minted; it will fail otherwise.
+The validator must handle minting/burning operations and ensures that only one value is minted; it will fail otherwise.
 
-``` aiken
-validator(utxo_ref: OutputReference, token_name: AssetName) {
-  fn nft(action: Action, ctx: ScriptContext) -> Bool {
-      // It will fail the transaction if ctx.purpose is not minting
-      expect Mint(policy_id) = ctx.purpose
-      
-      // Here we get the input, mint values, and transaction object
-      let ScriptContext { transaction: Transaction { inputs, mint, .. }, .. } = ctx
-      
-      // It checks that only one minted value exists and will fail otherwise
-      expect [(_asset_name, amount)] = mint |> from_minted_value |> tokens(policy_id) |> to_list() 
+```aiken {1, 12-17}
+use aiken/collection/dict
+use cardano/transaction.{OutputReference, Transaction}
+use cardano/assets.{PolicyId}
 
-      todo @"Check if output is consumed" 
+pub type Action {
+  Minting
+  Burning
+}
 
+validator one_shot(utxo_ref: OutputReference) {
+  mint(redeemer: Action, policy_id: PolicyId, self: Transaction) {
+      // It checks that only one minted asset exists and will fail otherwise
+      expect [(_asset_name, quantity)] = self.mint
+        |> assets.tokens(policy_id)
+        |> dict.to_pairs()
+
+      todo @"Check if output is consumed"
     }
   }
 }
 ```
-To enforce uniqueness, we need to ensure that the UTxO defined as OutputReference in the validator parameters is 
+
+To enforce uniqueness, we need to ensure that the UTxO defined as OutputReference in the validator parameters is
 consumed. This is because every OutputReference is a unique combination of the Transaction ID and an Output Index
 Integer. It's important to remember that the Transaction ID is a `Hash<Blake2b_256, Transaction>`, which is also a
 unique identifier and will not be repeated.
 
-``` aiken
-validator(utxo_ref: OutputReference) {
-  fn nft(action: Action, ctx: ScriptContext) -> Bool {
-      expect Mint(policy_id) = ctx.purpose
+``` aiken {2, 18-25}
+use aiken/collection/dict
+use aiken/collection/list
+use cardano/transaction.{OutputReference, Transaction}
+use cardano/assets.{PolicyId}
 
-      let ScriptContext { transaction: Transaction { inputs, mint, .. }, .. } = ctx
+pub type Action {
+  Minting
+  Burning
+}
 
-      expect [(_asset_name, amount)] = mint |> from_minted_value |> tokens(policy_id) |> to_list() 
+validator one_shot(utxo_ref: OutputReference) {
+  mint(redeemer: Action, policy_id: PolicyId, self: Transaction) {
+      // It checks that only one minted asset exists and will fail otherwise
+      expect [(_asset_name, quantity)] = self.mint
+        |> assets.tokens(policy_id)
+        |> dict.to_pairs()
 
       // Check if the specified UTxO reference (utxo_ref) is consumed by any input
       let is_output_consumed = list.any(inputs, fn(input) { input.output_reference == utxo_ref })
 
       when action is {
         Minting ->
-          is_output_consumed? && (1 == amount)?
+          is_output_consumed? && (quantity == 1)?
 
-        Burning -> (-1 == amount)? // No need to check if output is consumed for burning
+        Burning -> (quantity == -1)? // No need to check if output is consumed for burning
       }
     }
   }
@@ -117,9 +123,9 @@ validator {
     let ScriptContext { transaction: Transaction { inputs, mint, .. }, .. } =
       ctx
 
-    // Select the first input and concatenate its output reference and index to generate 
+    // Select the first input and concatenate its output reference and index to generate
     // the expected token name
-    expect [Pair(asset_name, amount)] =
+    expect [Pair(asset_name, quantity)] =
       mint |> from_minted_value |> tokens(policy_id) |> to_pairs()
     expect Some(first_input) = list.at(inputs, 0)
     let first_input_out_ref = first_input.output_reference
@@ -128,7 +134,7 @@ validator {
       gen_token_name(first_input_out_ref, first_input_index)
 
     // Compare the asset name with the first utxo output reference
-    asset_name == expected_token_name && amount == 1
+    asset_name == expected_token_name && quantity == 1
   }
 }
 
@@ -162,7 +168,7 @@ In PlutusV1 and PlutusV2, a common anti-pattern was to predicate spending upon l
 a given input - without ensuring the uniqueness of the corresponding output.
 
 Let's walk through a short example:
-Bob wants to sell 20 SCOIN and wants at least 5 ADA in return; the contract would require that at least 
+Bob wants to sell 20 SCOIN and wants at least 5 ADA in return; the contract would require that at least
 5 ADA is paid to Bob.
 
 Step-by-step swap:
@@ -173,7 +179,7 @@ Step-by-step swap:
   2.- Alice makes a new transaction getting the 20 SCOIN and paying 5 ADA to Bob.
 
   3.- Alice will get 20 SCOIN.
-  
+
   4.- Bob will get 5 ADA.
 
 
@@ -212,14 +218,14 @@ validator {
   }
 }
 ```
-So far, everything is ok, but what if we have some UTxOs locked in the validator at similar prices? 
+So far, everything is ok, but what if we have some UTxOs locked in the validator at similar prices?
 
-Bob wants to sell 20 XCOIN, and 20 SCOIN and wants at least 10 ADA in return for each UTxO; 
-the contract would require that at least 10 ADA be paid to Bob. Now Alice comes and pays Bob 10 ADA, 
+Bob wants to sell 20 XCOIN, and 20 SCOIN and wants at least 10 ADA in return for each UTxO;
+the contract would require that at least 10 ADA be paid to Bob. Now Alice comes and pays Bob 10 ADA,
 in the same transaction she takes both the 20 SCOIN and 20 XCOIN because the contract only ensures
-that at least 10 ADA is paid to Bob. 
+that at least 10 ADA is paid to Bob.
 
-So, this validator could potentially cause the double satisfaction antipattern, where anyone can pay once and 
+So, this validator could potentially cause the double satisfaction antipattern, where anyone can pay once and
 get every UTxO locked at the same price or less.
 
 What can we do?
@@ -240,7 +246,7 @@ validator {
         let Transaction { outputs, .. } = ctx.transaction
 
         // We will get all UTxO outputs with a datum equal to the UTxO input's reference
-        // we are validating. 
+        // we are validating.
         let curr_utxo_outputs =
           list.filter(
             outputs,
@@ -255,7 +261,7 @@ validator {
             },
           )
 
-        // We sum all output values and check that the amount paid is greater than or equal to the price 
+        // We sum all output values and check that the amount paid is greater than or equal to the price
         // asked by the seller.
         let paid_for_utxo =
           list.foldl(
@@ -320,7 +326,7 @@ validator(utxo_ref: OutputReference) {
       ..
     } = ctx
 
-    expect [Pair(_asset_name, amount)] =
+    expect [Pair(_asset_name, quantity)] =
       mint |> from_minted_value |> tokens(policy_id) |> to_pairs()
 
     let is_output_consumed =
@@ -333,7 +339,7 @@ validator(utxo_ref: OutputReference) {
       )
     expect InlineDatum(datum) = nft_output.datum
     expect counter: Int = datum
-    is_output_consumed? && (1 == amount)? && counter == 0
+    is_output_consumed? && (1 == quantity)? && counter == 0
   }
 }
 ```
