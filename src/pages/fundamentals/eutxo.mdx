@@ -445,8 +445,16 @@ used to control the publication of delegation certificates or how consensus
 rewards can be withdrawn.
 
 These different use cases are commonly referred to as script purposes. Until
-now, we've seen three purposes: `spend`, `publish` and `withdraw`. There's a
-fourth one: `mint`.
+now, we've seen three purposes: `spend`, `publish` and `withdraw`. There are
+three more: `mint`, `vote` and `propose`
+
+Each purpose indicates _for what purpose_ a script is being executed. During
+validation, that information is passed to the script alongside the transaction
+and the redeemer. Note that only scripts executed with the `spend` purpose are
+given a datum. This is because they can leverage the data payload present in
+outputs, unlike the other purposes that do not get this opportunity.
+
+#### Mint
 
 The mint purpose refers to scripts that are executed to validate whether
 user-defined assets can be minted (i.e. created) or burned (i.e. destroyed).
@@ -458,12 +466,28 @@ The rules that govern the creation or destruction of an asset are defined as a
 script. We often refer to such scripts as _minting policies_, which correspond
 to the `mint` purpose above.
 
-Each purpose, therefore, indicates _for what purpose_ a script is being
-executed. During validation, that information is passed to the script alongside
-the transaction and the redeemer. Note that only scripts executed with the
-`spend` purpose are given a datum. This is because they can leverage the data
-payload present in outputs, unlike the other purposes that do not get this
-opportunity.
+#### Vote
+
+The vote purpose validates governance votes from script delegate
+representative. It is executed once per transaction per delegate credential,
+even if the transaction contains in fact multiple votes. This is handy to
+build more complex delegate representative than mere public keys; for example,
+to emulate a hot/cold key setup.
+
+#### Propose
+
+Finally, the propose purpose is a very unique one since there can only be one
+script in the entire ledger that may execute that purpose: the constitution
+guardrails script. That script is (optionally) defined with the on-chain
+constitution, and is executed by ledger for every transaction that is proposing
+a governance action. Its goal is to ensure that some proposals are rejected
+from the get-go to prevent spam with ill-advised proposals on the network -- in
+particular with regards to protocol parameters.
+
+For example, a proposal that would lower the block size from its current value
+to zero would completely incapacitate the chain and has little chance of being ever
+accepted anyway. The guardrails script can prevent that to even be submitted.
+In principle, it is a programmatic enforcement of the constitution.
 
 ### TL;DR
 
@@ -474,9 +498,11 @@ regarding scripts, datums and redeemers.
 - _Datums_ take the role of function parameters, whereas _redeemers_ the one of argument.
 - _Scripts_ are also called _validators_ and are completely deterministic.
 - _Scripts_ are used to validate specific operations in a transaction.
-- What a _script_ is used for is referred to as its _purpose_. There are 4 purposes:
+- What a _script_ is used for is referred to as its _purpose_. There are 6 purposes:
+  - `mint` -- controls how to mint or burn assets;
   - `spend` -- controls how to spend outputs;
-  - `publish` -- controls how to publish delegation certificates;
   - `withdraw` -- controls how to withdraw consensus rewards;
-  - `mint` -- controls how to mint or burn assets.
+  - `publish` -- controls how to publish delegation certificates;
+  - `vote` -- controls how to vote on proposal procedures;
+  - `propose` -- controls constitutionality of proposal procedures.
 - Only _spending scripts_ (i.e. purpose=spend) have access to a datum.
