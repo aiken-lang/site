@@ -50,6 +50,46 @@ In fact, handlers acts similarly to a pattern-matching on a [`ScriptContext{:ak}
 | `vote`     | [`Voter{:ak}`](https://aiken-lang.github.io/stdlib/cardano/governance.html#Voter)                         | voting on governance proposals                                         |
 | `propose`  | [`ProposalProcedure{:ak}`](https://aiken-lang.github.io/stdlib/cardano/governance.html#ProposalProcedure) | Constitution guardrails, executed when submitting governance proposals |
 
+Or, seen in action:
+
+```ak
+use cardano/address.{Credential}
+use cardano/assets.{PolicyId}
+use cardano/certificate.{Certificate}
+use cardano/governance.{ProposalProcedure, Voter}
+use cardano/transaction.{Transaction, OutputReference}
+
+validator my_script {
+  mint(redeemer: MyMintRedeemer, policy_id: PolicyId, self: Transaction) {
+    todo @"mint logic goes here"
+  }
+
+  spend(datum: Option<MyDatum>, redeemer: MySpendRedeemer, utxo: OutputReference, self: Transaction) {
+    todo @"spend logic goes here"
+  }
+
+  withdraw(redeemer: MyWithdrawRedeemer, account: Credential, self: Transaction) {
+    todo @"withdraw logic goes here"
+  }
+
+  publish(redeemer: MyPublishRedeemer, certificate: Certificate, self: Transaction) {
+    todo @"publish logic goes here"
+  }
+
+  vote(redeemer: MyVoteRedeemer, voter: Voter, self: Transaction) {
+    todo @"vote logic goes here"
+  }
+
+  propose(redeemer: MyProposeRedeemer, proposal: ProposalProcedure, self: Transaction) {
+    todo @"propose logic goes here"
+  }
+}
+```
+
+<Callout type="info">
+Notice how every handler can take a different redeemer type and all take a `Transaction` as last argument.
+</Callout>
+
 ### Managing (Optional) Datum
 
 Spend handlers contain an extra argument: the (optional) datum which may be set
