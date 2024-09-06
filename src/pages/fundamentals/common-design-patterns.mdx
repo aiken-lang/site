@@ -18,15 +18,17 @@ only once (since an unspent transaction output can only be spent once, by
 definition). In some designs, this logic is used for only a subset of redeemers
 to allow more flexible minting policies.
 
-#### Example:
+Let's walk through an example.
 
-An NFT (Non-Fungible Token) can be created using a one-shot minting policy that ensures each minted value
-is validated by spending a specific UTxO provided through the transaction inputs. This minting policy uses
-a validator parameter of OutputReference to confirm that the transaction spends the UTxO. Additionally, the
-policy guarantees that only one token is minted, ensuring the NFT's uniqueness.
+An NFT (Non-Fungible Token) can be created using a one-shot minting policy that
+ensures each minted value is validated by spending a specific UTxO provided
+through the transaction inputs. This minting policy uses a validator parameter
+of OutputReference to confirm that the transaction spends the UTxO.
+Additionally, the policy guarantees that only one token is minted, ensuring the
+NFT's uniqueness.
 
-First define OutputReference as parameter and set the action type to mint or burn the token based on the
-value provided in the redeemer.
+First define OutputReference as parameter and set the action type to mint or
+burn the token based on the value provided in the redeemer.
 
 ``` aiken
 use cardano/transaction.{OutputReference, Transaction}
@@ -155,29 +157,30 @@ and will compare it with the asset name.
 
 ### Unique Outputs
 
-To prevent a vulnerability called 'Double Satisfaction' (see more below), one pattern is to ensure
-that the output associated with a given input has its datum 'tagged' with a value which is unique to the
-input. Enough info is present in the `OutputReference` of the input to create a unique value.
+#### Problem: Double Satisfaction
 
-#### Double Satisfaction Anti-Pattern
+To prevent a vulnerability called _'Double Satisfaction'_ (see more below), one
+must ensure that outputs associated with a given input are only counted once
+across all possible validations occuring in a transaction.
 
-In PlutusV1 and PlutusV2, a common anti-pattern was to predicate spending upon logic that was specific to
-a given input - without ensuring the uniqueness of the corresponding output.
+In the eUTxO model, a common anti-pattern is to predicate spending upon logic
+that is specific to a given input - without ensuring the uniqueness of the
+corresponding output.
 
-Let's walk through a short example:
-Bob wants to sell 20 SCOIN and wants at least 5 ADA in return; the contract would require that at least
-5 ADA is paid to Bob.
+Let's walk through a short example: Bob wants to sell 20 SCOIN and wants at
+least 5 ADA in return; the contract would require that at least 5 ADA is paid
+to Bob.
 
 Step-by-step swap:
 
-  1.- Bob sends 20 SCOIN to the validator with a datum containing his VerificationKeyHash and
-      the price (5 ADA) required to get the 20 SCOIN.
+1. Bob sends 20 SCOIN to the validator with a datum containing his
+VerificationKeyHash and the price (5 ADA) required to get the 20 SCOIN.
 
-  2.- Alice makes a new transaction getting the 20 SCOIN and paying 5 ADA to Bob.
+2. Alice makes a new transaction getting the 20 SCOIN and paying 5 ADA to Bob.
 
-  3.- Alice will get 20 SCOIN.
+3. Alice will get 20 SCOIN.
 
-  4.- Bob will get 5 ADA.
+4. Bob will get 5 ADA.
 
 
 ``` aiken
@@ -223,25 +226,34 @@ validator exploitable_swap {
   }
 }
 ```
-So far, everything is ok, but what if we have some UTxOs locked in the validator at similar prices?
 
-Bob wants to sell 20 XCOIN, and 20 SCOIN and wants at least 10 ADA in return for each UTxO;
-the contract would require that at least 10 ADA be paid to Bob. Now Alice comes and pays Bob 10 ADA,
-in the same transaction she takes both the 20 SCOIN and 20 XCOIN because the contract only ensures
-that at least 10 ADA is paid to Bob.
+So far, everything is ok, but what if we have some UTxOs locked in the
+validator at similar prices?
 
-So, this validator could potentially cause the double satisfaction antipattern, where anyone can pay once and
-get every UTxO locked at the same price or less.
+Bob wants to sell 20 XCOIN, and 20 SCOIN and wants at least 10 ADA in return
+for each UTxO; the contract would require that at least 10 ADA be paid to Bob.
+Now Alice comes and pays Bob 10 ADA, in the same transaction she takes both the
+20 SCOIN and 20 XCOIN because the contract only ensures that at least 10 ADA is
+paid to Bob.
 
-What can we do?
-We have to ensure that each input has a corresponding unique output to pay or predicate the logic of spending any input of the
-script on all of the inputs and outputs relevant to the business logic of the dApp.
+So, this validator could potentially cause be satisfied twice with the same
+inputs, where anyone can pay once and get every UTxO unlocked at the same price
+or less.
 
-Solution proposed:
+#### Solution: Tagged Outputs
 
-First of all, we have to remember that the code in the validator will be executed for every UTxO locked to the validator address.
-That we are trying to unlock. So we have to validate that every input has an output or many outputs that sum up the amount of Lovelace
-asked for by the seller.
+What can we do? We have to ensure that each input has a corresponding unique
+output to pay or predicate the logic of spending any input of the script on all
+of the inputs and outputs relevant to the business logic of the dApp.
+
+In addition, we have to remember that the code in the validator will be
+executed for every UTxO locked by the validator that we are trying to spend
+from. So we have to make sure that outputs aren't counted multiple times across
+multiple executions of the validator (for each input validation).
+
+This can be achieved by _tagging_ outputs with a value which is unique to the
+input. Enough information is present in the `OutputReference` of the input to
+create a unique tag that must then be found in outputs.
 
 ``` aiken {26-50}
 use aiken/collection/list
@@ -309,34 +321,15 @@ validator swap {
 }
 ```
 
-## On-Chain Data Structures
-
-For multiple reasons, maintaining an on-chain data structure can be valuable. There are a growing number of
-libraries and examples to make this easier to handle maintaining these data stuctures. Some data
-structures can be maintained in a single UTxO depending on their contents and structure, others require a
-number of UTxOs and are implemented as linked structures.
-
-Each UTxO contains a reference to the next (and potentially previous) UTxO in the structure, alternatively
-a trie structure could be implemented where each UTxO references any number of children along with a single
-parent.
-
-The contents of a given node on a distributed structure is arbitrary, a key value pair can be held in order
-to create a distributed map using this methodology. Proving exclusion can be done in a single transaction
-as long as there is a cardinal order to the entries, this is done by referencing the two UTxOs which should
-have our entry between them.
-
 ## State Thread Tokens (a.k.a STT)
 
 It is often useful to have a mutable state which either changes with each transaction, or on a periodic
 basis. One way to ensure that a datum is not 'spoofed' is to ensure that the input or reference input with
 that datum contains an NFT which has been generated to be unique using one of the method described above.
 
-In this example, we will create an STT that tracks the sum of every transaction that uses the STT.
-
-We will create a multivalidator with two responsabilities:
-
-1. State Thread Token Minting Policy(Mint).
-2. Handler of STT(Spend).
+In this example, we will create an STT that tracks the sum of every transaction
+that uses the STT. And for this, we will create a multivalidator with two
+responsabilities: a minting and spending policy.
 
 The STT Minting Policy allows us to create new tokens with a counter datum initialized at 0.
 
@@ -370,10 +363,11 @@ validator counter_stt(utxo_ref: OutputReference) {
   todo @"Create the spending part to handle the STT"
 }
 ```
+
 Here is the part of the validator that ensures every transaction increments the value of the counter:
 
 - We check if the transaction is signed by the operator.
-- We obtain the ScriptHash to identify the NFT, which is the same as the PolicyId.
+- We obtain the `ScriptHash{:ak}` to identify the NFT, which is the same as the `PolicyId{:ak}`.
 - We check if an input NFT exists and has a datum with an integer.
 - We check if an output exists and has a datum with an integer.
 - We check if the output datum equals the input datum + 1.
@@ -390,7 +384,11 @@ validator counter_stt(utxo_ref: OutputReference) {
     self: Transaction,
   ) {
     let Transaction { inputs, outputs, .. } = self
-    // Getting the script hash from this validator.
+
+    // Getting the script hash from this validator. Note that since the
+    // `mint` handler is defined as part of the same validator, they share
+    // the same hash digest. Thus, our `payment_credential` is ALSO our STT
+    // minting policy.
     expect Some(own_input) =
       list.find(inputs, fn(input) { input.output_reference == own_ref })
     expect Script(own_script_hash) = own_input.output.address.payment_credential
@@ -399,7 +397,7 @@ validator counter_stt(utxo_ref: OutputReference) {
     let is_signed_by_operator =
       list.has(self.extra_signatories, config.operator)
 
-    //Checking inputs
+    // One input should hold the STT, with the expected format.
     expect Some(stt_input) =
       list.find(
         inputs,
@@ -408,65 +406,66 @@ validator counter_stt(utxo_ref: OutputReference) {
     expect InlineDatum(input_datum) = stt_input.output.datum
     expect counter_input: Int = input_datum
 
-    //Checking outputs
+    // The STT must be forwarded to an output
     expect Some(stt_output) =
       list.find(
         outputs,
         fn(output) { list.has(policies(output.value), own_script_hash) },
       )
-
     expect InlineDatum(output_datum) = stt_output.datum
     expect counter_output: Int = output_datum
     expect stt_input.output.address == stt_output.address
 
-    //Last tx validations
+    // Final validations
     is_signed_by_operator? && (counter_output == counter_input + 1)?
   }
 }
 ```
-One important thing to point out is that we're passing the operator variable from the configuration in the aiken.toml file.
+
+<Callout type="info">
+One important thing to point out is that we're pulling the operator value from the config, which comes from the `config` section of the aiken.toml file:
 
 ``` toml
 [config.default.operator]
 encoding = "hex"
 bytes = "00000000000000000000000000000000000000000000000000000000"
 ```
-
-And now, we can use the variable in our code like this:
-
-```
-use config
-
-// ...
-let is_signed_by_operator =
-  list.has(self.extra_signatories, config.operator)
-// ...
-```
+</Callout>
 
 ## Forwarding Validation & Other Withdrawal Tricks
 
-By enforcing a given script hash to be present within the 'withdrawals' present on a given transaction,
-we can effectively 'forward' the validation to this script being evaluated with the `WithdrawFrom`
-script purpose.
+By enforcing withdrawals from a specific given script, we can effectively
+'forward' the validation to this script being evaluated with the `withdraw`
+script purpose. This is possible in particular because it is always possible to
+withdraw an amount of 0 lovelace.
 
-We can leverage this to allow a script to be owner of a UTxO present in another script, where we would
-normally ensure that the owner's PKH is present in the required signatories, if the credential is a
-script then we ensure that the script hash is present in the withdrawals of the transaction.
+We can leverage this to allow a script to be owner of one or multiple UTxOs
+themselves locked by a much simpler script. In stead of normally ensuring that
+the owner's PKH is present in the required signatories, we use a small script
+that forward the validation to another single script also present in the
+transaction.
 
-By using this trick in a spending validator, we can reduce the logic in a spending validator to a
-minimum and delegate the logic to either the withdrawal purpose of the same or a different validator.
-This is used by a number of dApps now in production as of mid-2024 in order to optimize evaluation
-budgets and reach a higher throughput for dApps as opposed to tagging outputs as discussed above.
+By using this trick in a spending validator, we can reduce the overhead that
+comes from authorizing multiple spending. Indeed, instead of running the same
+bunch of logic multiple times (one for each input), we only run it once for the
+withdrawal script. Since validators have access to the entire transaction as a
+context, regardless of their execution purpose, it is feasible most of the
+time.
 
-Finally, we can combine on-chain data structures with the ability to force evaluation of a script
-by storing a large number of scripts within a data-structure. Then our primary script defines within
-its redeemer the script hash we are going to include in withdrawals of the tx, the logic of our
-primary script can be limited to only checking that this scripthash is present in our data-structure
-and present in the withdrawal category of the tx. This allows many more logical branches to exist
-for a given dApp than would otherwise be possible.
+This is being used by a number of dApps now in production in order to optimize
+evaluation budgets and reach a higher efficiency.
 
-## Other Reference Material
+## Going further
 
-https://github.com/Anastasia-Labs/design-patterns/
+### Anastasia Labs' design patterns
 
-https://github.com/Plutonomicon/plutonomicon/
+> https://github.com/Anastasia-Labs/design-patterns
+
+A library designed to abstract away some of the more unintuitive and
+lesser-known eUTxO design patterns, making them more accessible to developers.
+
+### Plutonomicon
+
+> https://github.com/Plutonomicon/plutonomicon
+
+A developer-driven guide to the Plutus smart contract platform _in practice_.
