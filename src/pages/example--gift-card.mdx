@@ -78,7 +78,8 @@ Now let's open the project folder in our favorite editor and define two empty
 validator functions.
 
 ```aiken filename="validators/oneshot.ak"
-use cardano/transaction.{Transaction, PolicyId}
+use cardano/transaction.{Transaction}
+use cardano/assets.{PolicyId}
 
 validator gift_card {
   spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
@@ -104,7 +105,8 @@ Since this example is for a oneshot minting contract let's add
 some parameters to the validator that we can use to guarantee uniqueness.
 
 ```aiken filename="validators/oneshot.ak" /OutputReference/
-use cardano/transaction.{OutputReference, Transaction, PolicyId}
+use cardano/transaction.{OutputReference, Transaction}
+use cardano/assets.{PolicyId}
 
 validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
   spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
@@ -125,7 +127,8 @@ Next let's define a type for `rdmr`. We have two actions that this validator
 will perform. This validator can be used to mint and then burn an NFT.
 
 ```aiken filename="validators/oneshot.ak" {3-6,10-15} /Action/2
-use cardano/transaction.{OutputReference, Transaction, PolicyId}
+use cardano/transaction.{OutputReference, Transaction}
+use cardano/assets.{PolicyId}
 
 type Action {
   CheckMint
@@ -156,8 +159,9 @@ to perform the final check.
 
 ```aiken filename="validators/oneshot.ak" {1-3,12-22} /Transaction} as tx/1
 use aiken/collection/dict
-use cardano/transaction.{OutputReference, PolicyId, Transaction}
+use cardano/transaction.{OutputReference, Transaction}
 use cardano/transaction/value
+use cardano/assets.{PolicyId}
 
 type Action {
   CheckMint
@@ -196,8 +200,9 @@ we're minting an NFT. For fun, we'll check that `asset_name` is equal to `token_
 ```aiken filename="validators/oneshot.ak" {2,26-30}
 use aiken/collection/dict
 use aiken/collection/list
-use cardano/transaction.{OutputReference, PolicyId, Transaction}
+use cardano/transaction.{OutputReference, Transaction}
 use cardano/transaction/value
+use cardano/assets.{PolicyId}
 
 type Action {
   CheckMint
@@ -249,8 +254,9 @@ to check that `amount` is equal to negative one and that `asset_name` is equal t
 ```aiken filename="validators/oneshot.ak" {32}
 use aiken/collection/dict
 use aiken/collection/list
-use cardano/transaction.{OutputReference, PolicyId, Transaction}
+use cardano/transaction.{OutputReference, Transaction}
 use cardano/transaction/value
+use cardano/assets.{PolicyId}
 
 type Action {
   CheckMint
@@ -289,8 +295,9 @@ Now we can start working on the `spend` handler.
 ```aiken filename="validators/oneshot.ak" {8}
 use aiken/collection/dict
 use aiken/collection/list
-use cardano/transaction.{OutputReference, PolicyId, Transaction}
+use cardano/transaction.{OutputReference, Transaction}
 use cardano/transaction/value
+use cardano/assets.{PolicyId}
 
 validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
   spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
@@ -307,8 +314,9 @@ Let's add some boilerplate to this handler so that we can get the
 ```aiken filename="validators/oneshot.ak" {10-18}
 use aiken/collection/dict
 use aiken/collection/list
-use cardano/transaction.{OutputReference, PolicyId, Transaction}
+use cardano/transaction.{OutputReference, Transaction}
 use cardano/transaction/value
+use cardano/assets.{PolicyId}
 
 validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
   spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
@@ -338,8 +346,9 @@ and that `amount` is equal to negative one.
 ```aiken filename="validators/oneshot.ak" {20}
 use aiken/collection/dict
 use aiken/collection/list
-use cardano/transaction.{OutputReference, PolicyId, Transaction}
+use cardano/transaction.{OutputReference, Transaction}
 use cardano/transaction/value
+use cardano/assets.{PolicyId}
 
 validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
   spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
