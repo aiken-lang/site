@@ -115,7 +115,7 @@ This is all great but sometimes, you need more. Sometimes, you need to inspect t
 )
 ```
 
-Note quite easy to read, huh? But there's hope! [Aiken's standard library](https://aiken-lang.github.io/stdlib/) provides a convenient method to inspect **any value** at runtime and obtain a `String` representation of them. The syntax used for this representation is called a [CBOR diagnostic](https://www.rfc-editor.org/rfc/rfc8949#name-diagnostic-notation). Think of it as a high-level syntax that resembles JSON and that can represent binary data.
+Not quite easy to read, huh? But there's hope! [Aiken's standard library](https://aiken-lang.github.io/stdlib/) provides a convenient method to inspect **any value** at runtime and obtain a `String` representation of them. The syntax used for this representation is called a [CBOR diagnostic](https://www.rfc-editor.org/rfc/rfc8949#name-diagnostic-notation). Think of it as a high-level syntax that resembles JSON and that can represent binary data.
 
 ```aiken filename="aiken/cbor"
 pub fn diagnostic(data: Data) -> String
