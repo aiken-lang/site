@@ -102,14 +102,11 @@ validator hello_world {
     datum: Option<Datum>,
     redeemer: Redeemer,
     _own_ref: OutputReference,
-    self: Transaction
+    self: Transaction,
   ) {
     expect Some(Datum { owner }) = datum
-
     let must_say_hello = redeemer.msg == "Hello, World!"
-
     let must_be_signed = list.has(self.extra_signatories, owner)
-
     must_say_hello && must_be_signed
   }
 }
@@ -192,17 +189,15 @@ test hello_world_example() {
   let datum =
     Datum { owner: #"00000000000000000000000000000000000000000000000000000000" }
 
-  let redeemer =
-    Redeemer { msg: "Aiken Rocks!" }
+  let redeemer = Redeemer { msg: "Aiken Rocks!" }
 
-  let placeholder_utxo =
-    OutputReference { transaction_id: "", output_index: 0 }
+  let placeholder_utxo = OutputReference { transaction_id: "", output_index: 0 }
 
   hello_world.spend(
     Some(datum),
     redeemer,
     placeholder_utxo,
-    transaction.placeholder
+    transaction.placeholder,
   )
 }
 ```
@@ -229,17 +224,15 @@ test hello_world_example() {
   let datum =
     Datum { owner: #"00000000000000000000000000000000000000000000000000000000" }
 
-  let redeemer =
-    Redeemer { msg: "Hello, World!" }
+  let redeemer = Redeemer { msg: "Hello, World!" }
 
-  let placeholder_utxo =
-    OutputReference { transaction_id: "", output_index: 0 }
+  let placeholder_utxo = OutputReference { transaction_id: "", output_index: 0 }
 
   hello_world.spend(
     Some(datum),
     redeemer,
     placeholder_utxo,
-    transaction.placeholder
+    transaction.placeholder,
   )
 }
 ```
@@ -266,20 +259,15 @@ test hello_world_example() {
   let datum =
     Datum { owner: #"00000000000000000000000000000000000000000000000000000000" }
 
-  let redeemer =
-    Redeemer { msg: "Hello, World!" }
+  let redeemer = Redeemer { msg: "Hello, World!" }
 
-  let placeholder_utxo =
-    OutputReference { transaction_id: "", output_index: 0 }
+  let placeholder_utxo = OutputReference { transaction_id: "", output_index: 0 }
 
   hello_world.spend(
     Some(datum),
     redeemer,
     placeholder_utxo,
-    Transaction {
-      ..transaction.placeholder,
-      extra_signatories: [datum.owner]
-    }
+    Transaction { ..transaction.placeholder, extra_signatories: [datum.owner] },
   )
 }
 ```
