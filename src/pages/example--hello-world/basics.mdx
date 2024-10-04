@@ -109,10 +109,6 @@ validator hello_world {
     let must_be_signed = list.has(self.extra_signatories, owner)
     must_say_hello && must_be_signed
   }
-
-  else(_) {
-    fail
-  }
 }
 ```
 
