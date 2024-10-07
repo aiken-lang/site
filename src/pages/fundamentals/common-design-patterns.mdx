@@ -100,7 +100,7 @@ validator one_shot(utxo_ref: OutputReference) {
       // Check if the specified UTxO reference (utxo_ref) is consumed by any input
       let is_output_consumed = list.any(inputs, fn(input) { input.output_reference == utxo_ref })
 
-      when action is {
+      when redeemer is {
         Minting ->
           is_output_consumed? && (quantity == 1)?
 
