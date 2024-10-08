@@ -44,7 +44,7 @@ validator one_shot(utxo_ref: OutputReference) {
       todo @"mint and burn"
     }
   }
-}
+
 ```
 
 The validator must handle minting/burning operations and ensures that only one value is minted; it will fail otherwise.
@@ -62,14 +62,14 @@ pub type Action {
 validator one_shot(utxo_ref: OutputReference) {
   mint(redeemer: Action, policy_id: PolicyId, self: Transaction) {
       // It checks that only one minted asset exists and will fail otherwise
-      expect [(_asset_name, quantity)] = self.mint
+      expect [Pair(_asset_name, quantity)] = self.mint
         |> assets.tokens(policy_id)
         |> dict.to_pairs()
 
       todo @"Check if output is consumed"
     }
   }
-}
+
 ```
 
 To enforce uniqueness, we need to ensure that the UTxO defined as OutputReference in the validator parameters is
@@ -91,14 +91,16 @@ pub type Action {
 validator one_shot(utxo_ref: OutputReference) {
   mint(redeemer: Action, policy_id: PolicyId, self: Transaction) {
       // It checks that only one minted asset exists and will fail otherwise
-      expect [(_asset_name, quantity)] = self.mint
+      expect [Pair(_asset_name, quantity)] = self.mint
         |> assets.tokens(policy_id)
         |> dict.to_pairs()
+
+      let Transaction{inputs, mint , ..} = self
 
       // Check if the specified UTxO reference (utxo_ref) is consumed by any input
       let is_output_consumed = list.any(inputs, fn(input) { input.output_reference == utxo_ref })
 
-      when action is {
+      when redeemer is {
         Minting ->
           is_output_consumed? && (quantity == 1)?
 
@@ -106,7 +108,7 @@ validator one_shot(utxo_ref: OutputReference) {
       }
     }
   }
-}
+
 ```
 
 ### Receipts
@@ -360,7 +362,7 @@ validator counter_stt(utxo_ref: OutputReference) {
     expect counter: Int = datum
     is_output_consumed? && (1 == quantity)? && counter == 0
   }
-  todo @"Create the spending part to handle the STT"
+  // "Create the spending part to handle the STT"
 }
 ```
 
