@@ -90,7 +90,17 @@ Which would have generated the trace `"must_spend_token ? False"`.
 
 Handy, right?
 
-Incidentally, the `?` operator works like `trace` and is therefore affected by the `--keep-traces` and `--no-traces` options. When compiling for production, it has therefore no effect on the program and behaves as if it wasn't there at all.
+<Callout type="warning">
+Both the `?` operator and `trace` are affected by the `aiken build` `--trace-level` options. The available trace level options are `silent`, `compact`, and `verbose`. The behaviors are as follows:
+
+| Trace Level |      `?` operator      | `trace` |
+|-------------|------------------------|------------------------|
+|  `silent`   | No trace will be kept. | No trace will be kept. |
+|  `compact`  | No trace will be kept. | Preserve trace labels. For example: `trace @"Label": 1, 2` will print `Label` |
+|  `verbose`  | A full trace will be printed. For example: `(a == 1)?` will print `a == 1 ? False` | A full trace will be printed. For example: `trace @"Label": 1, 2` will print `Label: 1, 2` |
+
+There is an alias for `aiken build`, which is `aiken b`. Without any trace level option, it defaults to `silent` build.
+</Callout>
 
 ## CBOR diagnostic
 
