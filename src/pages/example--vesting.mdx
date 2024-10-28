@@ -35,14 +35,21 @@ Funds](/example--hello-world/end-to-end/lucid#getting-funds) in case you have an
 on the procedure.
 
 ```js filename="generate-credentials.mjs"
-import { MeshWallet } from '@meshsdk/core';
 import fs from 'node:fs';
+import 'dotenv/config';
+import {
+  MeshWallet,
+} from "@meshsdk/core";
 
-// Generate secret keys for both wallets
+
+// Generate a secret key for the owner wallet and beneficiary wallet
 const owner_secret_key = MeshWallet.brew(true);
 const beneficiary_secret_key = MeshWallet.brew(true);
 
-// Initialize the owner wallet with the generated secret key
+//Save secret keys to files
+fs.writeFileSync('owner.sk', owner_secret_key);
+fs.writeFileSync('beneficiary.sk', beneficiary_secret_key);
+
 const owner_wallet = new MeshWallet({
   networkId: 0,
   key: {
@@ -51,7 +58,6 @@ const owner_wallet = new MeshWallet({
   },
 });
 
-// Initialize the beneficiary wallet with its secret key, using the same setup
 const beneficiary_wallet = new MeshWallet({
   networkId: 0,
   key: {
@@ -60,15 +66,10 @@ const beneficiary_wallet = new MeshWallet({
   },
 });
 
-// save keys to files
-fs.writeFileSync('owner.sk', owner_secret_key);
-fs.writeFileSync('beneficiary.sk', beneficiary_secret_key);
-
 // Save unused addresses to files 
 fs.writeFileSync('owner.addr', owner_wallet.getUnusedAddresses()[0]);
 fs.writeFileSync('beneficiary.addr', beneficiary_wallet.getUnusedAddresses()[0]);
-</Callout>
-
+```
 
 ## On-Chain code
 
@@ -76,23 +77,14 @@ Let's write our time lock validator as `validators/vesting.ak`, starting with
 the definition of its interface (i.e. its datum's shape).
 
 ```aiken filename="validators/vesting.ak"
-use aiken/hash.{Blake2b_224, Hash}
-use aiken/transaction/credential.{VerificationKey}
-
-type Datum {
-  /// POSIX time in millisecond, e.g. 1672843961000
-  lock_until: POSIXTime,
+pub type VestingDatum {
+  /// POSIX time in milliseconds, e.g. 1672843961000
+  lock_until: Int,
   /// Owner's credentials
-  owner: VerificationKeyHash,
+  owner: ByteArray,
   /// Beneficiary's credentials
-  beneficiary: VerificationKeyHash,
+  beneficiary: ByteArray,
 }
-
-type VerificationKeyHash =
-  Hash<Blake2b_224, VerificationKey>
-
-type POSIXTime =
-  Int
 ```
 
 As we can see the script's datum serves as configuration and contains the
@@ -103,25 +95,31 @@ the conditions by which the funds can be released.
 From there, lets define the `spend` validator itself.
 
 ```aiken filename="validators/vesting.ak"
-use aiken/interval.{Finite}
-use aiken/list
-use aiken/transaction.{Transaction, ScriptContext, Spend, ValidityRange}
+use cardano/transaction.{OutputReference, Transaction}
+use vodka_extra_signatories.{key_signed}
+use vodka_validity_range.{valid_after}
 
-validator {
-  fn vesting(datum: Datum, _redeemer: Void, ctx: ScriptContext) {
+validator vesting {
+  spend(
+    datum_opt: Option<VestingDatum>,
+    _redeemer: Data,
+    _input: OutputReference,
+    tx: Transaction,
+  ) {
     // In principle, scripts can be used for different purpose (e.g. minting
     // assets). Here we make sure it's only used when 'spending' from a eUTxO
-    when ctx.purpose is {
-      Spend(_) ->
-        or {
-          must_be_signed_by(ctx.transaction, datum.owner),
-          and {
-            must_be_signed_by(ctx.transaction, datum.beneficiary),
-            must_start_after(ctx.transaction.validity_range, datum.lock_until),
-          },
-        }
-      _ -> False
+    expect Some(datum) = datum_opt
+    or {
+      key_signed(tx.extra_signatories, datum.owner),
+      and {
+        key_signed(tx.extra_signatories, datum.beneficiary),
+        valid_after(tx.validity_range, datum.lock_until),
+      },
     }
+  }
+
+  else(_) {
+    fail
   }
 }
 
@@ -201,140 +199,137 @@ Let's see the validator in action!
 
 ## Off-Chain code
 
-As a starter, we need to lock funds in our newly created contract. We'll use
-[`Lucid`](https://github.com/spacebudz/lucid) to construct and submit our
-transaction through Blockfrost.
-
-<Callout type="info">
-  This is only one example of possible setup using tools we love. For more
-  tools, make sure to check out the [Cardano Developer
-  Portal](https://developers.cardano.org/tools)!
-</Callout>
-
 ### Setup
+First, let's install the dotenv package(https://www.npmjs.com/package/dotenv), which allows us to import our API key from a .env file. Next, we'll create a directory called common and, within it, a file named common.mjs. 
+This file will house utility functions used for both locking and unlocking assets. In this setup, we will import our BLOCKFROST_API key from the .env file. 
 
-First, we setup Lucid with Blockfrost as a provider. You know the drill from
-the [_Hello, World!_](/getting-started/hello-world) example already.
 
-```ts filename="vesting_lock.ts"
+
+```js filename="common/common.mjs"
+import 'dotenv/config';
 import {
-  Blockfrost,
-  C,
-  Data,
-  Lucid,
-  SpendingValidator,
-  TxHash,
-  fromHex,
-  toHex,
-} from "https://deno.land/x/lucid@0.8.3/mod.ts";
-import * as cbor from "https://deno.land/x/cbor@v1.4.1/index.js";
+  MeshWallet,
+  BlockfrostProvider,
+  MeshTxBuilder,
+  serializePlutusScript,
+} from "@meshsdk/core";
+import { applyParamsToScript } from "@meshsdk/core-csl";
+import fs, { read } from 'fs';
 
-const lucid = await Lucid.new(
-  new Blockfrost(
-    "https://cardano-preview.blockfrost.io/api/v0",
-    Deno.env.get("BLOCKFROST_API_KEY"),
-  ),
-  "Preview",
-);
 
-lucid.selectWalletFromPrivateKey(await Deno.readTextFile("./owner.sk"));
+export const blockchainProvider = new BlockfrostProvider(process.env.BLOCKFROST_API);
 
-const validator = await readValidator();
 
-// --- Supporting functions
-
-async function readValidator(): Promise<SpendingValidator> {
-  const validator = JSON.parse(await Deno.readTextFile("plutus.json")).validators[0];
-  return {
-    type: "PlutusV2",
-    script: toHex(cbor.encode(fromHex(validator.compiledCode))),
-  };
-}
-```
-
-<Callout>
-  If you've installed [deno](https://deno.land/manual@v1.29.1/getting_started/installation), you can run the except above by executing:
-
-```
-deno run --allow-net --allow-read --allow-env vesting_lock.ts
-```
-
-It assumes that this file (`vesting_lock.ts`) is placed at the root of your `vesting` folder. At this stage, your folder should looks roughly like this:
-
-```
-./vesting
-│
-├── README.md
-├── aiken.toml
-├── plutus.json
-├── vesting_lock.ts
-├── owner.addr
-├── owner.sk
-├── beneficiary.addr
-├── beneficiary.sk
-├── lib
-│   └── ...
-└── validators
-    └── vesting.ak
-```
-
-</Callout>
-
-### Locking funds into the contract
-
-Here, we make our first transaction to lock funds into the contract. The datum
-must match the representation expected by the script, constructor is an object expecting 3 fields.
-
-```ts filename="vesting_lock.ts"
-const ownerPublicKeyHash = lucid.utils.getAddressDetails(
-  await lucid.wallet.address()
-).paymentCredential.hash;
-
-const beneficiaryPublicKeyHash =
-  lucid.utils.getAddressDetails(await Deno.readTextFile("beneficiary.addr"))
-    .paymentCredential.hash;
-
-const Datum = Data.Object({
-  lock_until: Data.BigInt, // this is POSIX time, you can check and set it here: https://www.unixtimestamp.com
-  owner: Data.String, // we can pass owner's verification key hash as byte array but also as a string
-  beneficiary: Data.String, // we can beneficiary's hash as byte array but also as a string
+export const owner_wallet = new MeshWallet({
+  networkId: 0,
+  fetcher: blockchainProvider,
+  submitter: blockchainProvider,
+  key: {
+    type: "root",
+    bech32: fs.readFileSync("owner.sk").toString(),
+  },
 });
 
-type Datum = Data.Static<typeof Datum>;
-
-const datum = Data.to<Datum>(
-  {
-    lock_until: 1672843961000n, // Wed Jan 04 2023 14:52:41 GMT+0000
-    owner: ownerPublicKeyHash, // our own wallet verification key hash
-    beneficiary: beneficiaryPublicKeyHash,
+export const beneficiary_wallet = new MeshWallet({
+  networkId: 0,
+  fetcher: blockchainProvider,
+  submitter: blockchainProvider,
+  key: {
+    type: "root",
+    bech32: fs.readFileSync("beneficiary.sk").toString(),
   },
-  Datum
-);
+});
 
-const txLock = await lock(1000000, { into: validator, datum: datum });
+export function getTxBuilder() {
+  return new MeshTxBuilder({
+    fetcher: blockchainProvider,
+    submitter: blockchainProvider,
+  });
+}
 
-await lucid.awaitTx(txLock);
+const blueprint = JSON.parse(fs.readFileSync("./plutus.json"));
+export const scriptCbor = applyParamsToScript(blueprint.validators[0].compiledCode, []);
+export const scriptAddr = serializePlutusScript(
+  { code: scriptCbor, version: "V3" },
+  undefined,
+  0
+).address;
 
-console.log(`1 tADA locked into the contract
-    Tx ID: ${txLock}
-    Datum: ${datum}
-`);
 
-// --- Supporting functions
+```
+### Locking funds into the contract
 
-async function lock(lovelace, { into, datum }): Promise<TxHash> {
-  const contractAddress = lucid.utils.validatorToAddress(into);
+First, we will set up the depositFundTx function.
+This function will encapsulate the core logic for locking funds into the smart contract, ensuring that the deposit process is handled efficiently and securely.
 
-  const tx = await lucid
-    .newTx()
-    .payToContract(contractAddress, { inline: datum }, { lovelace })
+```js filename="vesting_lock.mjs"
+import { mConStr0 } from "@meshsdk/common";
+import { deserializeAddress } from "@meshsdk/core";
+import {
+  getTxBuilder,
+  owner_wallet,
+  beneficiary_wallet,
+  scriptAddr,
+} from "./common/common.mjs";
+
+async function depositFundTx(amount, lockUntilTimeStampMs) {
+  const utxos = await owner_wallet.getUtxos();
+  const { pubKeyHash: ownerPubKeyHash } = deserializeAddress(
+    owner_wallet.addresses.baseAddressBech32
+  );
+  const { pubKeyHash: beneficiaryPubKeyHash } = deserializeAddress(
+    beneficiary_wallet.addresses.baseAddressBech32
+  );
+
+  const txBuilder = getTxBuilder();
+  await txBuilder
+    .txOut(scriptAddr, amount)
+    .txOutInlineDatumValue(
+      mConStr0([lockUntilTimeStampMs, ownerPubKeyHash, beneficiaryPubKeyHash])
+    )
+    .changeAddress(owner_wallet.addresses.baseAddressBech32)
+    .selectUtxosFrom(utxos)
     .complete();
-
-  const signedTx = await tx.sign().complete();
-
-  return signedTx.submit();
+  return txBuilder.txHex;
 }
 ```
+
+Now that we have built the core logic let's setup the main function that will handle signing and submitting the transaction. 
+It will also call depositFundTx with the arguments it expects. 
+
+```js filename="vesting_lock.mjs"
+
+// ^^^ Code above is unchanged. ^^^
+
+async function main() {
+  const assets = [
+    {
+      unit: "lovelace",
+      quantity: "3000000",
+    },
+  ];
+
+  const lockUntilTimeStamp = new Date();
+  lockUntilTimeStamp.setMinutes(lockUntilTimeStamp.getMinutes() + 1);
+
+  const unsignedTx = await depositFundTx(assets, lockUntilTimeStamp.getTime());
+
+  const signedTx = await owner_wallet.signTx(unsignedTx);
+  const txHash = await owner_wallet.submitTx(signedTx);
+  console.log("txHash", txHash);
+}
+
+main();
+```
+
+<Callout type="info">
+  You can run the instructions above using Node via:
+
+```console
+node vesting_lock.mjs
+```
+</Callout>
+
 
 ### Unlocking funds from the contract
 
@@ -491,6 +486,31 @@ async function unlock(utxos, currentTime, { from, using }): Promise<TxHash> {
 deno run --allow-net --allow-read --allow-env vesting_unlock.ts
 ```
 
+</Callout>
+
+<Callout>
+```
+This should be the projects structure. 
+./vesting
+│
+├── README.md
+├── aiken.toml
+└── common
+    └── common.mjs
+├── beneficiary.addr
+├── beneficiary.sk
+├── .env
+├── owner.addr
+├── owner.sk
+├── node_modules
+├── package.json
+├── package-lock.json
+├── plutus.json
+└── validators
+    └── vesting.ak
+├── vesting_lock.ts
+├── vesting_unlock.ts
+```
 </Callout>
 
 Assuming everything went well... congratulations 🎉!
