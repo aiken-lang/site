@@ -34,34 +34,39 @@ funds. Refer to [Hello, World! :: Getting
 Funds](/example--hello-world/end-to-end/lucid#getting-funds) in case you have any doubts
 on the procedure.
 
-```ts filename="generate-credentials.ts"
-import { Lucid } from "https://deno.land/x/lucid@0.8.3/mod.ts";
+```js filename="generate-credentials.ts"
+import { MeshWallet } from '@meshsdk/core';
+import fs from 'node:fs';
 
-const lucid = await Lucid.new(undefined, "Preview");
+// Generate secret keys for both wallets
+const owner_secret_key = MeshWallet.brew(true);
+const beneficiary_secret_key = MeshWallet.brew(true);
 
-const ownerPrivateKey = lucid.utils.generatePrivateKey();
-await Deno.writeTextFile("owner.sk", ownerPrivateKey);
+// Initialize the owner wallet with the generated secret key
+const owner_wallet = new MeshWallet({
+  networkId: 0,
+  key: {
+    type: 'root',
+    bech32: owner_secret_key,
+  },
+});
 
-const ownerAddress = await lucid
-  .selectWalletFromPrivateKey(ownerPrivateKey)
-  .wallet.address();
-await Deno.writeTextFile("owner.addr", ownerAddress);
+// Initialize the beneficiary wallet with its secret key, using the same setup
+const beneficiary_wallet = new MeshWallet({
+  networkId: 0,
+  key: {
+    type: 'root',
+    bech32: beneficiary_secret_key,
+  },
+});
 
-const beneficiaryPrivateKey = lucid.utils.generatePrivateKey();
-await Deno.writeTextFile("beneficiary.sk", beneficiaryPrivateKey);
+// save keys to files
+fs.writeFileSync('owner.sk', owner_secret_key);
+fs.writeFileSync('beneficiary.sk', beneficiary_secret_key);
 
-const beneficiaryAddress = await lucid
-  .selectWalletFromPrivateKey(beneficiaryPrivateKey)
-  .wallet.address();
-await Deno.writeTextFile("beneficiary.addr", beneficiaryAddress);
-```
-
-<Callout type="info">
-  You can run the instructions above using Deno via:
-
-```console
-deno run --allow-net --allow-write generate-credentials.ts
-```
+// Save unused addresses to files 
+fs.writeFileSync('owner.addr', owner_wallet.getUnusedAddresses()[0]);
+fs.writeFileSync('beneficiary.addr', beneficiary_wallet.getUnusedAddresses()[0]);
 </Callout>
 
 
