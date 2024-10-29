@@ -15,6 +15,7 @@ original owner.
 <br/>
 
 - [x] Writing non-trivial Aiken validators, with complex datums.
+- [x] Writing front-end transaction logic with Mesh.js
 - [x] Using more advanced Aiken features (type-aliases, pattern-matches)
 - [x] Writing unit tests using Aiken's built-in test framework
 - [x] Managing time on-chain through transaction validity ranges
@@ -33,6 +34,7 @@ faucet](https://docs.cardano.org/cardano-testnet/tools/faucet) to receive test
 funds. Refer to [Hello, World! :: Getting
 Funds](/example--hello-world/end-to-end/lucid#getting-funds) in case you have any doubts
 on the procedure.
+
 
 ```js filename="generate-credentials.mjs"
 import fs from 'node:fs';
@@ -70,7 +72,6 @@ const beneficiary_wallet = new MeshWallet({
 fs.writeFileSync('owner.addr', owner_wallet.getUnusedAddresses()[0]);
 fs.writeFileSync('beneficiary.addr', beneficiary_wallet.getUnusedAddresses()[0]);
 ```
-
 ## On-Chain code
 
 Let's write our time lock validator as `validators/vesting.ak`, starting with
@@ -86,6 +87,23 @@ pub type VestingDatum {
   beneficiary: ByteArray,
 }
 ```
+## Dependency
+An additional dependency we will add to this project is [Vodka](https://github.com/sidan-lab/vodka).
+To include vodka in our Aiken project, lets update our aiken.toml file to specify it as a dependency.
+
+```aiken filename="aiken.toml"
+[[dependencies]]
+name = "sidan-lab/vodka"
+version = "0.1.1-beta"
+source = "github"
+
+```
+Using Vodka as a dependency provides access to several utility functions designed for common contract validation needs. 
+In our vesting.ak file, we will use two specific functions from Vodka:
+
+- **`key_signed`**: Verifies that a specific key has signed the transaction. This ensures only authorized users can interact with the contract.
+
+- **`valid_after`**: Checks that a transaction is only valid after a designated time. This is useful for setting time-based constraints within your contract logic.
 
 As we can see the script's datum serves as configuration and contains the
 different parameters of our vesting operation. Remember that these elements are
@@ -316,6 +334,8 @@ async function main() {
 
   const signedTx = await owner_wallet.signTx(unsignedTx);
   const txHash = await owner_wallet.submitTx(signedTx);
+
+  //Copy this txHash. You will need this hash in vesting_unlock.mjs
   console.log("txHash", txHash);
 }
 
@@ -329,6 +349,9 @@ node vesting_lock.mjs
 ```
 </Callout>
 
+If all went according to plan, you should see the transaction identifier in the console.
+Make sure you copy this hash, you will need it in vestin_unlock.mjs file. 
+
 
 ### Unlocking funds from the contract
 
@@ -341,21 +364,10 @@ Finally, as a last step: we now want to spend the UTxO that is locked by our
 To be valid, our transaction must meet one of two conditions:
 
 - it must be signed by the owner referenced as "owner" in the datum; or
-- it must be signed by the beneficiary referenced as "beneficiary" in the datum
-  AND time has to pass beyond the threshold we fixed -- that is it needs to be
-  later than 'Wed Jan 04 2023 14:52:41 GMT+0000'.
+- It must be signed by the beneficiary, who is referenced as "beneficiary" in the datum, and the transaction must occur after a specific time threshold. 
+  This threshold is defined as one minute beyond the current time when the lock condition is set.
 
-Like for the _Hello, World!_ example, we need to explicitly add a signer using
-`.addSigner` so that it gets added to the `extra_signatories` of our
-transaction and becomes accessible for our script.
-
-In addition we need to specify `.validFrom` as a POSIX timestamp from where
-transaction is considered valid (should be by the time we submit it). We can
-optionally defined an upper validity bound using `.validTo` as a TTL
-(Time-To-Live).
-
-Let's make a new file `vesting_unlock.ts` and copy over some of the boilerplate
-from the first one.
+Let's make a new file `vesting_unlock.ts`. 
 
 ```ts filename="vesting_unlock.ts"
 import {
@@ -424,10 +436,6 @@ Now, let's add the bits to unlock the funds in the contract. We'll need the
 transaction identifier obtained when you ran the previous script
 (`vesting_lock.ts`)
 
-That transaction identifier, and the corresponding output index (here, `0`)
-uniquely identifies the UTxO (Unspent Transaction Output) in which the funds
-are currently locked. And that's the one we're about to unlock.
-
 As we stated above, we need to make sure to only submit our transaction after
 the vesting delay has passed without what the node will simply reject the
 transaction (without charging any fee) and kindly ask us to re-submit the
@@ -438,7 +446,7 @@ transaction at a later time.
 
 async function main() {
   const txHashFromDesposit =
-    //This is the hash of the tx that we want to unlock
+    //This is the hash that we generated in the locking file when we submitted the transaction.
     "ed7559c7aa5a8bfcba9ec8d75fb2ee1902da8b909722ca4726261d35e8250645";
 
   const utxo = await getUtxoByTxHash(txHashFromDesposit);
