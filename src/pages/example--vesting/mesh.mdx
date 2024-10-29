@@ -15,7 +15,6 @@ original owner.
 <br/>
 
 - [x] Writing non-trivial Aiken validators, with complex datums.
-- [x] Writing front-end transaction logic with Mesh.js
 - [x] Using more advanced Aiken features (type-aliases, pattern-matches)
 - [x] Writing unit tests using Aiken's built-in test framework
 - [x] Managing time on-chain through transaction validity ranges
@@ -36,7 +35,7 @@ Funds](/example--hello-world/end-to-end/lucid#getting-funds) in case you have an
 on the procedure.
 
 
-```mjs filename="generate-credentials.mjs"
+```js filename="generate-credentials.mjs"
 import fs from 'node:fs';
 import 'dotenv/config';
 import {
@@ -212,7 +211,7 @@ This file will house utility functions used for both locking and unlocking asset
 
 
 
-```mjs filename="common/common.mjs"
+```js filename="common/common.mjs"
 import 'dotenv/config';
 import {
   MeshWallet,
@@ -361,7 +360,7 @@ This file contains the function withdrawFundTx, which allows the beneficiary to 
 The function handles the necessary transaction construction and ensures that the funds can only be accessed after the specified conditions are met.
 
 
-```mjs filename="vesting_unlock.mjs"
+```js filename="vesting_unlock.mjs"
 import {
   deserializeAddress,
   deserializeDatum,
@@ -427,7 +426,7 @@ async function withdrawFundTx(vestingUtxo) {
 In this section, we define a `main` function that retrieves the transaction hash generated when we executed the `vesting_lock.mjs` file. 
 This hash will be used to fetch the corresponding UTxO (Unspent Transaction Output) for withdrawal.
 
-```mjs filename="vesting_unlock.mjs"
+```js filename="vesting_unlock.mjs"
 // ^^^ Code above is unchanged. ^^^
 
 async function main() {
