@@ -322,9 +322,8 @@ async function main() {
 main();
 ```
 
-<Callout type="info">
+<Callout>
   You can run the instructions above using Node via:
-
 ```console
 node vesting_lock.mjs
 ```
@@ -360,41 +359,64 @@ from the first one.
 
 ```ts filename="vesting_unlock.ts"
 import {
-  Blockfrost,
-  C,
-  Data,
-  Lucid,
-  SpendingValidator,
-  TxHash,
-  fromHex,
-  toHex,
-} from "https://deno.land/x/lucid@0.8.3/mod.ts";
-import * as cbor from "https://deno.land/x/cbor@v1.4.1/index.js";
+  deserializeAddress,
+  deserializeDatum,
+  unixTimeToEnclosingSlot,
+  SLOT_CONFIG_NETWORK,
+} from "@meshsdk/core";
 
-const lucid = await Lucid.new(
-  new Blockfrost(
-    "https://cardano-preview.blockfrost.io/api/v0",
-    Deno.env.get("BLOCKFROST_API_KEY"),
-  ),
-  "Preview",
-);
+import {
+  getTxBuilder,
+  beneficiary_wallet,
+  scriptAddr,
+  scriptCbor,
+  blockchainProvider,
+} from "./common/common.mjs";
 
-lucid.selectWalletFromPrivateKey(await Deno.readTextFile("./beneficiary.sk"));
+async function withdrawFundTx(vestingUtxo) {
+  const utxos = await beneficiary_wallet.getUtxos();
+  const beneficiaryAddress = beneficiary_wallet.addresses.baseAddressBech32;
+  const collateral = await beneficiary_wallet.getCollateral();
+  const collateralInput = collateral[0].input;
+  const collateralOutput = collateral[0].output;
 
-const beneficiaryPublicKeyHash = lucid.utils.getAddressDetails(
-  await lucid.wallet.address()
-).paymentCredential.hash;
+  const { pubKeyHash: beneficiaryPubKeyHash } = deserializeAddress(
+    beneficiary_wallet.addresses.baseAddressBech32
+  );
 
-const validator = await readValidator();
+  const datum = deserializeDatum(vestingUtxo.output.plutusData);
 
-// --- Supporting functions
+  const invalidBefore =
+    unixTimeToEnclosingSlot(
+      Math.min(datum.fields[0].int, Date.now() - 19000),
+      SLOT_CONFIG_NETWORK.preview
+    ) + 1;
 
-async function readValidator(): Promise<SpendingValidator> {
-  const validator = JSON.parse(await Deno.readTextFile("plutus.json")).validators[0];
-  return {
-    type: "PlutusV2",
-    script: toHex(cbor.encode(fromHex(validator.compiledCode))),
-  };
+  const txBuilder = getTxBuilder();
+  await txBuilder
+    .spendingPlutusScript("V3")
+    .txIn(
+      vestingUtxo.input.txHash,
+      vestingUtxo.input.outputIndex,
+      vestingUtxo.output.amount,
+      scriptAddr
+    )
+    .spendingReferenceTxInInlineDatumPresent()
+    .spendingReferenceTxInRedeemerValue("")
+    .txInScript(scriptCbor)
+    .txOut(beneficiaryAddress, [])
+    .txInCollateral(
+      collateralInput.txHash,
+      collateralInput.outputIndex,
+      collateralOutput.amount,
+      collateralOutput.address
+    )
+    .invalidBefore(invalidBefore)
+    .requiredSignerHash(beneficiaryPubKeyHash)
+    .changeAddress(beneficiaryAddress)
+    .selectUtxosFrom(utxos)
+    .complete();
+  return txBuilder.txHex;
 }
 ```
 
@@ -414,68 +436,32 @@ transaction at a later time.
 ```ts filename="vesting_unlock.ts"
 // ^^^ Code above is unchanged. ^^^
 
-const scriptAddress = lucid.utils.validatorToAddress(validator);
+async function main() {
+  const txHashFromDesposit =
+    //This is the hash of the tx that we want to unlock
+    "ed7559c7aa5a8bfcba9ec8d75fb2ee1902da8b909722ca4726261d35e8250645";
 
-// we get all the UTXOs sitting at the script address
-const scriptUtxos = await lucid.utxosAt(scriptAddress);
+  const utxo = await getUtxoByTxHash(txHashFromDesposit);
 
-const Datum = Data.Object({
-  lock_until: Data.BigInt, // this is POSIX time, you can check and set it here: https://www.unixtimestamp.com
-  owner: Data.String, // we can pass owner's verification key hash as byte array but also as a string
-  beneficiary: Data.String, // we can beneficiary's hash as byte array but also as a string
-});
+  if (utxo === undefined) throw new Error("UTxO not found");
 
-type Datum = Data.Static<typeof Datum>;
+  const unsignedTx = await withdrawFundTx(utxo);
 
-const currentTime = new Date().getTime();
+  const signedTx = await beneficiary_wallet.signTx(unsignedTx);
 
-// we filter out all the UTXOs by beneficiary and lock_until
-const utxos = scriptUtxos.filter((utxo) => {
-    let datum = Data.from<Datum>(
-      utxo.datum,
-      Datum,
-    );
-
-    return datum.beneficiary === beneficiaryPublicKeyHash &&
-      datum.lock_until <= currentTime;
-});
-
-if (utxos.length === 0) {
-  console.log("No redeemable utxo found. You need to wait a little longer...");
-  Deno.exit(1);
+  const txHash = await beneficiary_wallet.submitTx(signedTx);
+  console.log("txHash", txHash);
 }
 
-// we don't have any redeemer in our contract but it needs to be empty
-const redeemer = Data.empty();
+async function getUtxoByTxHash(txHash) {
+  const utxos = await blockchainProvider.fetchUTxOs(txHash);
+  if (utxos.length === 0) {
+    throw new Error("UTxO not found");
+  }
+  return utxos[0];
+}
 
-const txUnlock = await unlock(utxos, currentTime, { from: validator, using: redeemer });
-
-await lucid.awaitTx(txUnlock);
-
-console.log(`1 tADA recovered from the contract
-    Tx ID: ${txUnlock}
-    Redeemer: ${redeemer}
-`);
-
-// --- Supporting functions
-
-async function unlock(utxos, currentTime, { from, using }): Promise<TxHash> {
-  const laterTime = new Date(currentTime + 2 * 60 * 60 * 1000).getTime(); // add two hours (TTL: time to live)
-
-  const tx = await lucid
-    .newTx()
-    .collectFrom(utxos, using)
-    .addSigner(await lucid.wallet.address()) // this should be beneficiary address
-    .validFrom(currentTime)
-    .validTo(laterTime)
-    .attachSpendingValidator(from)
-    .complete();
-
-  const signedTx = await tx
-    .sign()
-    .complete();
-
-  return signedTx.submit();
+main();
 }
 ```
 
@@ -483,12 +469,12 @@ async function unlock(utxos, currentTime, { from, using }): Promise<TxHash> {
   As you imagine, we can run this script with the following incantation:
 
 ```
-deno run --allow-net --allow-read --allow-env vesting_unlock.ts
+node vesting_unlock.mjs
 ```
 
-</Callout>
+ </Callout>
 
-<Callout>
+<Callout type="info">
 ```
 This should be the projects structure. 
 ./vesting
