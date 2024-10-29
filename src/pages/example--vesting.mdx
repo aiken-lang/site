@@ -36,7 +36,7 @@ Funds](/example--hello-world/end-to-end/lucid#getting-funds) in case you have an
 on the procedure.
 
 
-```js filename="generate-credentials.mjs"
+```mjs filename="generate-credentials.mjs"
 import fs from 'node:fs';
 import 'dotenv/config';
 import {
@@ -140,17 +140,6 @@ validator vesting {
     fail
   }
 }
-
-fn must_be_signed_by(transaction: Transaction, vk: VerificationKeyHash) {
-  list.has(transaction.extra_signatories, vk)
-}
-
-fn must_start_after(range: ValidityRange, lock_expiration_time: POSIXTime) {
-  when range.lower_bound.bound_type is {
-    Finite(tx_earliest_time) -> lock_expiration_time <= tx_earliest_time
-    _ -> False
-  }
-}
 ```
 
 The novelty here mostly lies in the check against a time period. In fact,
@@ -223,7 +212,7 @@ This file will house utility functions used for both locking and unlocking asset
 
 
 
-```js filename="common/common.mjs"
+```mjs filename="common/common.mjs"
 import 'dotenv/config';
 import {
   MeshWallet,
@@ -367,9 +356,12 @@ To be valid, our transaction must meet one of two conditions:
 - It must be signed by the beneficiary, who is referenced as "beneficiary" in the datum, and the transaction must occur after a specific time threshold. 
   This threshold is defined as one minute beyond the current time when the lock condition is set.
 
-Let's make a new file `vesting_unlock.ts`. 
+Let's make a new file `vesting_unlock.ts` and add the bits to unlock the funds in the contract. 
+This file contains the function withdrawFundTx, which allows the beneficiary to unlock funds from a vesting contract. 
+The function handles the necessary transaction construction and ensures that the funds can only be accessed after the specified conditions are met.
 
-```ts filename="vesting_unlock.ts"
+
+```mjs filename="vesting_unlock.mjs"
 import {
   deserializeAddress,
   deserializeDatum,
@@ -432,16 +424,10 @@ async function withdrawFundTx(vestingUtxo) {
 }
 ```
 
-Now, let's add the bits to unlock the funds in the contract. We'll need the
-transaction identifier obtained when you ran the previous script
-(`vesting_lock.ts`)
+In this section, we define a `main` function that retrieves the transaction hash generated when we executed the `vesting_lock.mjs` file. 
+This hash will be used to fetch the corresponding UTxO (Unspent Transaction Output) for withdrawal.
 
-As we stated above, we need to make sure to only submit our transaction after
-the vesting delay has passed without what the node will simply reject the
-transaction (without charging any fee) and kindly ask us to re-submit the
-transaction at a later time.
-
-```ts filename="vesting_unlock.ts"
+```mjs filename="vesting_unlock.mjs"
 // ^^^ Code above is unchanged. ^^^
 
 async function main() {
@@ -475,7 +461,6 @@ main();
 
 <Callout>
   As you imagine, we can run this script with the following incantation:
-
 ```
 node vesting_unlock.mjs
 ```
