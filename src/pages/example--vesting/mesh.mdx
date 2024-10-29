@@ -5,19 +5,17 @@ import { Callout } from "nextra-theme-docs";
 Armed with our recently acquired knowledge from the _Hello, World!_ contract,
 let's increase the difficulty and write a slightly more challenging one.
 
-A vesting contract is a common type of contract that allows to lock funds for a
-period of time, only to unlock them later -- once a specified time has passed.
-Usually, vesting contract defines a beneficiary who can be different from the
-original owner.
+A vesting contract is a common type of contract that allows funds to be locked for a period of time and unlocked later—once a specified time has passed. 
+Typically, a vesting contract defines a beneficiary who may be different from the original owner.
 
 ## Covered in this tutorial
 
 <br/>
 
 - [x] Writing non-trivial Aiken validators, with complex datums.
-- [x] Using more advanced Aiken features (type-aliases, pattern-matches)
-- [x] Writing unit tests using Aiken's built-in test framework
-- [x] Managing time on-chain through transaction validity ranges
+- [x] Using more advanced Aiken features (type-aliases, pattern-matches).
+- [x] Writing unit tests with Aiken and mocktail.
+- [x] Managing time on-chain through transaction validity ranges.
 
 <Callout type="info" emoji="📘">
   When encountering an unfamiliar syntax or concept, do not hesitate to refer to
@@ -87,7 +85,7 @@ pub type VestingDatum {
 }
 ```
 ## Dependency
-An additional dependency we will add to this project is [Vodka](https://github.com/sidan-lab/vodka).
+An additional dependency we will add to this project is [vodka](https://github.com/sidan-lab/vodka).
 To include vodka in our Aiken project, lets update our aiken.toml file to specify it as a dependency.
 
 ```aiken filename="aiken.toml"
@@ -166,7 +164,7 @@ economy with some unforeseen bug, let's write a simple test. Aiken has builtin
 support for tests, which are very much like functions that takes no argument
 and must return a `Bool{:ak}`.
 
-In the test below, we leverage the **mocktail** module provided by the **vodka** dependency. 
+In the test below, we also leverage the **mocktail** module provided by the **vodka** dependency. 
 This module offers various utility functions that simplify unit testing for our smart contracts. 
 
 
@@ -372,15 +370,12 @@ node vesting_lock.mjs
 </Callout>
 
 If all went according to plan, you should see the transaction identifier in the console.
-Make sure you copy this hash, you will need it in vestin_unlock.mjs file. 
+Make sure you copy this hash, you will need it in vesting_unlock.mjs file. 
 
 
 ### Unlocking funds from the contract
 
-Now we can use another wallet (beneficiary.sk). This wallet will be beneficiary
-wallet had been added into datum in the previous step (locking) as well.
-
-Finally, as a last step: we now want to spend the UTxO that is locked by our
+Now want to spend the UTxO that is locked by our
 `vesting` contract.
 
 To be valid, our transaction must meet one of two conditions:
@@ -392,7 +387,6 @@ To be valid, our transaction must meet one of two conditions:
 Let's make a new file `vesting_unlock.ts` and add the bits to unlock the funds in the contract. 
 This file contains the function withdrawFundTx, which allows the beneficiary to unlock funds from a vesting contract. 
 The function handles the necessary transaction construction and ensures that the funds can only be accessed after the specified conditions are met.
-
 
 ```js filename="vesting_unlock.mjs"
 import {
