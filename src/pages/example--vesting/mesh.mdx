@@ -97,8 +97,8 @@ version = "0.1.1-beta"
 source = "github"
 
 ```
-Using Vodka as a dependency provides access to several utility functions designed for common contract validation needs. 
-In our vesting.ak file, we will use two specific functions from Vodka:
+Using vodka as a dependency provides access to several utility functions designed for common contract validation needs. 
+In our vesting.ak file, we will use two specific functions from vodka:
 
 - **`key_signed`**: Verifies that a specific key has signed the transaction. This ensures only authorized users can interact with the contract.
 
@@ -166,7 +166,7 @@ economy with some unforeseen bug, let's write a simple test. Aiken has builtin
 support for tests, which are very much like functions that takes no argument
 and must return a `Bool{:ak}`.
 
-In the test below, we leverage the **Mocktail** module provided by the **Vodka** dependency. 
+In the test below, we leverage the **mocktail** module provided by the **vodka** dependency. 
 This module offers various utility functions that simplify unit testing for our smart contracts. 
 
 
