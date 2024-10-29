@@ -162,26 +162,60 @@ explicitly. `Void` captures that pretty well.
 ### Testing
 
 Okay, now before deploying our contract in the wild and risking collapsing the
-economy with some unforeseen bug, let's write a few tests. Aiken has builtin
+economy with some unforeseen bug, let's write a simple test. Aiken has builtin
 support for tests, which are very much like functions that takes no argument
 and must return a `Bool{:ak}`.
+
+In the test below, we leverage the **Mocktail** module provided by the **Vodka** dependency. 
+This module offers various utility functions that simplify unit testing for our smart contracts. 
+
 
 Tests can use any function, constant or types defines in our module but beware,
 they cannot reference other tests!
 
 ```aiken filename="validators/vesting.ak"
-use aiken/interval.{Finite, Interval, IntervalBound, PositiveInfinity}
+// The mocktail module comes from the vodka dependency.
+use mocktail.{complete, invalid_before, mocktail_tx, required_signer_hash}
+use mocktail/virgin_key_hash.{mock_pub_key_hash}
+use mocktail/virgin_output_reference.{mock_utxo_ref}
 
-test must_start_after_succeed_when_lower_bound_is_after() {
-  must_start_after(interval.after(2), 1)
+type TestCase {
+  is_owner_signed: Bool,
+  is_beneficiary_signed: Bool,
+  is_lock_time_passed: Bool,
 }
 
-test must_start_after_succeed_when_lower_bound_is_equal() {
-  must_start_after(interval.after(2), 2)
+fn get_test_tx(test_case: TestCase) {
+  let TestCase { is_owner_signed, is_beneficiary_signed, is_lock_time_passed } =
+    test_case
+
+  mocktail_tx()
+    |> required_signer_hash(is_owner_signed, mock_pub_key_hash(1))
+    |> required_signer_hash(is_beneficiary_signed, mock_pub_key_hash(2))
+    |> invalid_before(is_lock_time_passed, 1672843961001)
+    |> complete()
 }
 
-test must_start_after_fail_when_lower_bound_is_before() {
-  !must_start_after(interval.after(2), 3)
+fn vesting_datum() {
+  VestingDatum {
+    lock_until: 1672843961000,
+    owner: mock_pub_key_hash(1),
+    beneficiary: mock_pub_key_hash(2),
+  }
+}
+
+test success_unlocking() {
+  let output_reference = mock_utxo_ref(0, 1)
+  let datum = Some(vesting_datum())
+  let test_case =
+    TestCase {
+      is_owner_signed: True,
+      is_beneficiary_signed: True,
+      is_lock_time_passed: True,
+    }
+
+  let tx = get_test_tx(test_case)
+  vesting.spend(datum, Void, output_reference, tx)
 }
 ```
 
