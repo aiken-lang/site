@@ -139,9 +139,9 @@ validator vesting {
 }
 ```
 
-The novelty here mostly lies in the check against a time period. In fact,
-transactions can have validity intervals that define from when and until when
-the transaction is considered valid. Validity bounds are checked by the ledger
+The key feature here is the time-based check, which is abstracted by 
+the valid_after function. In fact, transactions can have validity intervals that define from when
+and until the transaction is considered valid. Validity bounds are checked by the ledger
 prior to executing a script and only does so if the bounds are legit.
 
 This is meant to give scripts a notion of time, while preserving determinism
@@ -153,9 +153,14 @@ Note that because we don't control the upper-bound, it could very much be that
 this transaction is executed 30 years after the vesting delay. Yet, from the
 perspective of the vesting script, this is perfectly okay.
 
-See also how we annotate the redeemer to `Void` to indicate that it isn't used.
-We could also leave it unannotated but it's generally good to signal your intent
-explicitly. `Void` captures that pretty well.
+In Aiken, values that are not used directly can be prefixed with an underscore (`_`)
+to indicate they are intentionally ignored. In this validator, `_redeemer` and `_input` 
+are marked as unused inputs, making the intent clear and improving readability.  
+
+This practice is particularly helpful in contracts that may require multiple 
+parameters for different purposes, such as minting or spending, while not all
+parameters are always relevant to the current logic.
+
 
 ### Testing
 
