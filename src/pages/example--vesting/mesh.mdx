@@ -35,7 +35,6 @@ on the procedure.
 
 ```js filename="generate-credentials.mjs"
 import fs from 'node:fs';
-import 'dotenv/config';
 import {
   MeshWallet,
 } from "@meshsdk/core";
@@ -75,13 +74,15 @@ Let's write our time lock validator as `validators/vesting.ak`, starting with
 the definition of its interface (i.e. its datum's shape).
 
 ```aiken filename="validators/vesting.ak"
+use aiken/crypto.{VerificationKeyHash}
+
 pub type VestingDatum {
   /// POSIX time in milliseconds, e.g. 1672843961000
   lock_until: Int,
   /// Owner's credentials
-  owner: ByteArray,
+  owner: VerificationKeyHash,
   /// Beneficiary's credentials
-  beneficiary: ByteArray,
+  beneficiary: VerificationKeyHash,
 }
 ```
 ## Dependency
@@ -113,16 +114,26 @@ From there, lets define the `spend` validator itself.
 use cardano/transaction.{OutputReference, Transaction}
 use vodka_extra_signatories.{key_signed}
 use vodka_validity_range.{valid_after}
+use aiken/crypto.{VerificationKeyHash}
+
+pub type VestingDatum {
+  /// POSIX time in milliseconds, e.g. 1672843961000
+  lock_until: Int,
+  /// Owner's credentials
+  owner: VerificationKeyHash,
+  /// Beneficiary's credentials
+  beneficiary: VerificationKeyHash,
+}
 
 validator vesting {
+  // In principle, scripts can be used for different purpose (e.g. minting
+  // assets). Here we make sure it's only used when 'spending' from a eUTxO
   spend(
     datum_opt: Option<VestingDatum>,
     _redeemer: Data,
     _input: OutputReference,
     tx: Transaction,
   ) {
-    // In principle, scripts can be used for different purpose (e.g. minting
-    // assets). Here we make sure it's only used when 'spending' from a eUTxO
     expect Some(datum) = datum_opt
     or {
       key_signed(tx.extra_signatories, datum.owner),
@@ -177,7 +188,11 @@ Tests can use any function, constant or types defines in our module but beware,
 they cannot reference other tests!
 
 ```aiken filename="validators/vesting.ak"
+
+// ^^^ Code above is unchanged. ^^^
+
 // The mocktail module comes from the vodka dependency.
+// These dependencies should be added at the top of the file with the other imported modules. 
 use mocktail.{complete, invalid_before, mocktail_tx, required_signer_hash}
 use mocktail/virgin_key_hash.{mock_pub_key_hash}
 use mocktail/virgin_output_reference.{mock_utxo_ref}
