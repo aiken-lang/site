@@ -259,7 +259,7 @@ Let's see the validator in action!
 
 ### Setup
 First, let's install the dotenv package(https://www.npmjs.com/package/dotenv), which allows us to import our API key from a .env file. Next, we'll create a directory called common and, within it, a file named common.mjs. 
-This file will house utility functions used for both locking and unlocking assets. In this setup, we will import our [BLOCKFROST_API](https://blockfrost.dev/overview/getting-started) key from the .env file. 
+This file will house utility functions used for both locking and unlocking assets. In this setup, we will import our [BLOCKFROST_API](https://blockfrost.dev/overview/getting-started ) key from the .env file. 
 
 
 
@@ -302,6 +302,8 @@ export function getTxBuilder() {
   return new MeshTxBuilder({
     fetcher: blockchainProvider,
     submitter: blockchainProvider,
+    verbose: true, // <-- you can remove this if you dont want to see logs
+
   });
 }
 
