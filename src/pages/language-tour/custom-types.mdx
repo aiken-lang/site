@@ -7,7 +7,7 @@ import { Callout } from "nextra-theme-docs";
 ### Basics
 
 Aiken's custom types are named collections of keys and/or values. They are
-similar to objects in object oriented languages, though they don't have
+similar to objects in object-oriented languages, though they don't have
 methods.
 
 Custom types are defined with the `type{:ak}` keyword. They may contain named
@@ -43,7 +43,7 @@ fn datums() {
   // Nameless fields are given as positional arguments
   let nameless_1 = DatumNameless(#[0xAA, 0xBB], 2001)
 
-  // Event named fields can be given as positional arguments.
+  //Event-named fields can be given as positional arguments.
   let named_3 = Datum(#[0xAA, 0xBB], 2001)
 
   (named_1, named_2, nameless_1, named_3)
@@ -63,7 +63,7 @@ type Datum {
 }
 ```
 
-These two notations (with or without the constructor) are synonym. With the
+These two notations (with or without the constructor) are synonyms. With the
 shorthand, we implicitly indicate that there's a single constructor named
 `Datum` which can be used for constructing values of type `Datum`, or can also
 be used when destructuring (see below).
@@ -91,7 +91,7 @@ it to answer yes/no questions and to indicate whether something is `True{:ak}`
 or `False{:ak}`.
 
 The records created by different constructors for a custom type can contain
-different values. For example a `User{:ak}` custom type could have a `LoggedIn`
+different values. For example, a `User{:ak}` custom type could have a `LoggedIn`
 constructor that creates records with a name, and a `Guest` constructor which
 creates records without any contained values.
 
@@ -110,7 +110,7 @@ let visitor = Guest
 
 ### Generics
 
-Custom types can be be parameterised with other types, making their contents
+Custom types can be parameterized with other types, making their contents
 variable. We've seen that with the [`Option{:ak}`](./primitive-types#option).
 
 Let consider another example with a `Box{:ak}` type that is a simple record that
@@ -219,9 +219,9 @@ cuteness == 6 // Confusing, but True
 ### Pattern-matching
 
 For nameless fields, one must resort to _pattern-matching_ using the `when
-*expr* is{:ak}` keywords. This syntax allows to inspect a value following the
+*expr* is{:ak}` keywords. This syntax allows the inspection of a value following the
 various branches defined by a type, ensuring that all possible paths are
-properly handled.  Said differently, it is like asking the compiler "if the
+properly handled.  Said differently, it is like asking the compiler "If the
 data has this shape then do that", for all possible shapes.
 
 Recall our `User{:ak}` type from before?
@@ -283,7 +283,7 @@ type User {
 
 With the wildcard, `get_name` would compile just fine and return `"Guest user"`
 for users logged in as administrator! So, use wildcard only when you cannot do
-otherwise. In many situation, it is better to list all patterns explicitly.
+otherwise. In many situations, it is better to list all patterns explicitly.
 
 <Callout type="info">
   Wildcards also works when destructuring, should you need to only bring
@@ -333,7 +333,7 @@ fn is_authorized(user: User) -> Bool {
 }
 ```
 
-In the function above, you can see how we authorize any administror or any
+In the function above, you can see how we authorize any administrator or any
 logged-in user so long as they have at least 30 days of activity. The spread
 operator is used to indicate that other named fields of the records are
 ignored.
@@ -481,8 +481,8 @@ In summary:
 
 ## Type aliases
 
-Finally, it is also possible define mere aliases for types. A type alias lets
-you create a name which is identical to another type, without any additional
+Finally, it is also possible to define mere aliases for types. A type alias lets
+you create a name that is identical to another type, without any additional
 information.
 
 ```aiken
@@ -506,7 +506,7 @@ While they are fully erased at runtime, type-aliases information are preserved d
 
 ## Documentation
 
-You may add user facing documentation to any data-type definition and
+You may add user-facing documentation to any data-type definition and
 constructor with a documentation comment starting with `///{:ak}`. Markdown is
 supported and this text will be included with the module's entry in generated
 HTML documentation.
