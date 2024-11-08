@@ -187,10 +187,10 @@ any serialisable (non-opaque) data-type. For example, it is common to ensure uni
 ```ak filename="validators/my_script.ak"
 use aiken/collection/list
 use cardano/assets.{PolicyId}
-use cardano/transaction.{Transactions, OutputReference}
+use cardano/transaction.{Transaction, OutputReference}
 
 validator my_script(utxo_ref: OutputReference) {
-  mint(redeemer: Data, policy_id: Policy_id, self: Transaction) {
+  mint(redeemer: Data, policy_id: PolicyId, self: Transaction) {
     expect list.any(
       self.inputs,
       fn (input) { input.output_reference == utxo_ref }
