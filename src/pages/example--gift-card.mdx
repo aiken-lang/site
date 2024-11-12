@@ -315,22 +315,21 @@ Let's add some boilerplate to this handler so that we can get the
 use aiken/collection/dict
 use aiken/collection/list
 use cardano/transaction.{OutputReference, Transaction}
-use cardano/transaction/value
 use cardano/assets.{PolicyId}
+use cardano/address.{Script}
 
 validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
   spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
     let Transaction { mint, inputs, .. } = transaction
 
     expect Some(own_input) =
-      list.find(inputs, fn(input) { input.output_reference == own_ref })
+      list.find(inputs, fn(input) { input.output_reference == utxo_ref })
 
     expect Script(policy_id) = own_input.output.address.payment_credential
 
     expect [Pair(asset_name, amount)] =
       mint
-        |> value.from_minted_value
-        |> value.tokens(policy_id)
+        |> assets.tokens(policy_id)
         |> dict.to_pairs()
 
     todo @"redeem"
@@ -347,23 +346,23 @@ and that `amount` is equal to negative one.
 use aiken/collection/dict
 use aiken/collection/list
 use cardano/transaction.{OutputReference, Transaction}
-use cardano/transaction/value
 use cardano/assets.{PolicyId}
+use cardano/address.{Script}
+
 
 validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
   spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
-    let Transaction { mint, .. } = transaction
+    let Transaction { mint, inputs, .. } = transaction
 
 
     expect Some(own_input) =
-      list.find(inputs, fn(input) { input.output_reference == own_ref })
+      list.find(inputs, fn(input) { input.output_reference == utxo_ref })
 
     expect Script(policy_id) = own_input.output.address.payment_credential
 
     expect [Pair(asset_name, amount)] =
       mint
-        |> value.from_minted_value
-        |> value.tokens(policy_id)
+        |> assets.tokens(policy_id)
         |> dict.to_pairs()
 
     amount == -1 && asset_name == token_name
