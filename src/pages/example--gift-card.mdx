@@ -352,7 +352,7 @@ use cardano/address.{Script}
 
 validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
   spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
-    let Transaction { mint,inputs, .. } = transaction
+    let Transaction { mint, inputs, .. } = transaction
 
 
     expect Some(own_input) =
