@@ -80,7 +80,7 @@ use cardano/transaction.{Transaction}
 use cardano/assets.{PolicyId}
 
 validator gift_card {
-  spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
+  spend(_d: Option<Data>, _r: Data, _o: Data, tx: Transaction) -> Bool {
     todo @"redeem"
   }
 
@@ -107,7 +107,7 @@ use cardano/transaction.{OutputReference, Transaction}
 use cardano/assets.{PolicyId}
 
 validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
-  spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
+  spend(_d: Option<Data>, _r: Data, _o: Data, tx: Transaction) -> Bool {
     todo @"redeem"
   }
 
@@ -134,7 +134,7 @@ type Action {
 }
 
 validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
-  spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
+  spend(_d: Option<Data>, _r: Data, _o: Data, tx: Transaction) -> Bool {
     todo @"redeem"
   }
 
@@ -167,7 +167,7 @@ type Action {
 }
 
 validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
-  spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
+  spend(_d: Option<Data>, _r: Data, _o: Data, tx: Transaction) -> Bool {
     todo @"redeem"
   }
 
@@ -208,7 +208,7 @@ type Action {
 }
 
 validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
-  spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
+  spend(_d: Option<Data>, _r: Data, _o: Data, tx: Transaction) -> Bool {
     todo @"redeem"
   }
 
@@ -262,7 +262,7 @@ type Action {
 }
 
 validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
-  spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
+  spend(_d: Option<Data>, _r: Data, _o: Data, tx: Transaction) -> Bool {
     todo @"redeem"
   }
 
@@ -298,7 +298,7 @@ use cardano/transaction/value
 use cardano/assets.{PolicyId}
 
 validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
-  spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
+  spend(_d: Option<Data>, _r: Data, _o: Data, tx: Transaction) -> Bool {
     todo @"redeem"
   }
 
@@ -317,8 +317,8 @@ use cardano/assets.{PolicyId}
 use cardano/address.{Script}
 
 validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
-  spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
-    let Transaction { mint, inputs, .. } = transaction
+  spend(_d: Option<Data>, _r: Data, _o: Data, tx: Transaction) -> Bool {
+    let Transaction { mint, inputs, .. } = tx
 
     expect Some(own_input) =
       list.find(inputs, fn(input) { input.output_reference == utxo_ref })
@@ -349,8 +349,8 @@ use cardano/address.{Script}
 
 
 validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
-  spend(_d: Data, _r: Data, _o: Data, tx: Transaction) -> Bool {
-    let Transaction { mint, inputs, .. } = transaction
+  spend(_d: Option<Data>, _r: Data, _o: Data, tx: Transaction) -> Bool {
+    let Transaction { mint, inputs, .. } = tx
 
 
     expect Some(own_input) =
