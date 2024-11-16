@@ -4,8 +4,6 @@ import { Callout } from "nextra-theme-docs";
 
 ## Covered in this tutorial
 
-<br/>
-
 - [x] Interact with a validator on the `Preview` network;
 - [x] Using [Mesh][] through [Blockfrost][];
 - [x] Getting test funds from the [Cardano Faucet](https://docs.cardano.org/cardano-testnet/tools/faucet);
@@ -16,31 +14,25 @@ import { Callout } from "nextra-theme-docs";
 We assume that you have followed the _Hello, World!_'s [First steps][] and thus, have Aiken installed an ready-to-use. We will also use [Mesh][], so make sure you have your dev environment ready for some JavaScript!.
 
 <Callout type="info">
-  You can install [Mesh][] as follows:
+  You can install [Mesh][] and setup the project as follows:
 
   ```
-  yarn init -y
-  yarn add @meshsdk/core
-  ```
-
-  You will also need the `cbor` npm library, so let us also install it:
-
-  ```
-  yarn add cbor
+  npm init -y
+  npm install @meshsdk/core tsx
   ```
 </Callout>
 
 ## Getting funds
 
-For this tutorial, we will use the validator we built in [First steps][]. Yet, before moving on, we'll need some funds, and a public/private key pair to hold them. We can generate a private key and an address using Mesh.
+For this tutorial, we will use the validator we built in [First steps][]. Yet, before moving on, we'll need some funds, and a public/private key pair to hold them. We can generate a private key and an address using [MeshWallet](https://meshjs.dev/apis/wallets/meshwallet).
 
-Let's write our first script as `generate-credentials.mjs`:
+Let's write our first script as `generate-credentials.ts`:
 
-```ts filename="generate-credentials.mjs"
+```ts filename="generate-credentials.ts"
 import { MeshWallet } from '@meshsdk/core';
 import fs from 'node:fs';
 
-const secret_key = MeshWallet.brew(true);
+const secret_key = MeshWallet.brew(true) as string;
 
 fs.writeFileSync('me.sk', secret_key);
 
@@ -56,10 +48,10 @@ fs.writeFileSync('me.addr', wallet.getUnusedAddresses()[0]);
 ```
 
 <Callout type="info">
-  You can run the instructions above using Deno via:
+  You can run the instructions above via:
 
 ```console
-node generate-credentials.mjs
+npx tsx generate-credentials.ts
 ```
 </Callout>
 
@@ -73,7 +65,7 @@ Using [CardanoScan][] we can watch for the faucet sending some ADA our way. This
 
 ## Using the contract
 
-Now that we have some funds, we can lock them in our newly created contract. We'll use [Mesh][] to construct and submit our transaction through [Blockfrost][].
+Now that we have some funds, we can lock them in our newly created contract. We'll use [Blockfrost Provider](https://meshjs.dev/providers/blockfrost) to construct and submit our transaction through [Blockfrost][].
 
 <Callout type="info">
   This is only one example of possible setup using tools we love. For more
@@ -85,62 +77,151 @@ Now that we have some funds, we can lock them in our newly created contract. We'
 
 First, we setup Mesh with Blockfrost as a provider. This will allow us to let Mesh handle transaction building for us, which includes managing changes. It also gives us a direct way to submit the transaction later on.
 
-Create a file named `hello-world-lock.mjs` in the root of your project and add the following code:
+Create a file named `common.ts` in the root of your project and add the following code:
 
-```ts filename="hello-world-lock.mjs" {4}
-import { BlockfrostProvider, MeshWallet } from '@meshsdk/core';
-import fs from 'node:fs';
+```ts filename="common.ts"
+import fs from "node:fs";
+import {
+  BlockfrostProvider,
+  MeshTxBuilder,
+  MeshWallet,
+  serializePlutusScript,
+  UTxO,
+} from "@meshsdk/core";
+import { applyParamsToScript } from "@meshsdk/core-csl";
 
-const blockchainProvider = new BlockfrostProvider(process.env.BLOCKFROST_PROJECT_ID);
+// BlockfrostProvider to query data from the blockchain
+const blockchainProvider = new BlockfrostProvider(
+  fs.readFileSync("bf.key").toString()
+);
 
-const wallet = new MeshWallet({
+// wallet for signing transactions
+export const wallet = new MeshWallet({
   networkId: 0,
   fetcher: blockchainProvider,
   submitter: blockchainProvider,
   key: {
-    type: 'root',
-    bech32: fs.readFileSync('me.sk').toString(),
+    type: "root",
+    bech32: fs.readFileSync("me.sk").toString(),
   },
 });
 ```
 
-<Callout type="warning">
-Note that the highlighted line above looks for an environment variable named `BLOCKFROST_PROJECT_ID` which its value must be set to your Blockfrost project id.
-You can define a new environment variable in your terminal by running (in the same session you're also executing the script!):
+Note that the highlighted line above looks Blockfrost project ID, so we create a file named `bf.key` and add your Blockfrost project ID to it.
 
-```console
-export BLOCKFROST_PROJECT_ID=preview...
+```console filename="bf.key"
+preview...
 ```
 
 Replace `preview...` with your actual project id.
-</Callout>
 
-Next, we'll need to read the validator from the blueprint (`plutus.json`) we generated earlier. We'll also need to convert it to a format that Mesh understands. This is done by serializing the validator and then converting it to a hexadecimal text string as shown below:
+Next, we'll need to read the validator from the blueprint (`plutus.json`) we generated earlier. We'll also need to convert it to a format that Mesh understands. This is done by serializing the validator and then converting it to a hexadecimal text string, we can do this by using the `applyParamsToScript` function.
 
-```ts filename="hello-world-lock.mjs" {16-23}
-import { BlockfrostProvider, MeshWallet } from '@meshsdk/core';
-import fs from 'node:fs';
+```ts filename="common.ts" {27-42}
+import fs from "node:fs";
+import {
+  BlockfrostProvider,
+  MeshTxBuilder,
+  MeshWallet,
+  serializePlutusScript,
+  UTxO,
+} from "@meshsdk/core";
+import { applyParamsToScript } from "@meshsdk/core-csl";
 
-const blockchainProvider = new BlockfrostProvider(process.env.BLOCKFROST_PROJECT_ID);
+// BlockfrostProvider to query data from the blockchain
+const blockchainProvider = new BlockfrostProvider(
+  fs.readFileSync("bf.key").toString()
+);
 
-const wallet = new MeshWallet({
+// wallet for signing transactions
+export const wallet = new MeshWallet({
   networkId: 0,
   fetcher: blockchainProvider,
   submitter: blockchainProvider,
   key: {
-    type: 'root',
-    bech32: fs.readFileSync('me.sk').toString(),
+    type: "root",
+    bech32: fs.readFileSync("me.sk").toString(),
   },
 });
 
-const blueprint = JSON.parse(fs.readFileSync('./plutus.json'));
+// script information, its CBOR and address
+import blueprint from "./plutus.json";
 
-const script = {
-  code: cbor
-    .encode(Buffer.from(blueprint.validators[0].compiledCode, "hex"))
-    .toString("hex"),
-  version: "V3",
-};
+export function getScript() {
+  const scriptCbor = applyParamsToScript(
+    blueprint.validators[0].compiledCode,
+    []
+  );
+
+  const scriptAddr = serializePlutusScript(
+    { code: scriptCbor, version: "V3" },
+  ).address;
+
+  return { scriptCbor, scriptAddr };
+}
+```
+
+Lastly, let's add 2 more useful functions to our `common.ts` file. One to get a transaction builder and another function to fetch a UTxO by transaction hash.
+
+```ts filename="common.ts" {43-58}
+import fs from "node:fs";
+import {
+  BlockfrostProvider,
+  MeshTxBuilder,
+  MeshWallet,
+  serializePlutusScript,
+  UTxO,
+} from "@meshsdk/core";
+import { applyParamsToScript } from "@meshsdk/core-csl";
+
+// BlockfrostProvider to query data from the blockchain
+const blockchainProvider = new BlockfrostProvider(
+  fs.readFileSync("bf.key").toString()
+);
+
+// wallet for signing transactions
+export const wallet = new MeshWallet({
+  networkId: 0,
+  fetcher: blockchainProvider,
+  submitter: blockchainProvider,
+  key: {
+    type: "root",
+    bech32: fs.readFileSync("me.sk").toString(),
+  },
+});
+
+// script information, its CBOR and address
+import blueprint from "./plutus.json";
+
+export function getScript() {
+  const scriptCbor = applyParamsToScript(
+    blueprint.validators[0].compiledCode,
+    []
+  );
+
+  const scriptAddr = serializePlutusScript(
+    { code: scriptCbor, version: "V3" },
+  ).address;
+
+  return { scriptCbor, scriptAddr };
+}
+
+// reusable function to get a transaction builder
+export function getTxBuilder() {
+  return new MeshTxBuilder({
+    fetcher: blockchainProvider,
+    submitter: blockchainProvider,
+  });
+}
+
+// reusable function to get a UTxO by transaction hash
+export async function getUtxoByTxHash(txHash: string): Promise<UTxO> {
+  const utxos = await blockchainProvider.fetchUTxOs(txHash);
+  if (utxos.length === 0) {
+    throw new Error("UTxO not found");
+  }
+  return utxos[0];
+}
 ```
 
 ### Locking funds into the contract
@@ -150,106 +231,60 @@ funds into the contract. The datum must match the representation expected by
 the validator (and as specified in the blueprint), so this is a constructor
 with a single field that is a byte array.
 
-As value for that byte array, we provide a hash digest of our public key (from
-the wallet created with our `me.sk`) . This will be needed to unlock the funds.
+As value for that byte array, we provide a hash digest of our public key (pubKeyHash) from the wallet created with our `me.sk`. This will be needed to unlock the funds.
 
-```ts filename="hello-world-lock.mjs" {1-8, 32-56}
-import cbor from "cbor";
-import {
-  resolvePaymentKeyHash,
-  resolvePlutusScriptAddress,
-  BlockfrostProvider,
-  MeshWallet,
-  Transaction,
-} from '@meshsdk/core';
-import fs from 'node:fs';
+```ts filename="hello-world-lock.ts"
+import { Asset, deserializeAddress, mConStr0 } from "@meshsdk/core";
+import { getScript, getTxBuilder, wallet } from "./common";
 
-const blockchainProvider = new BlockfrostProvider(process.env.BLOCKFROST_PROJECT_ID);
+async function main() {
+  // these are the assets we want to lock into the contract
+  const assets: Asset[] = [
+    {
+      unit: "lovelace",
+      quantity: "1000000",
+    },
+  ];
 
-const wallet = new MeshWallet({
-  networkId: 0,
-  fetcher: blockchainProvider,
-  submitter: blockchainProvider,
-  key: {
-    type: 'root',
-    bech32: fs.readFileSync('me.sk').toString(),
-  },
-});
+  // get utxo and wallet address
+  const utxos = await wallet.getUtxos();
+  const walletAddress = (await wallet.getUsedAddresses())[0];
 
-const blueprint = JSON.parse(fs.readFileSync('./plutus.json'));
+  const { scriptAddr } = getScript();
 
-const script = {
-  code: cbor
-    .encode(Buffer.from(blueprint.validators[0].compiledCode, "hex"))
-    .toString("hex"),
-  version: "V3",
-};
+  // hash of the public key of the wallet, to be used in the datum
+  const signerHash = deserializeAddress(walletAddress).pubKeyHash;
 
-const owner = resolvePaymentKeyHash((await wallet.getUsedAddresses())[0]);
+  // build transaction with MeshTxBuilder
+  const txBuilder = getTxBuilder();
+  await txBuilder
+    .txOut(scriptAddr, assets) // send assets to the script address
+    .txOutDatumHashValue(mConStr0([signerHash])) // provide the datum where `"constructor": 0`
+    .changeAddress(walletAddress) // send change back to the wallet address
+    .selectUtxosFrom(utxos)
+    .complete();
+  const unsignedTx = txBuilder.txHex;
 
-const datum = {
-  value: {
-    alternative: 0,
-    fields: [owner],
-  },
-};
+  const signedTx = await wallet.signTx(unsignedTx);
+  const txHash = await wallet.submitTx(signedTx);
+  console.log(`1 tADA locked into the contract at Tx ID: ${txHash}`);
+}
 
-const unsignedTx = await new Transaction({ initiator: wallet }).sendLovelace(
-  {
-    address: resolvePlutusScriptAddress(script, 0),
-    datum,
-  },
-  "1000000"
-).build();
-
-const signedTx = await wallet.signTx(unsignedTx);
-
-const txHash = await wallet.submitTx(signedTx);
-
-console.log(`1 tADA locked into the contract at:
-    Tx ID: ${txHash}
-    Datum: ${JSON.stringify(datum)}
-`);
+main();
 ```
 
 <Callout type="info">
 You can run the excerpt above by executing:
 
 ```
-node hello-world-lock.mjs
+npx tsx lock.ts
 ```
 </Callout>
-
-The above code requires you to:
-
-- have a `BLOCKFROST_PROJECT_ID` environment variable set. You can get one by [signing up for a Blockfrost account](https://blockfrost.io/).
-
-- have the file `hello-world-lock.mjs` placed at the root of your `hello-world` folder.
-
-At this stage, your folder should look roughly like this:
-
-```
-./hello-world
-│
-├── README.md
-├── aiken.toml
-├── plutus.json
-├── generate-credentials.mjs
-├── hello-world-lock.mjs
-├── me.addr
-├── me.sk
-├── lib
-│   └── ...
-└── validators
-    └── hello-world.ak
-```
 
 If everything went well, you should see something like this:
 
 ```
-1 tADA locked into the contract at:
-    Tx ID: 48b8178e3a8842227dfbb0f73669efc163f73fd7c8758b7dafc0a5a5f07a5445
-    Datum: {"value":{"alternative":0,"fields":["4d871c3f74db9ea19e2ca678ac92672ada301a0d8ce2dc6091692a30"]}}
+1 tADA locked into the contract at Tx ID: 8559f57234407204d8e9a6bf57ef6943c65ec7119eb1c2ca6224f8bad8e71c1e
 ```
 
 #### Inspecting the transaction
@@ -279,40 +314,41 @@ To be valid, our transaction must meet two conditions:
 - it must provide "Hello, World!" as a redeemer; and
 - it must be signed by the key referenced as datum (i.e. the owner).
 
-Let's make a new file `hello-world-unlock.mjs` and copy over some of the boilerplate
+Let's make a new file `hello-world-unlock.ts` and copy over some of the boilerplate
 from the first one.
 
-```ts filename="hello-world-unlock.mjs"
-import cbor from "cbor";
-import { BlockfrostProvider, MeshWallet } from '@meshsdk/core';
-import { applyParamsToScript } from "@meshsdk/core-csl";
-import fs from 'node:fs';
+```ts filename="hello-world-unlock.ts"
+import {
+  deserializeAddress,
+  mConStr0,
+  stringToHex,
+} from "@meshsdk/core";
+import { getScript, getTxBuilder, getUtxoByTxHash, wallet } from "./common";
 
-const blockchainProvider = new BlockfrostProvider(process.env.BLOCKFROST_PROJECT_ID);
+async function main() {
+  // get utxo, collateral and address from wallet
+  const utxos = await wallet.getUtxos();
+  const walletAddress = (await wallet.getUsedAddresses())[0];
+  const collateral = (await wallet.getCollateral())[0];
 
-const wallet = new MeshWallet({
-  networkId: 0,
-  fetcher: blockchainProvider,
-  submitter: blockchainProvider,
-  key: {
-    type: 'root',
-    bech32: fs.readFileSync('me.sk').toString(),
-  },
-});
+  const { scriptCbor } = getScript();
 
-const blueprint = JSON.parse(fs.readFileSync('./plutus.json'));
+  // hash of the public key of the wallet, to be used in the datum
+  const signerHash = deserializeAddress(walletAddress).pubKeyHash;
+  // redeemer value to unlock the funds
+  const message = "Hello, World!";
 
-const script = {
-  code: cbor
-    .encode(Buffer.from(blueprint.validators[0].compiledCode, "hex"))
-    .toString("hex"),
-  version: "V3",
-};
+  // get the utxo from the script address of the locked funds
+  const txHashFromDesposit = process.argv[2];
+  const scriptUtxo = await getUtxoByTxHash(txHashFromDesposit);
+}
+
+main();
 ```
 
 Now, let's add the bits to unlock the funds in the contract. We'll need the
 transaction identifier (i.e. `Tx ID`) obtained when you ran the previous script
-(`hello-world-lock.mjs`)
+(`hello-world-lock.ts`)
 
 That transaction identifier (a.k.a. transaction hash), and the corresponding
 output index (here, `0`) uniquely identify the UTxO (Unspent Transaction
@@ -325,104 +361,83 @@ to unlock.
   accessible for our script.
 </Callout>
 
-```ts filename="hello-world-unlock.mjs" {2-8, 34-76}
-import cbor from "cbor";
+```ts filename="hello-world-unlock.ts" {25-52}
 import {
-  resolvePaymentKeyHash,
-  resolvePlutusScriptAddress,
-  BlockfrostProvider,
-  MeshWallet,
-  Transaction,
-} from '@meshsdk/core';
-import { applyParamsToScript } from "@meshsdk/core-csl";
-import fs from 'node:fs';
+  deserializeAddress,
+  mConStr0,
+  stringToHex,
+} from "@meshsdk/core";
+import { getScript, getTxBuilder, getUtxoByTxHash, wallet } from "./common";
 
-const blockchainProvider = new BlockfrostProvider(process.env.BLOCKFROST_PROJECT_ID);
+async function main() {
+  // get utxo, collateral and address from wallet
+  const utxos = await wallet.getUtxos();
+  const walletAddress = (await wallet.getUsedAddresses())[0];
+  const collateral = (await wallet.getCollateral())[0];
 
-const wallet = new MeshWallet({
-  networkId: 0,
-  fetcher: blockchainProvider,
-  submitter: blockchainProvider,
-  key: {
-    type: 'root',
-    bech32: fs.readFileSync('me.sk').toString(),
-  },
-});
+  const { scriptCbor } = getScript();
 
-const blueprint = JSON.parse(fs.readFileSync('./plutus.json'));
+  // hash of the public key of the wallet, to be used in the datum
+  const signerHash = deserializeAddress(walletAddress).pubKeyHash;
+  // redeemer value to unlock the funds
+  const message = "Hello, World!";
 
-const script = {
-  code: cbor
-    .encode(Buffer.from(blueprint.validators[0].compiledCode, "hex"))
-    .toString("hex"),
-  version: "V3",
-};
+  // get the utxo from the script address of the locked funds
+  const txHashFromDesposit = process.argv[2];
+  const scriptUtxo = await getUtxoByTxHash(txHashFromDesposit);
 
-async function fetchUtxo(addr) {
-  const utxos = await blockchainProvider.fetchAddressUTxOs(addr);
-  return utxos.find((utxo) => {
-    return utxo.input.txHash == process.argv[2];
-  });
+    // build transaction with MeshTxBuilder
+  const txBuilder = getTxBuilder();
+  await txBuilder
+    .spendingPlutusScript("V3") // we used plutus v3
+    .txIn( // spend the utxo from the script address
+      scriptUtxo.input.txHash,
+      scriptUtxo.input.outputIndex,
+      scriptUtxo.output.amount,
+      scriptUtxo.output.address
+    )
+    .txInScript(scriptCbor)
+    .txInRedeemerValue(mConStr0([stringToHex(message)])) // provide the required redeemer value `Hello, World!`
+    .txInDatumValue(mConStr0([signerHash])) // only the owner of the wallet can unlock the funds
+    .requiredSignerHash(signerHash)
+    .changeAddress(walletAddress)
+    .txInCollateral(
+      collateral.input.txHash,
+      collateral.input.outputIndex,
+      collateral.output.amount,
+      collateral.output.address
+    )
+    .selectUtxosFrom(utxos)
+    .complete();
+  const unsignedTx = txBuilder.txHex;
+
+  const signedTx = await wallet.signTx(unsignedTx);
+  const txHash = await wallet.submitTx(signedTx);
+  console.log(`1 tADA unlocked from the contract at Tx ID: ${txHash}`);
 }
 
-const utxo = await fetchUtxo(resolvePlutusScriptAddress(script, 0))
-
-const address = (await wallet.getUsedAddresses())[0];
-
-const owner = resolvePaymentKeyHash(address);
-
-const datum = {
-  alternative: 0,
-  fields: [owner],
-};
-
-const redeemer = {
-  data: {
-    alternative: 0,
-   fields: ['Hello, World!'],
-  },
-};
-
-const unsignedTx = await new Transaction({ initiator: wallet })
-  .redeemValue({
-    value: utxo,
-    script: script,
-    datum: datum,
-    redeemer: redeemer,
-  })
-  .sendValue(address, utxo)
-  .setRequiredSigners([address])
-  .build();
-
-const signedTx = await wallet.signTx(unsignedTx, true);
-
-const txHash = await wallet.submitTx(signedTx);
-
-console.log(`1 tADA unlocked from the contract at:
-    Tx ID: ${txHash}
-    Redeemer: ${JSON.stringify(redeemer)}
-`);
+main();
 ```
 
 <Callout type="info">
 Run this script as usual, but this time, also passing the transaction id obtained from the previous command locking the funds. For example:
 
 ```console
-node hello-world-unlock.mjs 48b8178e3a8842227dfbb0f73669efc163f73fd7c8758b7dafc0a5a5f07a5445
+npx tsx unlock.ts 48b8178e3a8842227dfbb0f73669efc163f73fd7c8758b7dafc0a5a5f07a5445
 ```
 </Callout>
 
 If everything worked as planned you should see something resembling the following output:
 
 ```
-1 tADA unlocked from the contract at:
-    Tx ID: 1e1987e0d0aaa35a631bdc0a0dfbadcba5b33b349d1153612cac4167262fdae2
-    Redeemer: {"data":{"alternative":0,"fields":["Hello, World!"]}}
+1 tADA unlocked from the contract at Tx ID: af3e7d83e5ee5324a612de9126636ef55505ffb9c468dacaf419635921b7a91c
 ```
 
 And, tada 🎉!
 
 We can inspect our [redeeming transaction on CardanoScan](https://preview.cardanoscan.io/transaction/d3d5e828a3989691b0960d22a265c8c9ae4723134b52aa05ec0fb7d40f060392?tab=contracts) and see that it successfully executed our _Hello World_ contract.
+
+You can find the [full source code](https://github.com/MeshJS/examples/tree/main/aiken-hello-world) for this tutorial on GitHub.
 
 [Mesh]: https://meshjs.dev/
 [Blockfrost]: https://blockfrost.io
