@@ -170,10 +170,7 @@ import {
 } from "@meshsdk/core";
 import { applyParamsToScript } from "@meshsdk/core-csl";
 
-// BlockfrostProvider to query data from the blockchain
-const blockchainProvider = new BlockfrostProvider(
-  fs.readFileSync("bf.key").toString()
-);
+const blockchainProvider = new BlockfrostProvider(process.env.BLOCKFROST_PROJECT_ID);
 
 // wallet for signing transactions
 export const wallet = new MeshWallet({
