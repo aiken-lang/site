@@ -104,7 +104,9 @@ export const wallet = new MeshWallet({
 });
 ```
 
-Note that the highlighted line above looks Blockfrost project ID, so we create a file named `bf.key` and add your Blockfrost project ID to it.
+<Callout type="warning">
+Note that the highlighted line above looks for an environment variable named `BLOCKFROST_PROJECT_ID` which its value must be set to your Blockfrost project id.
+You can define a new environment variable in your terminal by running (in the same session you're also executing the script!):
 
 export BLOCKFROST_PROJECT_ID=preview...
 ```
