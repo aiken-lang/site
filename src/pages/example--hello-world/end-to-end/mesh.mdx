@@ -112,6 +112,7 @@ export BLOCKFROST_PROJECT_ID=preview...
 ```
 
 Replace `preview...` with your actual project id.
+</Callout>
 
 Next, we'll need to read the validator from the blueprint (`plutus.json`) we generated earlier. We'll also need to convert it to a format that Mesh understands. This is done by serializing the validator and then converting it to a hexadecimal text string, we can do this by using the `applyParamsToScript` function.
 
