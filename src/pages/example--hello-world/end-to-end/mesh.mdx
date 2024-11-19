@@ -108,6 +108,7 @@ export const wallet = new MeshWallet({
 Note that the highlighted line above looks for an environment variable named `BLOCKFROST_PROJECT_ID` which its value must be set to your Blockfrost project id.
 You can define a new environment variable in your terminal by running (in the same session you're also executing the script!):
 
+```
 export BLOCKFROST_PROJECT_ID=preview...
 ```
 
@@ -116,7 +117,7 @@ Replace `preview...` with your actual project id.
 
 Next, we'll need to read the validator from the blueprint (`plutus.json`) we generated earlier. We'll also need to convert it to a format that Mesh understands. This is done by serializing the validator and then converting it to a hexadecimal text string, we can do this by using the `applyParamsToScript` function.
 
-```ts filename="common.ts" {27-42}
+```ts filename="common.ts" {10, 25-36}
 import fs from "node:fs";
 import {
   BlockfrostProvider,
@@ -126,6 +127,7 @@ import {
   UTxO,
 } from "@meshsdk/core";
 import { applyParamsToScript } from "@meshsdk/core-csl";
+import blueprint from "./plutus.json";
 
 const blockchainProvider = new BlockfrostProvider(process.env.BLOCKFROST_PROJECT_ID);
 
@@ -139,9 +141,6 @@ export const wallet = new MeshWallet({
     bech32: fs.readFileSync("me.sk").toString(),
   },
 });
-
-// script information, its CBOR and address
-import blueprint from "./plutus.json";
 
 export function getScript() {
   const scriptCbor = applyParamsToScript(
@@ -159,7 +158,7 @@ export function getScript() {
 
 Lastly, let's add 2 more useful functions to our `common.ts` file. One to get a transaction builder and another function to fetch a UTxO by transaction hash.
 
-```ts filename="common.ts" {43-58}
+```ts filename="common.ts" {38-53}
 import fs from "node:fs";
 import {
   BlockfrostProvider,
@@ -169,6 +168,7 @@ import {
   UTxO,
 } from "@meshsdk/core";
 import { applyParamsToScript } from "@meshsdk/core-csl";
+import blueprint from "./plutus.json";
 
 const blockchainProvider = new BlockfrostProvider(process.env.BLOCKFROST_PROJECT_ID);
 
@@ -182,9 +182,6 @@ export const wallet = new MeshWallet({
     bech32: fs.readFileSync("me.sk").toString(),
   },
 });
-
-// script information, its CBOR and address
-import blueprint from "./plutus.json";
 
 export function getScript() {
   const scriptCbor = applyParamsToScript(
@@ -226,7 +223,7 @@ with a single field that is a byte array.
 
 As value for that byte array, we provide a hash digest of our public key (pubKeyHash) from the wallet created with our `me.sk`. This will be needed to unlock the funds.
 
-```ts filename="hello-world-lock.ts"
+```ts filename="lock.ts"
 import { Asset, deserializeAddress, mConStr0 } from "@meshsdk/core";
 import { getScript, getTxBuilder, wallet } from "./common";
 
@@ -310,7 +307,7 @@ To be valid, our transaction must meet two conditions:
 Let's make a new file `hello-world-unlock.ts` and copy over some of the boilerplate
 from the first one.
 
-```ts filename="hello-world-unlock.ts"
+```ts filename="unlock.ts"
 import {
   deserializeAddress,
   mConStr0,
@@ -354,7 +351,7 @@ to unlock.
   accessible for our script.
 </Callout>
 
-```ts filename="hello-world-unlock.ts" {25-52}
+```ts filename="unlock.ts" {25-52}
 import {
   deserializeAddress,
   mConStr0,
