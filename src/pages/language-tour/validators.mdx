@@ -182,7 +182,11 @@ generated code. Hence they must be provided before any address can be
 calculated for the corresponding validator.
 
 Parameters are accessible to all handlers from within the validator and can be
-any serialisable (non-opaque) data-type. For example, it is common to ensure uniqueness of
+any serialisable (non-opaque) data-type. For example, it is common to ensure
+uniqueness of execution of a minting policy to parameterize the validator with
+a UTxO reference. In the mint handler, one can then check that the referenced
+UTxO is spent, which, by nature of UTxO (can only be spent once), ensures
+uniqueness of execution for the mint handler. Handy!
 
 ```ak filename="validators/my_script.ak"
 use aiken/collection/list
