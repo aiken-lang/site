@@ -286,6 +286,20 @@ let never: Data = Never
 some == never
 ```
 
+## Ordering
+
+[`Ordering`](https://aiken-lang.github.io/prelude/aiken.html#Ordering) type is helpful when comparing two values of same type. It is defined as:
+
+```aiken
+pub type Ordering {
+  Less
+  Equal
+  Greater
+}
+```
+
+And [standard library](https://aiken-lang.github.io/stdlib/) often defines `compare` function corresponding to different types, for instance, to compare two `ByteArray`s one can use this [`compare`](https://aiken-lang.github.io/stdlib/aiken/primitive/bytearray.html#compare) function.
+
 ## Void
 
 `Void{:ak}` is a type representing the nullary constructor, or put simply, the absence of value. It is denoted `Void` as a type and constructor. Fundamentally, if you think in terms of tuples, `Void{:ak}` is a tuple with no element in it.
