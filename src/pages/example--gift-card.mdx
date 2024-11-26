@@ -13,9 +13,10 @@ Let's build a UI to send and redeem a gift card using smart contracts on Cardano
 
 <br />
 
-- [x] Writing `Aiken` inter-dependent `mint` & `spend` validators.
+- [x] Writing `Aiken` inter-dependent `mint` & `spend` handlers.
 - [x] Parameterizing validators.
-- [x] Using [Blaze](https://github.com/butaneprotocol/blaze-cardano/) with [Blockfrost](https://blockfrost.io)<sup>★</sup>.
+- [x] [Weld](https://github.com/Cardano-Forge/weld) for managing wallet connection.
+- [x] Using [Lucid Evolution](https://github.com/Anastasia-Labs/lucid-evolution) with [Blockfrost](https://blockfrost.io)<sup>★</sup>.
   <sub>
     ★ We'll once again be using the `Blockfrost` provider. So have your
     Blockfrost API key ready.
@@ -384,35 +385,46 @@ aiken build
 ## Building a frontend
 
 With the easy part out of the way we can start building a frontend to interact with our
-smart contracts in the browser. SvelteKit is an interesting framework for building
-web applications.
+smart contracts in the browser. In this tutorial we'll be using SvelteKit to build the UI.
 
 ### Setting up
 
 Let's generate a SvelteKit project in the same directory as our Aiken project.
 
 ```sh
-npm create svelte@latest .
+npx sv create .
 ```
 
 <Callout type="warning">
   When prompted use the current directory, continue even though directory is not
-  empty, choose a skeleton project, use Svelte 5, and enable typescript.
+  empty, choose a skeleton project, use Svelte 5, and enable typescript. Make
+  sure to include tailwindcss.
 </Callout>
 
-We need to add Blaze now.
+We need to add Lucid Evolution and Weld now.
 
 ```sh
-npm add @blaze-cardano/sdk@latest @blaze-cardano/core@latest @blaze-cardano/query@latest @blaze-cardano/uplc@latest @blaze-cardano/wallet@latest @blaze-cardano/tx@latest
+npm i @ada-anvil/weld @lucid-evolution/lucid vite-plugin-wasm vite-plugin-top-level-await
 ```
 
-Let's add tailwindcss to our project.
+Then make sure to update the `vite.config.js` file to include the new plugins.
 
-```sh
-npx svelte-add@latest tailwindcss
+```js filename="vite.config.js"
+import { sveltekit } from "@sveltejs/kit/vite";
+import wasm from "vite-plugin-wasm";
+import topLevelAwait from "vite-plugin-top-level-await";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [sveltekit(), wasm(), topLevelAwait()],
+  server: {
+    fs: {
+      // Allow serving files from one level up to the project root
+      allow: ["plutus.json"],
+    },
+  },
+});
 ```
-
-<Callout type="warning">When prompted just say yes to everything.</Callout>
 
 Let's also add some reusable components to our project.
 
@@ -444,7 +456,7 @@ Let's also add some reusable components to our project.
     children: Snippet<[]>;
   }
 
-  let { id, children, ...props }: Props = $props();
+  let { id, children, value = $bindable(), ...props }: Props = $props();
 </script>
 
 <div>
@@ -452,6 +464,7 @@ Let's also add some reusable components to our project.
     {@render children()}
   </label>
   <input
+    bind:value
     {...props}
     {id}
     class="block w-full appearance-none rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-blue-500 sm:text-sm"
@@ -476,12 +489,7 @@ Let's edit `src/routes/+page.svelte` to contain the following code.
   <div class="mb-10">
     <h2 class="text-lg font-semibold text-gray-900">Make a one shot minting and lock contract</h2>
 
-    <h3 class="mb-2 mt-4">Redeem</h3>
-    <pre class="overflow-x-scroll rounded bg-gray-200 p-2">
-      TODO: Render non-parameterized redeem validator
-    </pre>
-
-    <h3 class="mb-2 mt-4">Gift Card</h3>
+    <h3 class="mb-2 mt-4">Gift Card Template</h3>
     <pre class="overflow-x-scroll rounded bg-gray-200 p-2">
       TODO: Render non-parameterized gift_card validator
     </pre>
@@ -492,7 +500,7 @@ Let's edit `src/routes/+page.svelte` to contain the following code.
 ```
 
 We've left a `TODO` in the code to remind us to render the validator. We'll render
-the compiled aiken code as a hex encoded string. There not much of a reason to do this, it's just
+the compiled aiken code as a hex encoded string. There's not much of a reason to do this, it's just
 kinda cool to see.
 
 Next we should load the `plutus.json` file and get the compiled aiken code. Let's create
@@ -525,9 +533,9 @@ and finding the compiled code for the `gift_card` validator. We're also
 exporting a type for the validators so we can use it in our page later. Having this function
 potentially throw an error is just a way to signal to us that we've done something wrong.
 
-Let's import our new `readValidators` file into `src/routes/+page.server.ts` file and use it to
-in a server side loader. This will allow us to access the data in the `+page.svelte` page component
-as page props which we'll then use to render the validator's compiled code.
+Let's import our new `readValidators` file into `src/routes/+page.server.ts` file and use it in a server side loader.
+This will allow us to access the data in the `+page.svelte` page component as page props which we'll then use to
+render the validator's compiled code.
 
 ```ts filename="src/routes/+page.server.ts"
 import { readValidators } from "$lib/utils";
@@ -559,7 +567,7 @@ export const load: PageServerLoad = async () => {
   <div class="mb-10">
     <h2 class="text-lg font-semibold text-gray-900">Make a one shot minting and lock contract</h2>
 
-    <h3 class="mb-2 mt-4">Gift Card</h3>
+    <h3 class="mb-2 mt-4">Gift Card Template</h3>
     <pre class="overflow-x-scroll rounded bg-gray-200 p-2">{data.validator}</pre>
   </div>
 
@@ -578,11 +586,81 @@ can test the redeeming of the gift card without having to send it to someone els
 #### Token name
 
 We need to capture the `token_name` so we can use it to apply some params to the raw validators.
-Blaze also requires initialization so let's get some boilerplate out of the way.
+Lucid & Weld also requires initialization so let's get some boilerplate out of the way.
+
+```ts filename="src/lib/wallet.svelte.ts"
+import { createWeldInstance, type WeldConfig } from "@ada-anvil/weld";
+import { getContext, setContext } from "svelte";
+
+export class Weld {
+  weld = createWeldInstance();
+
+  // Use the $state rune to create a reactive object for each Weld store
+  config = $state(this.weld.config.getState());
+  wallet = $state(this.weld.wallet.getState());
+  extensions = $state(this.weld.extensions.getState());
+
+  constructor(persist?: Partial<WeldConfig>) {
+    this.weld.config.update({ updateInterval: 2000 });
+
+    if (persist) this.weld.persist(persist);
+
+    $effect(() => {
+      this.weld.init();
+
+      // Subscribe to Weld stores and update reactive objects when changse occur
+      // Note: No need to use subscribeWithSelector as $state objects are deeply reactive
+      this.weld.config.subscribe((s) => (this.config = s));
+      this.weld.wallet.subscribe((s) => (this.wallet = s));
+      this.weld.extensions.subscribe((s) => (this.extensions = s));
+
+      return () => this.weld.cleanup();
+    });
+  }
+}
+
+// Use the context API to scope weld stores and prevent unwanted sharing
+// of data between clients when rendering on the server
+const weldKey = Symbol("weld");
+
+export function setWeldContext(persist?: Partial<WeldConfig>) {
+  const value = new Weld(persist);
+  setContext(weldKey, value);
+  return value;
+}
+
+export function getWeldContext() {
+  return getContext<ReturnType<typeof setWeldContext>>(weldKey);
+}
+```
+
+```svelte filename="src/routes/+layout.svelte"
+<script lang="ts">
+  import '../app.css';
+
+  import { setWeldContext } from '$lib/wallet.svelte';
+
+  let { children } = $props();
+
+  setWeldContext({ enablePersistence: true });
+</script>
+
+{@render children()}
+
+```
 
 ```svelte filename="src/routes/+page.svelte"
 <script lang="ts">
-  import { Blaze, Blockfrost, WebWallet } from '@blaze-cardano/sdk';
+  import { onMount } from 'svelte';
+  import { getWeldContext } from '$lib/wallet.svelte';
+  import {
+    Lucid,
+    Blockfrost,
+    type LucidEvolution,
+    Data,
+    Constr,
+    fromText
+  } from '@lucid-evolution/lucid';
 
   // Components
   import Input from '$lib/components/Input.svelte';
@@ -598,24 +676,30 @@ Blaze also requires initialization so let's get some boilerplate out of the way.
 
   let { data }: Props = $props();
 
-  // Page Local State
-  let blaze: Blaze<Blockfrost, WebWallet> | undefined = $state();
+  let weld = getWeldContext();
+
+  let displayedBalance = $derived(weld.wallet.balanceAda?.toFixed(2) ?? '-');
 
   let blockfrostAPIKey = $state('');
-
   let tokenName = $state('');
 
-  async function setupBlaze(e: Event) {
+  onMount(() => {
+    weld.wallet.connect('eternl');
+  });
+
+  async function setupBlockfrost(e: Event) {
     e.preventDefault();
 
-    const walletApi = await window.cardano?.eternl.enable();
+    lucid = await Lucid(
+      new Blockfrost(
+        'https://cardano-preprod.blockfrost.io/api/v0',
+        blockfrostAPIKey
+      ),
+      'Preprod'
+    );
 
-    if (walletApi) {
-      blaze = await Blaze.from(
-        new Blockfrost({ network: 'cardano-preview', projectId: blockfrostAPIKey }),
-        new WebWallet(walletApi)
-      );
-    }
+    // @ts-expect-error this is normal
+    lucid.selectWallet.fromAPI(weld.wallet.handler!.enabledApi);
   }
 
   function submitTokenName(e: Event) {
@@ -633,25 +717,38 @@ Blaze also requires initialization so let's get some boilerplate out of the way.
   <div class="mb-10">
     <h2 class="text-lg font-semibold text-gray-900">Make a one shot minting and lock contract</h2>
 
-    <h3 class="mb-2 mt-4">Gift Card</h3>
+    balance: {displayedBalance}
+
+    <h3 class="mb-2 mt-4">Gift Card Template</h3>
     <pre class="overflow-x-scroll rounded bg-gray-200 p-2">{data.validator}</pre>
   </div>
 
   <div>
-    {#if blaze}
-      <form class="mt-10 grid grid-cols-1 gap-y-8" onsubmit={setupBlaze}>
-        <Input type="password" id="blockfrostAPIKey" bind:value={blockfrostAPIKey}>
+    {#if !lucid}
+      <form class="mt-10 grid grid-cols-1 gap-y-8" onsubmit={setupBlockfrost}>
+        <Input
+          type="password"
+          id="blockfrostAPIKey"
+          bind:value={blockfrostAPIKey}
+        >
           Blockfrost API Key
         </Input>
 
-        <Button type="submit">Setup Blaze</Button>
+        <Button type="submit">Setup Wallet</Button>
       </form>
     {:else}
       <form class="mt-10 grid grid-cols-1 gap-y-8" onsubmit={submitTokenName}>
-        <Input type="text" name="tokenName" id="tokenName" bind:value={tokenName}>Token Name</Input>
+        <Input
+          type="text"
+          name="tokenName"
+          id="tokenName"
+          bind:value={tokenName}
+        >
+          Token Name
+        </Input>
 
         {#if tokenName.length > 0}
-          <Button type="submit">Make Contract</Button>
+          <Button type="submit">Make Contracts</Button>
         {/if}
       </form>
     {/if}
@@ -670,11 +767,13 @@ import {
   applyParamsToScript,
   Constr,
   fromText,
-  Lucid,
-  MintingPolicy,
-  OutRef,
-  SpendingValidator,
-} from "lucid/mod.ts";
+  validatorToAddress,
+  validatorToScriptHash,
+  type MintingPolicy,
+  type OutRef,
+  type SpendingValidator,
+} from "@lucid-evolution/lucid";
+import blueprint from "../../plutus.json" assert { type: "json" };
 
 // ... export type Validators ...
 
@@ -690,40 +789,31 @@ export type AppliedValidators = {
 export function applyParams(
   tokenName: string,
   outputReference: OutRef,
-  validators: Validators,
-  lucid: Lucid
+  validator: string
 ): AppliedValidators {
   const outRef = new Constr(0, [
     new Constr(0, [outputReference.txHash]),
     BigInt(outputReference.outputIndex),
   ]);
 
-  const giftCard = applyParamsToScript(validators.giftCard.script, [
+  const giftCard = applyParamsToScript(validator, [
     fromText(tokenName),
     outRef,
   ]);
 
-  const policyId = lucid.utils.validatorToScriptHash({
+  const policyId = validatorToScriptHash({
     type: "PlutusV2",
     script: giftCard,
   });
 
-  const redeem = applyParamsToScript(validators.redeem.script, [
-    fromText(tokenName),
-    policyId,
-  ]);
-
-  const lockAddress = lucid.utils.validatorToAddress({
+  const lockAddress = validatorToAddress("Preprod", {
     type: "PlutusV2",
-    script: redeem,
+    script: giftCard,
   });
 
   return {
-    redeem: { type: "PlutusV2", script: applyDoubleCborEncoding(redeem) },
-    giftCard: {
-      type: "PlutusV2",
-      script: applyDoubleCborEncoding(giftCard),
-    },
+    redeem: { type: "PlutusV2", script: applyDoubleCborEncoding(giftCard) },
+    giftCard: { type: "PlutusV2", script: applyDoubleCborEncoding(giftCard) },
     policyId,
     lockAddress,
   };
@@ -731,70 +821,51 @@ export function applyParams(
 ```
 
 Our `applyParams` function expects a `tokenName`, an `output_Reference` that we'll fetch
-using lucid in the island, `validators` that we got in the props, and a `lucid` instance. First we
+using lucid in a moment, and a `validator` that we got in the props. First we
 create `outRef` which is `PlutusData` using `outputReference`. Then we apply the `tokenName` and
 `outRef` to the `giftCard` validator. We then use `lucid` to get the `policyId` so that we can
 apply `tokenName` and `policyId` to the `redeem` validator. Finally we use `lucid` to get the
 `lockAddress` so that we can return everything we need from the function. `lockAddress` is just the
 address of the `redeem` validator which is where we'll send some assets that can be redeemed with the
 gift card. At this point we won't need to touch `utils.ts` again. We can use this new function in
-`islands/Oneshot.tsx` when a `tokenName` is submitted.
+`src/routes/+page.svelte` when a `tokenName` is submitted.
 
-```tsx filename="islands/Oneshot.tsx" {2,8-9,18-33,39-51}
+```svelte filename="src/routes/+page.svelte" {2,8-9,18-33,39-51}
+<script lang="ts">
 // ... other imports ...
 import { AppliedValidators, applyParams, Validators } from "~/utils.ts";
 
-// ... export interface AppProps ...
+// ... other $state ...
+let parameterizedContracts: AppliedValidators | undefined = $state();
 
-export default function App({ validators }: AppProps) {
-  // ... other useState ...
-  const [parameterizedContracts, setParameterizedContracts] =
-    useState<AppliedValidators | null>(null);
+// async function setupBlockfrost(e: Event) {
 
-  // ... const setupLucid = async (blockfrostApiKey: string) ...
+async function submitTokenName(e: Event) {
+  e.preventDefault();
 
-  // ... useEffect ...
+  const utxos = await lucid!.wallet().getUtxos()!;
 
-  const submitTokenName = async (e: Event) => {
-    e.preventDefault();
-
-    const utxos = await lucid?.wallet.getUtxos()!;
-
-    const utxo = utxos[0];
-    const outputReference = {
-      txHash: utxo.txHash,
-      outputIndex: utxo.outputIndex,
-    };
-
-    const contracts = applyParams(
-      tokenName,
-      outputReference,
-      validators,
-      lucid!
-    );
-
-    setParameterizedContracts(contracts);
+  const utxo = utxos[0];
+  const outputReference = {
+    txHash: utxo.txHash,
+    outputIndex: utxo.outputIndex
   };
 
-  return (
-    <div>
-      {/* ... {!lucid ? ... */}
-      {lucid && parameterizedContracts && (
-        <>
-          <h3 class="mt-4 mb-2">Redeem</h3>
-          <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
-            {parameterizedContracts.redeem.script}
-          </pre>
+  const contracts = applyParams(tokenName, outputReference, data.validator);
 
-          <h3 class="mt-4 mb-2">Gift Card</h3>
-          <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
-            {parameterizedContracts.giftCard.script}
-          </pre>
-        </>
-      )}
-    </div>
-  );
+  parameterizedContracts = contracts;
 }
+</script>
+
+<div>
+  <!-- {#if lucid} -->
+  {#if lucid && parameterizedContracts}
+    <h3 class="mt-4 mb-2">New Gift Card</h3>
+    <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
+      {parameterizedContracts.redeem.script}
+    </pre>
+  {/if}
+</div>
 ```
 
 We now have the power to create validators, that are usable on-chain, **completely on the fly**
@@ -807,143 +878,132 @@ transactions.
 We're going to mint some assets and lock them in the `lockAddress` that we got from
 `applyParams`. For the sake of keeping things simple, we'll only provide an input
 to capture some ADA amount to be locked. Technically the validators allow for any assets
-to be locked but it's easy to just support ADA for now. Along with an input, we want a button
+to be locked but it's easier to just support ADA for now. Along with an input, we want a button
 that when clicked will run a function that builds, signs, and submits a transaction. When
 the transaction is done we'll render the hash and have it link to cardano scan.
 
-```tsx filename="islands/Oneshot.tsx" {2,10-12,20-81,89-122}
+```svelte filename="src/routes/+page.svelte" {2,10-12,20-81,89-122}
+<script lang="ts">
 // ... other imports ...
-import { Blockfrost, Constr, Data, fromText, Lucid } from "lucid/mod.ts";
+import {
+  Blockfrost,
+  Constr,
+  Data,
+  fromText,
+  Lucid,
+} from "@lucid-evolution/lucid";
 
 import { AppliedValidators, applyParams, Validators } from "~/utils.ts";
 
-// ... export interface AppProps ...
 
-export default function App({ validators }: AppProps) {
-  // ... other useState ...
-  const [giftADA, setGiftADA] = useState<string | undefined>();
-  const [lockTxHash, setLockTxHash] = useState<string | undefined>(undefined);
-  const [waitingLockTx, setWaitingLockTx] = useState<boolean>(false);
+// ... other $state ...
+let giftADA: string | undefined = $state();
+let lockTxHash: string | undefined = $state();
+let waitingLockTx = $state(false);
 
-  // ... const setupLucid = async (blockfrostApiKey: string) ...
+// async function setupBlockfrost(e: Event) {
 
-  // ... useEffect ...
+// async function submitTokenName(e: Event) {
 
-  // ... const submitTokenName = async (e: Event) ...
+async function createGiftCard(e: Event) {
+  e.preventDefault();
 
-  const createGiftCard = async (e: Event) => {
-    e.preventDefault();
+  waitingLockTx = true;
 
-    setWaitingLockTx(true);
+  try {
+    const lovelace = Number(giftADA) * 1000000;
 
-    try {
-      const lovelace = Number(giftADA) * 1000000;
+    const assetName = `${parameterizedContracts!.policyId}${fromText(
+      tokenName
+    )}`;
 
-      const assetName = `${parameterizedContracts!.policyId}${fromText(
-        tokenName
-      )}`;
+    // Action::Mint
+    const mintRedeemer = Data.to(new Constr(0, []));
 
-      // Action::Mint
-      // This is how you build the redeemer for gift_card
-      // when you want to perform the Mint action.
-      const mintRedeemer = Data.to(new Constr(0, []));
+    const utxos = await lucid!.wallet().getUtxos()!;
+    const utxo = utxos[0];
 
-      const utxos = await lucid?.wallet.getUtxos()!;
-      const utxo = utxos[0];
+    const tx = await lucid!
+      .newTx()
+      .collectFrom([utxo])
+      .attach.MintingPolicy(parameterizedContracts!.giftCard)
+      .mintAssets({ [assetName]: BigInt(1) }, mintRedeemer)
+      .pay.ToContract(
+        parameterizedContracts!.lockAddress,
+        { kind: 'inline', value: Data.void() },
+        { lovelace: BigInt(lovelace) }
+      )
+      .complete();
 
-      const tx = await lucid!
-        .newTx()
-        .collectFrom([utxo])
-        // use the gift_card validator
-        .attachMintingPolicy(parameterizedContracts!.giftCard)
-        // mint 1 of the asset
-        .mintAssets(
-          { [assetName]: BigInt(1) },
-          // this redeemer is the first argument to the gift_card validator
-          mintRedeemer
-        )
-        .payToContract(
-          parameterizedContracts!.lockAddress,
-          {
-            // On unlock this gets passed to the redeem
-            // validator as datum. Our redeem validator
-            // doesn't use it so we can just pass in anything.
-            inline: Data.void(),
-          },
-          { lovelace: BigInt(lovelace) }
-        )
-        .complete();
+    const txSigned = await tx.sign.withWallet().complete();
 
-      const txSigned = await tx.sign().complete();
+    const txHash = await txSigned.submit();
 
-      const txHash = await txSigned.submit();
+    const success = await lucid!.awaitTx(txHash);
 
-      const success = await lucid!.awaitTx(txHash);
+    // Wait a little bit longer so ExhaustedUTxOError doesn't happen
+    // in the next Tx
+    setTimeout(() => {
+      waitingLockTx = false;
 
-      // Wait a little bit longer so ExhaustedUTxOError doesn't happen
-      // in the next Tx
-      setTimeout(() => {
-        setWaitingLockTx(false);
+      if (success) {
+        localStorage.setItem(
+          'cache',
+          JSON.stringify({
+            tokenName,
+            giftADA,
+            parameterizedValidators: parameterizedContracts,
+            lockTxHash: txHash
+          })
+        );
 
-        if (success) {
-          setLockTxHash(txHash);
-        }
-      }, 3000);
-    } catch {
-      setWaitingLockTx(false);
-    }
-  };
-
-  return (
-    <div>
-      {/* ... {!lucid ? ... */}
-      {lucid && parameterizedContracts && (
-        <>
-          {/* ... show applied contracts ... */}
-          <div class="mt-10 grid grid-cols-1 gap-y-8">
-            <Input
-              type="text"
-              name="giftADA"
-              id="giftADA"
-              value={giftADA}
-              onInput={(e) => setGiftADA(e.currentTarget.value)}
-            >
-              ADA Amount
-            </Input>
-
-            <Button
-              onClick={createGiftCard}
-              disabled={waitingLockTx || !!lockTxHash}
-            >
-              {waitingLockTx
-                ? "Waiting for Tx..."
-                : "Create Gift Card (Locks ADA)"}
-            </Button>
-
-            {lockTxHash && (
-              <>
-                <h3 class="mt-4 mb-2">ADA Locked</h3>
-
-                <a
-                  class="mb-2"
-                  target="_blank"
-                  href={`https://preprod.cardanoscan.io/transaction/${lockTxHash}`}
-                >
-                  {lockTxHash}
-                </a>
-              </>
-            )}
-          </div>
-        </>
-      )}
-    </div>
-  );
+        lockTxHash = txHash;
+      }
+    }, 3000);
+  } catch {
+    waitingLockTx = false;
+  }
 }
+</script>
+
+<div>
+  <!-- {#if !lucid} -->
+  {#if lucid && parameterizedContracts}
+    <!-- ... show applied contracts ... -->
+    <div class="mt-10 grid grid-cols-1 gap-y-8">
+      <form onsubmit={createGiftCard}>
+        <Input type="text" name="giftADA" id="giftADA" bind:value={giftADA}>
+          ADA Amount
+        </Input>
+
+        <Button type="submit" disabled={waitingLockTx || !!lockTxHash}>
+          {#if waitingLockTx}
+            Waiting for Tx...
+          {:else}
+             Create Gift Card (Locks ADA)
+          {/if}
+        </Button>
+      </form>
+
+      {#if lockTxHash}
+        <h3 class="mb-2 mt-4">ADA Locked</h3>
+
+        <a
+          class="mb-2"
+          target="_blank"
+          href={`https://preprod.cardanoscan.io/transaction/${lockTxHash}`}
+        >
+          {lockTxHash}
+        </a>
+      {/if}
+    </div>
+  {/if}
+</div>
 ```
 
 With this code, we can now enter some ADA amount and then click a button to perform
 the transaction. The transaction will mint a new asset using our token and send the ADA
-to the `redeem` validator's address, effectively locking the ADA.
+to the validator's address, effectively locking the ADA.
 
 <Callout type="warning">
   It may be tempting to run this right now, but unless you cache some of the
@@ -960,33 +1020,26 @@ Similar to the previous section, we'll drive the transaction execution with a bu
 After the redeem button is clicked and the transaction finishes we'll render the hash and
 have it link to cardano scan like the previous section.
 
-```tsx filename="islands/Oneshot.tsx" {7-10,20-73,96-103,107-119}
-// ... imports ...
+```svelte filename="src/routes/+page.svelte" {7-10,20-73,96-103,107-119}
+<script lang="ts">
+  // ... imports ...
 
-// ... export interface AppProps ...
-
-export default function App({ validators }: AppProps) {
   // ... other useState ...
-  const [unlockTxHash, setUnlockTxHash] = useState<string | undefined>(
-    undefined
-  );
-  const [waitingUnlockTx, setWaitingUnlockTx] = useState<boolean>(false);
+  let unlockTxHash: string | undefined = $state();
+  let waitingUnlockTx = $state(false);
 
   // ... const setupLucid = async (blockfrostApiKey: string) ...
 
-  // ... useEffect ...
+  // ... async function submitTokenName(e: Event) ...
 
-  // ... const submitTokenName = async (e: Event) ...
+  // ... async function createGiftCard(e: Event) ...
 
-  // ... const createGiftCard = async (e: Event) ...
-
-  const redeemGiftCard = async (e: Event) => {
+  async function redeemGiftCard(e: Event) {
     e.preventDefault();
 
-    setWaitingUnlockTx(true);
+    waitingUnlockTx = true;
 
     try {
-      // get the utxos at the redeem validator's address
       const utxos = await lucid!.utxosAt(parameterizedContracts!.lockAddress);
 
       const assetName = `${parameterizedContracts!.policyId}${fromText(
@@ -994,98 +1047,77 @@ export default function App({ validators }: AppProps) {
       )}`;
 
       // Action::Burn
-      // This is how you build the redeemer for gift_card
-      // when you want to perform the Burn action.
       const burnRedeemer = Data.to(new Constr(1, []));
 
       const tx = await lucid!
         .newTx()
-        .collectFrom(
-          utxos,
-          // This is the second argument to the redeem validator
-          // and we also don't do anything with it similar to the
-          // inline datum. It's fine to pass in anything in this case.
-          Data.void()
-        )
-        // use the gift_card validator again
-        .attachMintingPolicy(parameterizedContracts!.giftCard)
-        // use the redeem validator
-        .attachSpendingValidator(parameterizedContracts!.redeem)
-        .mintAssets(
-          // notice the negative one here
-          { [assetName]: BigInt(-1) },
-          // this redeemer is the first argument to the gift_card validator
-          burnRedeemer
-        )
+        .collectFrom(utxos, Data.void())
+        .attach.MintingPolicy(parameterizedContracts!.giftCard)
+        .attach.SpendingValidator(parameterizedContracts!.redeem)
+        .mintAssets({ [assetName]: BigInt(-1) }, burnRedeemer)
         .complete();
 
-      const txSigned = await tx.sign().complete();
+      const txSigned = await tx.sign.withWallet().complete();
 
       const txHash = await txSigned.submit();
 
       const success = await lucid!.awaitTx(txHash);
 
-      setWaitingUnlockTx(false);
+      waitingUnlockTx = false;
 
       if (success) {
-        setUnlockTxHash(txHash);
+        localStorage.removeItem('cache');
+
+        unlockTxHash = txHash;
       }
     } catch {
-      setWaitingUnlockTx(false);
+      waitingUnlockTx = false;
     }
-  };
+  }
+</script>
 
-  return (
-    <div>
-      {/* ... {!lucid ? ... */}
-      {lucid && parameterizedContracts && (
-        <>
-          {/* ... show applied contracts ... */}
-          <div class="mt-10 grid grid-cols-1 gap-y-8">
-            {/* ... Create gift card ... */}
+<div>
+  <!-- {#if !lucid} -->
+  {#if lucid && parameterizedContracts}
+    <!-- ... show applied contracts ... -->
+    <div class="mt-10 grid grid-cols-1 gap-y-8">
+      <!-- ... Create gift card ... -->
+      {#if lockTxHash}
+        <h3 class="mb-2 mt-4">ADA Locked</h3>
 
-            {lockTxHash && (
-              <>
-                <h3 class="mt-4 mb-2">ADA Locked</h3>
+        <a
+          class="mb-2"
+          target="_blank"
+          href={`https://preprod.cardanoscan.io/transaction/${lockTxHash}`}
+        >
+          {lockTxHash}
+        </a>
 
-                <a
-                  class="mb-2"
-                  target="_blank"
-                  href={`https://preprod.cardanoscan.io/transaction/${lockTxHash}`}
-                >
-                  {lockTxHash}
-                </a>
+        <form onsubmit={redeemGiftCard}>
+          <Button type="submit" disabled={waitingLockTx || !!unlockTxHash}>
+            {#if waitingUnlockTx}
+              Waiting for Tx...
+            {:else}
+              Redeem Gift Card (Unlocks ADA)
+            {/if}
+          </Button>
+        </form>
+      {/if}
 
-                <Button
-                  onClick={redeemGiftCard}
-                  disabled={waitingLockTx || !!unlockTxHash}
-                >
-                  {waitingUnlockTx
-                    ? "Waiting for Tx..."
-                    : "Redeem Gift Card (Unlocks ADA)"}
-                </Button>
-              </>
-            )}
+      {#if unlockTxHash}
+        <h3 class="mb-2 mt-4">ADA Unlocked</h3>
 
-            {unlockTxHash && (
-              <>
-                <h3 class="mt-4 mb-2">ADA Unlocked</h3>
-
-                <a
-                  class="mb-2"
-                  target="_blank"
-                  href={`https://preprod.cardanoscan.io/transaction/${unlockTxHash}`}
-                >
-                  {unlockTxHash}
-                </a>
-              </>
-            )}
-          </div>
-        </>
-      )}
+        <a
+          class="mb-2"
+          target="_blank"
+          href={`https://preprod.cardanoscan.io/transaction/${unlockTxHash}`}
+        >
+          {unlockTxHash}
+        </a>
+      {/if}
     </div>
-  );
-}
+  {/if}
+</div>
 ```
 
 We've now completed the example and have a fun little prototype.
