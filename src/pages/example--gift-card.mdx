@@ -1028,11 +1028,11 @@ have it link to cardano scan like the previous section.
   let unlockTxHash: string | undefined = $state();
   let waitingUnlockTx = $state(false);
 
-  // ... const setupLucid = async (blockfrostApiKey: string) ...
+  // async function setupBlockfrost(e: Event)
 
-  // ... async function submitTokenName(e: Event) ...
+  // async function submitTokenName(e: Event)
 
-  // ... async function createGiftCard(e: Event) ...
+  // async function createGiftCard(e: Event)
 
   async function redeemGiftCard(e: Event) {
     e.preventDefault();
