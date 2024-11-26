@@ -830,7 +830,7 @@ address of the `redeem` validator which is where we'll send some assets that can
 gift card. At this point we won't need to touch `utils.ts` again. We can use this new function in
 `src/routes/+page.svelte` when a `tokenName` is submitted.
 
-```svelte filename="src/routes/+page.svelte" {2,8-9,18-33,39-51}
+```svelte filename="src/routes/+page.svelte" {3,6-6,13-23,29-34}
 <script lang="ts">
 // ... other imports ...
 import { AppliedValidators, applyParams, Validators } from "~/utils.ts";
@@ -882,7 +882,7 @@ to be locked but it's easier to just support ADA for now. Along with an input, w
 that when clicked will run a function that builds, signs, and submits a transaction. When
 the transaction is done we'll render the hash and have it link to cardano scan.
 
-```svelte filename="src/routes/+page.svelte" {2,10-12,20-81,89-122}
+```svelte filename="src/routes/+page.svelte" {3-9,14-16,22-80,87-113}
 <script lang="ts">
 // ... other imports ...
 import {
@@ -892,7 +892,6 @@ import {
   fromText,
   Lucid,
 } from "@lucid-evolution/lucid";
-
 import { AppliedValidators, applyParams, Validators } from "~/utils.ts";
 
 
@@ -1020,7 +1019,7 @@ Similar to the previous section, we'll drive the transaction execution with a bu
 After the redeem button is clicked and the transaction finishes we'll render the hash and
 have it link to cardano scan like the previous section.
 
-```svelte filename="src/routes/+page.svelte" {7-10,20-73,96-103,107-119}
+```svelte filename="src/routes/+page.svelte" {5-6,14-53,73-81,84-94}
 <script lang="ts">
   // ... imports ...
 
