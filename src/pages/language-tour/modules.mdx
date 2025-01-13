@@ -68,7 +68,6 @@ use animal/dog as kitty
 This may be useful to differentiate between multiple modules that would have
 the same default name when imported.
 
-
 The definition `use straw_hats/sunny` creates a new variable with the name
 `sunny` and the value of the `sunny` module.
 
@@ -99,7 +98,6 @@ You may also combine unqualified imports with custom names as such:
 ```aiken
 use animal/dog.{Dog, stroke} as kitty
 ```
-
 
 ## Opaque types
 
@@ -146,7 +144,27 @@ more than just a structural equivalence at play.
 
 For the same reasons, it isn't possible to use an opaque type (or any type
 holding an opaque type) as a validator's datum and/or redeemer.
+
 </Callout>
+
+There's a _special treatment_ for an opaque type with only one constructor,
+and if that constructor has only 1 field. Under the hood, it behaves like a
+Haskell's `newtype`. This matters when we're dealing with CBOR.
+
+For example:
+
+```aiken
+pub opaque type NewType<a> { field: a }
+pub fn new_type(a) -> NewType<a> { NewType(a) }
+..
+trace new_type(43) // 43
+
+// Compare that to a non-opaque type:
+pub type Constr<a> { field: a }
+pub fn new_constr(a) -> Constr<a> { Constr(a) }
+..
+trace new_constr(43) // 121([_ 43])
+```
 
 ## Well-known modules
 
@@ -196,6 +214,7 @@ fn eq(a, b) {
 
 a == b
 ```
+
 The content of the builtin module is documented in [aiken-lang/prelude](https://aiken-lang.github.io/prelude/aiken/builtin.html).
 
 ## Conditional modules
@@ -244,6 +263,7 @@ validator main() {
 ```aiken filename="env/default.ak"
 pub const administrator = #"0000000000"
 ```
+
 </Tabs.Tab>
 
 <Tabs.Tab>
@@ -251,6 +271,7 @@ pub const administrator = #"0000000000"
 ```aiken filename="env/preprod.ak"
 pub const administrator = #"12341234"
 ```
+
 </Tabs.Tab>
 
 <Tabs.Tab>
@@ -258,6 +279,7 @@ pub const administrator = #"12341234"
 ```aiken filename="env/preview.ak"
 pub const administrator = #"56785678"
 ```
+
 </Tabs.Tab>
 </Tabs>
 
