@@ -355,6 +355,12 @@ export function icon(name, color) {
   main article#trusted-by img.white {
     filter: brightness(0) invert(1);
   }
+  html.light main article#trusted-by img:not(.white) {
+    filter: invert(1);
+  }
+  html.light main article#trusted-by img.white {
+    filter: brightness(0) invert(0);
+  }
   main article#trusted-by h2 {
     text-align: center;
   }
