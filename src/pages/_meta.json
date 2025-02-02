@@ -41,6 +41,7 @@
   "example--hello-world": "Hello, World!",
   "example--vesting": "Vesting",
   "example--gift-card": "Gift Card",
+  "example--common-design-patterns":"Common Design Patterns",
   "-- Advanced --": {
     "type": "separator",
     "title": "Advanced"
