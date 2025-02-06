@@ -7,5 +7,6 @@
   "validators": "Validators",
   "modules": "Modules",
   "tests": "Tests",
+  "bench": "Benchmarking",
   "troubleshooting": "Troubleshooting"
 }
