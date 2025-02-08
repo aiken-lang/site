@@ -1,76 +1,68 @@
 import { Callout } from "nextra-theme-docs";
 
-# Bench
+# Benchmarks
 
-Aiken has built-in support for benchmarking through a syntax similar to property-based tests. Benchmarks allow you to measure execution costs (memory and CPU) across increasing input complexity.
+Aiken has built-in support for benchmarking through a syntax similar to [property-based tests](/language-tour/tests#property-based-test). Benchmarks allow you to measure execution costs (memory and CPU) across increasing input complexity.
 
-## Writing benchmarks 
+## Writing benchmarks
 
-To write a benchmark, use the `bench` keyword along with a `Sampler`. A sampler takes a complexity parameter and generates increasingly complex inputs based on a specified growth pattern:
+### Defining samplers
+
+To write a benchmark, use the `bench{:ak}` keyword along with a `Sampler{:ak}`. A `Sampler{:ak}` takes a complexity parameter and generates increasingly complex inputs based on a specified growth pattern. `Sampler{:ak}`s can be constructed using the [`aiken-lang/sample`](https://github.com/aiken-lang/sample) package
 
 ```aiken
-use aiken/bench
+use aiken/sample.{Linear}
 
 fn my_function(n: Int) -> Int {
   n * 2
 }
 
-bench multiply_bench(n via bench.int(bench.Linear(5))) {
+bench multiply_bench(n via sample.int(Linear(5))) {
   my_function(n)
 }
 ```
 
-A `Sampler` is introduced as a special annotation for the argument using the `via` keyword. The bench library uses a `Growth` pattern to control how input complexity scales:
+A `Sampler{:ak}` is introduced as a special annotation for the argument using the `via` keyword. The sample library uses a `Growth{:ak}` to control how input complexity scales:
 
-- `Constant` - Fixed complexity
-- `Linear(base)` - Linear growth: f(n) = base * n
-- `Exponential(base)` - Exponential growth: f(n) = base^n  
-- `Logarithmic(base)` - Logarithmic growth: f(n) = log_base(n)
+- `Constant{:ak}` - Fixed complexity
+- `Linear(base){:ak}` - Linear growth: `f(n) = base * n`
+- `Exponential(base){:ak}` - Exponential growth: `f(n) = base^n`
+- `Logarithmic(base){:ak}` - Logarithmic growth: `f(n) = log_base(n)`
 
-## Composing samplers
+### Composing samplers
 
 Samplers can be composed to create more complex benchmarking scenarios:
 
 ```aiken
-use aiken/bench
+use aiken/sample.{Linear}
 
-bench list_operation(xs via bench.list(bench.int(bench.Linear(1)), bench.Linear(5))) {
+// Inline
+bench list_operation_inline(xs via sample.list(sample.int(Linear(1)), Linear(5))) {
+  list.reverse(xs)
+}
+
+// Or, by defining a helper function
+fn sample_list() -> Sampler<List<Int>> {
+  sample.list(sample.int(Linear(1)), Linear(5))
+}
+
+bench list_operation_helper(xs via sample_list()) {
   list.reverse(xs)
 }
 ```
 
-## Benchmark reports
+<Callout type="info">
+Explore more complex building blocks in [the official library documentation](https://aiken-lang.github.io/sample/).
+</Callout>
 
-Benchmarks are executed using the `aiken bench` command. They provide a report showing execution costs (memory and CPU) across different complexity levels.
-This allows you to analyze how your code's performance scales with input complexity.
+## Running benchmarks
 
-## Built-in samplers
+Benchmarks are collected using the `aiken bench` command. They provide a report showing execution costs (in abstract memory and CPU units) across different complexity levels.
+This allows you to analyze how your code's performance scales with the chosen input complexity.
 
-The `aiken/bench` module provides several built-in samplers for common types:
+### Running specific benchmarks
 
-```aiken
-use aiken/bench
-
-// Integer sampler with linear growth
-bench.int(bench.Linear(5))
-
-// List sampler with configurable element sampler and length growth
-bench.list(element_sampler, bench.Linear(3))
-
-// ByteArray sampler with configurable length growth
-bench.bytestring(bench.Linear(2))
-
-// Dict sampler with configurable key/value samplers and size growth
-bench.dict(key_sampler, value_sampler, bench.Linear(2))
-
-// Combine samplers using map/map2
-bench.map(sampler, fn(x) { ... })
-bench.map2(sampler1, sampler2, fn(x, y) { ... })
-```
-
-## Running specific benchmarks
-
-Like tests, you can run specific benchmarks using the same `aiken bench` flags:
+Like tests, you can run specific benchmarks using the usual command-line options:
 
 ```sh
 # Run benchmarks in specific module
