@@ -6,61 +6,64 @@ Aiken has built-in support for benchmarking through a syntax similar to [propert
 
 ## Writing benchmarks
 
-### Defining samplers
-
-To write a benchmark, use the `bench{:ak}` keyword along with a `Sampler{:ak}`. A `Sampler{:ak}` takes a complexity parameter and generates increasingly complex inputs based on a specified growth pattern. `Sampler{:ak}`s can be constructed using the [`aiken-lang/sample`](https://github.com/aiken-lang/sample) package
+To write a benchmark, use the `bench{:ak}` keyword along with a `Sampler{:ak}`. A `Sampler{:ak}` takes a size parameter and generates increasingly larger inputs based on a specified growth pattern (typically constant or linear). In fact, a `Sampler{:ak}` is defined as such:
 
 ```aiken
-use aiken/sample.{Linear}
+type Sampler<a> = fn(Int) -> Fuzzer<a>
+```
 
-fn my_function(n: Int) -> Int {
-  n * 2
+Hence, samplers can be constructed from fuzzers quite easily using the [`aiken-lang/fuzz`](https://github.com/aiken-lang/fuzz) package and used in a similar fashion. A `Sampler{:ak}` is introduced as a special annotation for the argument using the `via` keyword.
+
+```aiken
+use aiken/fuzz
+use aiken/primitive/bytearray
+use aiken/primitive/int
+
+fn sample_bytearray(size: Int) -> Fuzzer<ByteArray> {
+  fuzz.bytearray_between(size * 128, size * 128)
 }
 
-bench multiply_bench(n via sample.int(Linear(5))) {
-  my_function(n)
+bench bytearray_length(bytes: ByteArray via sample_bytearray) {
+  bytearray.length(bytes)
+}
+
+// Note, you can also omit the `: ByteArray` type annotation
+bench bytearray_to_integer(bytes via sample_bytearray) {
+  int.from_bytearray_big_endian(bytes)
 }
 ```
 
-A `Sampler{:ak}` is introduced as a special annotation for the argument using the `via` keyword. The sample library uses a `Growth{:ak}` to control how input complexity scales:
-
-- `Constant{:ak}` - Fixed complexity
-- `Linear(base){:ak}` - Linear growth: `f(n) = base * n`
-- `Exponential(base){:ak}` - Exponential growth: `f(n) = base^n`
-- `Logarithmic(base){:ak}` - Logarithmic growth: `f(n) = log_base(n)`
-
-### Composing samplers
-
-Samplers can be composed to create more complex benchmarking scenarios:
+<Callout emoji="✍️">
+The size will grow linearly from `0` to `--max-size` (`30` by _default_). It is then up to the sampler to define how the generated value should grow. For example, it's totally possible to generate values that grow quadratically in terms of the size:
 
 ```aiken
-use aiken/sample.{Linear}
-
-// Inline
-bench list_operation_inline(xs via sample.list(sample.int(Linear(1)), Linear(5))) {
-  list.reverse(xs)
-}
-
-// Or, by defining a helper function
-fn sample_list() -> Sampler<List<Int>> {
-  sample.list(sample.int(Linear(1)), Linear(5))
-}
-
-bench list_operation_helper(xs via sample_list()) {
-  list.reverse(xs)
+fn sample_bytearray_quadratic(size: Int) -> Fuzzer<ByteArray> {
+  fuzz.bytearray_between(size * size, size * size)
 }
 ```
 
-<Callout type="info">
-Explore more complex building blocks in [the official library documentation](https://aiken-lang.github.io/sample/).
+It's also possible, like in `sample_bytearray{:ak}` above to scale the size further to ensure benchmarks capture interesting behaviours.
 </Callout>
 
 ## Running benchmarks
 
-Benchmarks are collected using the `aiken bench` command. They provide a report showing execution costs (in abstract memory and CPU units) across different complexity levels.
-This allows you to analyze how your code's performance scales with the chosen input complexity.
+Benchmarks are collected using the `aiken bench` command. They provide a report showing execution costs (in abstract memory and CPU units) in terms of a monotically increasing size.
 
-### Running specific benchmarks
+<img src="/benchmarks_bytearray_length.png" style={{margin: '1em auto'}} />
+
+<img src="/benchmarks_bytearray_to_integer.png" style={{margin: '1em auto'}} />
+
+### JSON Output
+
+By default, the `bench` command will generate plot charts in your terminal, since they are immediately visual and can help spot behaviours in a glance. You can also obtain the complete dataset of points used for the plot by redirecting the standard output to a file.
+
+```sh
+aiken bench > benchmarks.json
+```
+
+The output is a structured JSON file containing all results for your benchmarks. Handy if you want to conduct your own analysis!
+
+### Filtering benchmarks
 
 Like tests, you can run specific benchmarks using the usual command-line options:
 
