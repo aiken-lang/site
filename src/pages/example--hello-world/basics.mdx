@@ -182,7 +182,7 @@ In order to see those traces, we'll need to write a short test.
 
 Aiken has support for tests built-in! As you'll see shortly, tests can also serve as benchmarks since they display the exact memory and steps execution units required to run them. They also collect traces for us. Let's write a simple test which runs our validator. Tests are functions without arguments which return boolean. Yet unlike functions, they are denoted with the keyword `test`. We will need a datum, a redeemer and a script context as well as a few more imports:
 
-```aiken filename="validators/hello-world.ak" {0, 3-21}
+```aiken filename="validators/hello-world.ak" {3-21}
 // ... rest of the code is unchanged
 
 test hello_world_example() {
@@ -208,9 +208,9 @@ Here, we have a test! A failing test, but we'll get it to pass, no worries. But 
 ❯ aiken check
         
   ┍━ hello_world ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  │ FAIL [mem: 20729, cpu: 7480240] hello_world_example
+  │ FAIL [mem: 11387, cpu: 4370671] hello_world_example
   │ · with traces
-  │ | redeemer: Hello, World!
+  │ | redeemer: Aiken Rocks!
   │ | must_say_hello ? False
   ┕━━━━━━━━━━━━━━━━━━━━━━ 1 tests | 0 passed | 1 failed
 ```
@@ -219,7 +219,7 @@ This output is already pretty useful. We can see the `trace` that we added in ou
 
 Let's fix this and ensure that we say `Hello, World!` instead.
 
-```aiken filename="validators/hello-world.ak" {6}
+```aiken filename="validators/hello-world.ak" {5}
 test hello_world_example() {
   let datum =
     Datum { owner: #"00000000000000000000000000000000000000000000000000000000" }
@@ -243,7 +243,7 @@ Now, we can run `aiken check` again:
 ❯ aiken check
         
   ┍━ hello_world ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  │ FAIL [mem: 20729, cpu: 7480240] hello_world_example
+  │ FAIL [mem: 18729, cpu: 7160240] hello_world_example
   │ · with traces
   │ | redeemer: Hello, World!
   │ | must_be_signed ? False
@@ -252,7 +252,7 @@ Now, we can run `aiken check` again:
 
 It fails again, as expected, but we got further. Notice how the the `mem` and `cpu` execution units are slightly higher than on the first execution. Now, we have moved to evaluating the second part of the validator requirements: `must_be_signed`. To satisfy this second requirement, we'll need to add our test owner to the transaction's extra signatories. As such:
 
-```aiken filename="validators/hello-world.ak" {17-20}
+```aiken filename="validators/hello-world.ak" {15}
 // ...rest of the code is unchanged
 
 test hello_world_example() {
@@ -278,7 +278,7 @@ This should do the trick. Note that, at this point, we do not provide any signat
 ❯ aiken check
         
   ┍━ hello_world ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  │ PASS [mem: 35683, cpu: 12515496] hello_world_example
+  │ PASS [mem: 32451, cpu: 11921833] hello_world_example
   │ · with traces
   │ | redeemer: Hello, World!
   ┕━━━━━━━━━━━━━━━━━━━━━━━ 1 tests | 1 passed | 0 failed
