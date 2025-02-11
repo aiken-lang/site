@@ -22,24 +22,24 @@ As you can see, a validator is a named block that contains one or more handlers.
 
 - `mint`, `spend`, `withdraw`, `publish`, `vote` or `propose`.
 
-Each handler is a predicate function: they must return `True` or `False`. When
-`True`, they authorize the action they are validating. Alternatively to
-returning false, they can also halt using the [`fail{:ak}`](/language-tour/control-flow#fail--todo) keyword or an
+Every handler is a predicate function: they must return `True` or `False`. When
+`True`, they authorize the action they are validating. Alternatively, to
+return false, they can instead halt using the [`fail{:ak}`](/language-tour/control-flow#fail--todo) keyword or via an
 invalid [`expect{:ak}`](/language-tour/control-flow#non-exhaustive-pattern-matching) assignment.
 
 With the exception of the `spend` handler, each handler is a function with exactly three arguments:
 
 - A **redeemer**, which is a user-defined type and value.
 - A **target**, whose type depends on the purpose.
-- A **transaction** which represents the script execution context.
+- A **transaction**, which represents the script execution context.
 
-The `spend` handler takes an additional first argument which is an optional datum, also a user-defined type. More on that in the section below.
+The `spend` handler takes an additional first argument which is an optional datum, which is also a user-defined type. More on that in the section below.
 
 <Callout type="info">
 Datum? Redeemer? If you aren't yet familiar with the eUTxO model yet, we recommend reading through the [eUTxO Crash Course](/fundamentals/eutxo).
 </Callout>
 
-In fact, handlers acts similarly to a pattern-matching on a [`ScriptContext{:ak}`](https://aiken-lang.github.io/stdlib/cardano/script_context.html#ScriptContext); pulling out elements for you while also ensuring safety around your validator boundaries. For convenience, here's a table that summarizes the different target types with their corresponding definitions from the standard library:
+In fact, handlers act in a similar manner to pattern-matching on a [`ScriptContext{:ak}`](https://aiken-lang.github.io/stdlib/cardano/script_context.html#ScriptContext); they pull out elements for you while also ensuring safety around your validator boundaries. For convenience, here's a table that summarizes the different target types with their corresponding definitions from the standard library:
 
 | Purpose    | Target                                                                                                    | What for                                                               |
 | ---        | ---                                                                                                       | ---                                                                    |
@@ -93,9 +93,9 @@ Notice how every handler can take a different redeemer type and all take a `Tran
 ### Managing (Optional) Datum
 
 Spend handlers contain an extra argument: the (optional) datum which may be set
-with the output when assets get initially locked. Because there's no ways to
-enforce that the datum is present (you cannot prevent one to send/lock assets
-into your validator), it always come as an `Option<T>` where `T` is a
+with the output when assets get initially locked. Because there's no way to
+enforce that the datum is present (you cannot prevent anyone from sending/locking assets
+to/in your validator), it always produces an `Option<T>` where `T` is a
 user-defined type that depends on the contract.
 
 Nevertheless, should your contract require a datum to be present, then it is
@@ -149,11 +149,11 @@ validator my_multi_purpose_script {
 
 <Callout type="info">
 There are also scenarios where you might not want the granularity and
-guardrails offered by Aiken. A typical use-case for example is writing
-validator on an layer-2 system that uses the Plutus Virtual Machine (e.g.
-Hydra) but may have different purposes and/or script context.
+guardrails offered by Aiken. A typical use-case for example is writing a
+validator on a layer-2 system that uses the Plutus Virtual Machine (e.g.
+Hydra) but may have different purpose(s) and/or script context.
 
-The fallback handler comes in handy for those situation and allows you to
+The fallback handler comes in handy for those situations and allows you to
 define and use arbitrary script contexts to match any environment. In the long
 run, a dedicated syntax might be introduced to declare handlers based on some
 type definition.
@@ -182,11 +182,11 @@ generated code. Hence they must be provided before any address can be
 calculated for the corresponding validator.
 
 Parameters are accessible to all handlers from within the validator and can be
-any serialisable (non-opaque) data-type. For example, it is common to ensure
-uniqueness of execution of a minting policy to parameterize the validator with
-a UTxO reference. In the mint handler, one can then check that the referenced
-UTxO is spent, which, by nature of UTxO (can only be spent once), ensures
-uniqueness of execution for the mint handler. Handy!
+any serialisable (non-opaque) data-type. For example, it is common to parameterize the validator with
+a UTxO reference, in order to ensure the
+uniqueness of execution of a minting policy . In the mint handler, one can then check that the referenced
+UTxO is spent, which ensures the 
+uniqueness of execution for the mint handler (since by definition UTxOs can only be spent once). Handy!
 
 ```ak filename="validators/my_script.ak"
 use aiken/collection/list
@@ -206,11 +206,11 @@ validator my_script(utxo_ref: OutputReference) {
 
 ## Calling handlers
 
-Handlers are your smart contract interface with the rest of the world. However,
+Handlers are your smart contract's interface with the rest of the world. However,
 there are situations where you may want to invoke a handler as a standalone
 function (e.g. for testing).
 
-Aiken provides a convenient syntax for syntax akin to calling functions from a
+Aiken provides a convenient syntax, akin to calling functions from a
 module:
 
 `{validator_name}.{handler_name}`
@@ -230,10 +230,10 @@ test return_true_when_utxo_ref_match() {
 
 ### Importing validators
 
-Should you need to split tests in a different module, Aiken allows the import
+Should you need to split tests into a different module, Aiken allows the import
 of _validators_ with a few restrictions:
 
-1. Only _test modules_ can import validators. A module is considered a _test module_ if it doesn't export any public definition.
+1. Only _test modules_ can import validators. A module is considered a _test module_ if it doesn't export any public definitions.
 2. Validators cannot be imported as unqualified objects. They must be used as qualified imports.
 
 So, assuming the validator above, we could imagine writing a test module like:
