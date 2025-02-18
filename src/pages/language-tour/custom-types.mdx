@@ -188,8 +188,12 @@ let age = dog.age
 As you can see, the second expression introduces three new bindings in scope
 for `name{:ak}`, `cuteness{:ak}` and `dog{:ak}` respectively. Destructuring
 works here because the associated type has a single constructor and the
-identifiers we introduce have the same names as the fields. If needed, we can
-however rename fields using a colon symbol (`:{:ak}`), like so:
+identifiers we introduce have the same names as the fields.
+
+#### (Re)naming fields
+
+If needed, we can also rename fields using a colon symbol (`:{:ak}`), like
+so:
 
 ```aiken
 // Destructuring
@@ -395,6 +399,17 @@ fn get_name_with_default(dog: Option<Dog>, default: ByteArray) -> ByteArray {
   when dog is {
     Some(Dog { name, .. }) -> name
     _ -> default
+  }
+}
+```
+
+You can also pattern-match on nested fields within a record. For this, use the field labels and the `:{:ak}` operator, like so:
+
+```aiken
+fn get_age_of_oscar(dog: Dog) -> Option<Int> {
+  when dog is {
+    Dog { name: "Oscar", age, ..} -> Some(age)
+    _ -> None
   }
 }
 ```
