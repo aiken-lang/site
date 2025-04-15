@@ -8,6 +8,5 @@
   "modules": "Modules",
   "tests": "Tests",
   "bench": "Benchmarks",
-  "monorepo": "Workspaces",
   "troubleshooting": "Troubleshooting"
 }

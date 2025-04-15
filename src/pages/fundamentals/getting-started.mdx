@@ -75,9 +75,13 @@ about the projects, as well as dependencies required by it. Here's a sample of
 (documented) project configuration:
 
 ```toml filename="aiken.toml"
+# [Optional - if 'members' is present]
+#
 # Project's name, as {organisation}/{repository}
 name = "foo/bar"
 
+# [Optional - if 'members' is present]
+#
 # Project's version, we recommend semantic versioning for libraries. However,
 # any UTF-8 string is accepted.
 version = "1.0.0"
@@ -91,6 +95,11 @@ licence = "Apache-2.0"
 #
 # An informative albeit short description of the project.
 description = "A next-level DeFi platform"
+
+# [Optional]
+#
+# A list of folders to look for Aiken projects. See Workspaces below.
+members = ["."]
 
 # [Optional]
 #
@@ -109,6 +118,38 @@ source = "github"            # Platform type, only `github` for now.
 name = "aiken-lang/stdlib"   # The github project, in the form of {organisation}/{repository}.
 version = "main"             # Version, as a git tag, branch name or git commit hash
 ```
+
+### Workspaces
+
+<Callout type="warning">
+  This feature is still in early development but it is simple to incrementally improve
+  so we are making it available early in a less useful state to get some feedback.
+</Callout>
+
+Aiken has minimal support for workspaces (a.k.a. monorepos). This is enabled
+using the `members` configuration fields in an `aiken.toml` file at the root of
+a project.
+
+```toml filename="myproject/aiken.toml"
+members = ["pkgs/my_library", "pkgs/my_validators"]
+```
+
+Globs are supported so it is possible to do this:
+
+```toml filename="myproject/aiken.toml"
+members = ["pkgs/*"]
+```
+
+Note also that, other configuration fields are ignored when `members` is present.
+
+#### Caveats
+
+- This does not support referencing local dependencies by path (yet)
+- Dependencies are not intelligently resolved and cached once.
+  Each sub-project gets it's own `build/` folder with dependencies redundantly
+  fetched for now.
+- The LSP is not yet aware of this configuration option and may behave strangely.
+
 
 ## Well-known packages & modules
 
