@@ -75,6 +75,10 @@ export function icon(name, color) {
       svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-map"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>`
       break;
 
+    case 'icon-compass':
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-compass"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>`
+      break;
+
     default:
       throw new Error(`Unknown icon name: ${name}`);
   }
@@ -259,6 +263,12 @@ export function icon(name, color) {
   }
   nav > a.playground::before {
     content: url("${icon('icon-play', palette.dark.text)}");
+    position: relative;
+    top: 0.25rem;
+    margin-right: 0.25rem;
+  }
+  nav > a.get-started::before {
+    content: url("${icon('icon-compass', palette.dark.text)}");
     position: relative;
     top: 0.25rem;
     margin-right: 0.25rem;
@@ -623,7 +633,9 @@ export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compil
   <Image src={theCodeOfLife} alt="Credit: © Hurcastock! - https://www.hurcastock.com" loading="eager" />
   <h1>The modern smart contract platform for Cardano</h1>
   <nav>
-    <a class="playground" target="_blank" href="https://play.aiken-lang.org">Playground</a><a href="/fundamentals/getting-started">❯_ Get started</a>
+    <a class="playground" target="_blank" href="https://play.aiken-lang.org">Playground</a>
+    <a class="stdlib" target="_blank" href="https://aiken-lang.github.io/stdlib">❯_ Stdlib</a>
+    <a class="get-started" href="/fundamentals/getting-started">Get started</a>
   </nav>
 </header>
 

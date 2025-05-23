@@ -78,9 +78,42 @@ const config: DocsThemeConfig = {
           background-image: linear-gradient(90deg, rgba(243,244,246) 0%, rgba(243,244,246) 90%, #ab31e4 86%, #620df8 92%, #ab31e4 96%);
         }
         @keyframes textclip {
-          0% { background-position: 0% center; }
-          30% { background-position: 200% center; }
-          100% { background-position: 200% center; }
+          0% {
+            background-position: 0% center;
+            top: 0.5rem;
+          }
+          2% {
+            background-position: 12.5% center;
+            top: 0;
+          }
+          5% {
+            background-position: 33.5% center;
+            top: 0.5rem;
+          }
+          8% {
+            background-position: 53.5% center;
+            top: 0.2rem;
+          }
+          12% {
+            background-position: 80% center;
+            top: 0.5rem;
+          }
+          15% {
+            background-position: 100% center;
+            top: 0.35rem;
+          }
+          18% {
+            background-position: 120% center;
+            top: 0.5rem;
+          }
+          30% {
+            background-position: 200% center;
+            top: 0.5rem;
+          }
+          100% {
+            background-position: 200% center;
+            top: 0.5rem;
+          }
         }`}</style>
     </>
   ),
