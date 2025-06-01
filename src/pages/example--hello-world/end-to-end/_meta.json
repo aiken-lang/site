@@ -1,4 +1,5 @@
 {
   "mesh": "with Mesh (TypeScript)",
-  "pycardano": "with PyCardano (Python)"
+  "pycardano": "with PyCardano (Python)",
+  "cardano-cli": "with cardano-cli (CLI)"
 }
