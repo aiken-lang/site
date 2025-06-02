@@ -7,13 +7,13 @@ import { Callout } from "nextra-theme-docs";
 <br/>
 
 - [x] Interact with a validator on the `Preview` network;
-- [x] Using [cardano-cli][] and [cardano-node][];
+- [x] Using [cardano-cli](https://github.com/IntersectMBO/cardano-cli) and [cardano-node](https://github.com/IntersectMBO/cardano-node);
 - [x] Getting test funds from the [Cardano Faucet](https://docs.cardano.org/cardano-testnet/tools/faucet);
-- [x] Using web explorers such as [CardanoScan][].
+- [x] Using web explorers such as [CardanoScan](https://cardanoscan.io/).
 
 ## Pre-requisites
 
-We assume that you have followed the _Hello, World!_'s [First steps][] and thus, have Aiken installed an ready-to-use. We will also use [cardano-cli][], which is a command-line tool to interact with a running [cardano-node][], and we'll assume you have installed both tools so you have a `cardano-node` for the `Preview` network up and running locally, and `cardano-cli` is in your `PATH`.
+We assume that you have followed the _Hello, World!_'s [First steps](https://github.com/aiken-lang/site/blob/main/src/pages/example--hello-world/basics.mdx) and thus, have Aiken installed an ready-to-use. We will also use [cardano-cli](https://github.com/IntersectMBO/cardano-cli), which is a command-line tool to interact with a running [cardano-node](https://github.com/IntersectMBO/cardano-node), and we'll assume you have installed both tools so you have a `cardano-node` for the `Preview` network up and running locally, and `cardano-cli` is in your `PATH`.
 
 <Callout type="info">
   `cardano-cli` and `cardano-node` are usually packaged together and installed when installing a cardano-node.
@@ -24,7 +24,7 @@ We assume that you have followed the _Hello, World!_'s [First steps][] and thus,
 
 ## Getting funds
 
-For this tutorial, we will use the validator we built in [First steps][]. Yet, before moving one, we'll need some funds, and a public/private key pair to hold them. We can generate a private key and an address on the command-line:
+For this tutorial, we will use the validator we built in [First steps](https://github.com/aiken-lang/site/blob/main/src/pages/example--hello-world/basics.mdx). Yet, before moving one, we'll need some funds, and a public/private key pair to hold them. We can generate a private key and an address on the command-line:
 
 ```sh
 cardano-cli address key-gen --verification-key-file me.vk --signing-key-file me.sk
