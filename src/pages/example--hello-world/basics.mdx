@@ -250,7 +250,7 @@ Now, we can run `aiken check` again:
   ┕━━━━━━━━━━━━━━━━━━━━━━ 1 tests | 0 passed | 1 failed
 ```
 
-It fails again, as expected, but we got further. Notice how the the `mem` and `cpu` execution units are slightly higher than on the first execution. Now, we have moved to evaluating the second part of the validator requirements: `must_be_signed`. To satisfy this second requirement, we'll need to add our test owner to the transaction's extra signatories. As such:
+It fails again, as expected, but we got further. Notice how the `mem` and `cpu` execution units are slightly higher than on the first execution. Now, we have moved to evaluating the second part of the validator requirements: `must_be_signed`. To satisfy this second requirement, we'll need to add our test owner to the transaction's extra signatories. As such:
 
 ```aiken filename="validators/hello-world.ak" {15}
 // ...rest of the code is unchanged
