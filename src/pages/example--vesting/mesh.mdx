@@ -65,8 +65,8 @@ const beneficiary_wallet = new MeshWallet({
 });
 
 // Save unused addresses to files 
-fs.writeFileSync('owner.addr', owner_wallet.getUnusedAddresses()[0]);
-fs.writeFileSync('beneficiary.addr', beneficiary_wallet.getUnusedAddresses()[0]);
+fs.writeFileSync('owner.addr', (await owner_wallet.getUnusedAddresses())[0]);
+fs.writeFileSync('beneficiary.addr', (await beneficiary_wallet.getUnusedAddresses())[0]);
 ```
 ## On-Chain code
 
