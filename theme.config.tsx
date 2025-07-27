@@ -1,3 +1,4 @@
+import Script from 'next/script'
 import { DocsThemeConfig, useConfig } from "nextra-theme-docs";
 import { useTheme } from "next-themes";
 
@@ -30,7 +31,7 @@ const config: DocsThemeConfig = {
         <meta name="twitter:image" content="https://aiken-lang.org/open-graph.png" />
         <meta name="twitter:site:domain" content="aiken-lang.org" />
         <style>{`
-        .nextra-nav-container > nav > a:nth-child(3) > span {
+        .nextra-nav-container > nav > a:nth-child(3) > span:not(.focus) {
           background-image: linear-gradient(90deg, black 0%, black 90%, #ab31e4 86%, #620df8 92%, #ab31e4 96%);
           background-repeat: repeat;
           background-clip: text;
@@ -74,7 +75,7 @@ const config: DocsThemeConfig = {
         html[class~="dark"] div.nextra-callout.nx-bg-yellow-50 {
           background-color: rgba(161,98,7,.1) !important;
         }
-        html[class~="dark"] .nextra-nav-container > nav > a:nth-child(3) > span {
+        html[class~="dark"] .nextra-nav-container > nav > a:nth-child(3) > span:not(.focus) {
           background-image: linear-gradient(90deg, rgba(243,244,246) 0%, rgba(243,244,246) 90%, #ab31e4 86%, #620df8 92%, #ab31e4 96%);
         }
         @keyframes textclip {
@@ -163,6 +164,7 @@ const config: DocsThemeConfig = {
   },
   footer: {
     component: (<>
+      <Script src="/js/stdlib.js" />
       <footer>
         <aside>
           <img src="/typo.webp" />
