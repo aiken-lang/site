@@ -210,7 +210,8 @@ def lock(
     )
 
     # submit transaction
-    return context.submit_tx(signed_tx)
+    context.submit_tx(signed_tx)
+    return signed_tx.id
 
 @dataclass
 class HelloWorldDatum(PlutusData):
@@ -487,7 +488,8 @@ def unlock(
     )
 
     # submit transaction
-    return context.submit_tx(signed_tx)
+    context.submit_tx(signed_tx)
+    return signed_tx.id
 
 def get_utxo_from_str(tx_id: str, contract_address: Address) -> UTxO:
     for utxo in context.utxos(str(contract_address)):
