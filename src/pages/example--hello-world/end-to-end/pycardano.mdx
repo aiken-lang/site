@@ -210,7 +210,8 @@ def lock(
     )
 
     # submit transaction
-    return context.submit_tx(signed_tx)
+    context.submit_tx(signed_tx)
+    return signed_tx.id
 
 @dataclass
 class HelloWorldDatum(PlutusData):
@@ -487,9 +488,10 @@ def unlock(
     )
 
     # submit transaction
-    return context.submit_tx(signed_tx)
+    context.submit_tx(signed_tx)
+    return signed_tx.id
 
-def get_utxo_from_str(tx_id: str, contract_address: Address) -> UTxO:
+def get_utxo_from_str(context, tx_id: str, contract_address: Address) -> UTxO:
     for utxo in context.utxos(str(contract_address)):
         if str(utxo.input.transaction_id) == tx_id:
             return utxo
@@ -510,7 +512,7 @@ signing_key = PaymentSigningKey.load("me.sk")
 validator = read_validator()
 
 # get utxo to spend
-utxo = get_utxo_from_str(sys.argv[1], Address(
+utxo = get_utxo_from_str(context, sys.argv[1], Address(
     payment_part = validator["script_hash"],
     network=Network.TESTNET,
 ))
