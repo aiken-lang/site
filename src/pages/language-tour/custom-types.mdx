@@ -539,3 +539,138 @@ type Person {
 <Callout type="info">
 When exported as module documentation, types-definition are alphabetically sorted (in ascending order).
 </Callout>
+
+## Customizing Encoding
+
+There is syntax available for controlling the expected encoding of the
+underlying `PlutusData` representation of your custom data types.
+
+All Aiken types are represented under the hood with `PlutusData` which
+has a cbor encoding. The builtin Aiken type `Data{:ak}` is exactly that. `Data{:ak}`
+is a way to express that some value can be _any_ `PlutusData`. If `PlutusData` itself
+was an Aiken type, it would look something like this:
+
+```aiken
+type PlutusData {
+  Constr { tag: Int, fields: List<PlutusData> }
+  PlutusList(List<PlutusData>)
+  Map(List<(PlutusData, PlutusData)>)
+  I(Int)
+  B(ByteArray)
+}
+```
+
+Please keep in mind, this is just an example so that you can better visualize what
+is happening under the hood. Actually creating such a type is useless but enabling `when/is{:ak}`
+to pattern match on `Data{:ak}` to manually pull apart the constructors is something we could see
+in a future version of Aiken because this would need special treatment within the compiler.
+
+So now, considering that `PlutusData` is used to represent all custom types, let's look at some commonly used
+types and learn about how they are represented under the hood. As a first example, let's consider
+the `Bool{:ak}` type which is defined like so:
+
+```aiken
+type Bool {
+  False
+  True
+}
+```
+
+This type would be represented using the `Constr{:ak}` form of `PlutusData`. This means that
+to build a correct `PlutusData` payload representing `Bool{:ak}` you'd do this:
+
+**False**
+
+```aiken
+Constr { tag: 0, fields: [] }
+```
+
+**True**
+
+```aiken
+Constr { tag: 1, fields: [] }
+```
+
+
+<Callout type="info">
+Aiken comes with some neat built in tools to see the cbor
+representation of your data types directly. To learn more
+[check out this section](./troubleshooting).
+</Callout>
+
+Most notably, `False{:ak}` can be said to be "constr with a tag **0**" and `True{:ak}`
+can be said to be "constr with a tag **1**"". The key take away here is that all constructors
+in Aiken will be represented with `Constr{:ak}` and the tag will be based on the order as
+written at the definition site. Since `False{:ak}` comes first it is of course _tagged_ as **0**.
+
+Aiken `v1.1.19` introduced the ability to control the number of the _tag_. Here is what that looks like:
+
+```aiken
+type Bool {
+  @tag(1)
+  True
+  
+  @tag(0)
+  False
+}
+```
+
+It may be a bit subtle but we've swapped the order in which the two constructors are defined
+but preserved their original tag which will be respected when casting to and from `Data{:ak}`. This
+decouples the textual representation of the type from the way it is encoded under the hood. Most
+of the time, you should rely on the default which is the definition order but if you ever
+need to control the tags of a type's constructors, you can.
+
+It's now a good time to turn our attention to the shorthand notation for a type with a single
+constructor matching the name of the type itself. Naturally, with what we now know it's easy
+to conclude that they _must_ all use _tag_ **0** and contain one or more fields which are
+recursively `PlutusData` themselves. Let's bring back the `Datum{:ak}` type from earlier:
+
+```aiken
+type Datum {
+  signer: ByteArray,
+  count: Int
+}
+```
+
+Normally, this would look like so, as `PlutusData` under the hood:
+
+```aiken
+Constr { tag: 0, fields: [B(#"aabbcc"), I(5)]  }
+```
+
+You are free to customize the tag here as well:
+
+```aiken
+@tag(9000)
+type Datum {
+  signer: ByteArray,
+  count: Int
+}
+```
+
+Lastly, when you have this kind of type, you can go as far as skipping `Constr{:ak}`
+all together and using `PlutusList{:ak}` which doesn't require a _tag_ and can in many
+cases performs better than `Constr{:ak}` due to not needing to call `un_constr_data{:ak}`
+and `snd_pair{:ak}` under the hood to access the inner fields.
+
+```aiken
+@list
+type Datum {
+  signer: ByteArray,
+  count: Int
+}
+```
+
+Resulting in this kind of encoding:
+
+```aiken
+PlutusList([B(#"aabbcc"), I(5)])
+```
+
+> "With great power comes great responsibility" - Uncle Ben
+
+Please lean on the defaults and only reach for these
+when you know what you are doing.
+
+
