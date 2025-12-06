@@ -248,6 +248,26 @@ representation of the target type `MyDatum{:ak}`. The primary use-case here is f
 instantiating script contexts, datums and redeemers provided to scripts in a
 serialized form.
 
+### Custom traces
+
+When compiling in `verbose` mode (`--trace-level verbose`), expect expressions will generate a corresponding runtime trace. This allows for troubleshooting code more easily. By default, the trace message is auto-generated from the source code but it is possible to replace it with a custom one using doc-comments:
+
+```aiken
+/// life, universe and everything.
+expect answer == 42
+```
+
+Notice the 3 (not 2!) leading slashes. If the assertion fails, then a trace `"<expected> life, universe and everything"{:ak}` will be yielded. In `compact` mode, the trace will be truncated to its _label_, if it contains any. A _label_ is defined as a portion of text before a colon `:{:ak}`.
+
+For example:
+
+```aiken
+/// assertion 001: redefining mathematics
+expect 1 + 1 == 3
+```
+
+will yield `"<expected> assertion 001: redefining mathematics"{:ak}` in `verbose` mode, but only `"<expected> assertion 001"{:ak}` in `compact` mode. And of course, nothing at all in `silent` mode.
+
 ## Soft casting with `if/is`
 
 The `expect{:ak}` keyword works well in cases where failing is an option. But there are situations, like for example when recursively traversing elements of a list, where it isn't acceptable. The `if *expr* is *pattern*{:ak}` therefore comes into play when you need to fallback in case a right-hand side value doesn't have the right shape instead of failing loudly. It can also be particularly handy when you simply don't know the expected type of an opaque `Data{:ak}` and need to try several alternatives.

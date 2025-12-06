@@ -8,6 +8,8 @@ Aiken tries its best to provide developers with extra tools and debugging capabi
 
 ## Traces
 
+### `trace` keyword
+
 Your first ally in this journey are traces. Think of a trace as a log message, that is captured by the virtual machine at specific moment. You can add traces to top-level expressions in Aiken using the `trace{:aiken}` keyword.
 
 For example:
@@ -63,7 +65,27 @@ This is because tracing makes compiled code bigger and can add an extra overhead
 
 </Callout>
 
-## `?` operator
+### `expect` traces
+
+When compiling in `verbose` mode (`--trace-level verbose`), expect expressions will generate a corresponding runtime trace. This allows for troubleshooting code more easily. By default, the trace message is auto-generated from the source code but it is possible to replace it with a custom one using doc-comments:
+
+```aiken
+/// life, universe and everything.
+expect answer == 42
+```
+
+Notice the 3 (not 2!) leading slashes. If the assertion fails, then a trace `"<expected> life, universe and everything"{:ak}` will be yielded. In `compact` mode, the trace will be truncated to its _label_, if it contains any. A _label_ is defined as a portion of text before a colon `:{:ak}`.
+
+For example:
+
+```aiken
+/// assertion 001: redefining mathematics
+expect 1 + 1 == 3
+```
+
+will yield `"<expected> assertion 001: redefining mathematics"{:ak}` in `verbose` mode, but only `"<expected> assertion 001"{:ak}` in `compact` mode. And of course, nothing at all in `silent` mode.
+
+### `?` operator
 
 On-chain programs are fundamentally nothing more than predicates. Said differently, they are functions that return `True` or `False`. Hence, it is common practice to structure on-chain programs as conjunctions and disjunctions of booleans expressions.
 
