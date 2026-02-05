@@ -167,11 +167,12 @@ and what are the required types of those arguments.
 
 ## Our first validator
 
-Let's write our first validator as `validators/hello_world.ak`:
+Let's write our first validator as `validators/placeholder.ak`:
 
-```aiken filename="validators/hello_world.ak"
+```aiken filename="validators/placeholder.ak"
 use aiken/collection/list
 use aiken/crypto.{VerificationKeyHash}
+use cardano/script_context.{ScriptContext}
 use cardano/transaction.{OutputReference, Transaction}
 
 pub type Datum {
@@ -193,6 +194,10 @@ validator hello_world {
     let must_say_hello = redeemer.msg == "Hello, World!"
     let must_be_signed = list.has(self.extra_signatories, owner)
     must_say_hello && must_be_signed
+  }
+
+   else(_ctx: ScriptContext) {
+     False
   }
 }
 ```
@@ -221,10 +226,11 @@ In a way, validators are nothing more than _predicates_. A predicate is a functi
 
 So let's add a few traces.
 
-```aiken filename="validators/hello-world.ak" {3, 21, 29}
+```aiken filename="validators/placeholder.ak" {3, 21, 29}
 use aiken/collection/list
 use aiken/crypto.{VerificationKeyHash}
 use aiken/primitive/string
+use cardano/script_context.{ScriptContext}
 use cardano/transaction.{OutputReference, Transaction}
 
 pub type Datum {
@@ -252,6 +258,10 @@ validator hello_world {
 
     must_say_hello? && must_be_signed?
   }
+
+   else(_ctx: ScriptContext) {
+     False
+  }
 }
 ```
 
@@ -267,7 +277,7 @@ In order to see those traces, we'll need to write a short test.
 
 Aiken has support for tests built-in! As you'll see shortly, tests can also serve as benchmarks since they display the exact memory and steps execution units required to run them. They also collect traces for us. Let's write a simple test which runs our validator. Tests are functions without arguments which return boolean. Yet unlike functions, they are denoted with the keyword `test`. We will need a datum, a redeemer and a script context as well as a few more imports:
 
-```aiken filename="validators/hello-world.ak" {3-21}
+```aiken filename="validators/placeholder.ak" {3-21}
 // ... rest of the code is unchanged
 
 test hello_world_example() {
@@ -304,7 +314,7 @@ This output is already pretty useful. We can see the `trace` that we added in ou
 
 Let's fix this and ensure that we say `Hello, World!` instead.
 
-```aiken filename="validators/hello-world.ak" {5}
+```aiken filename="validators/placeholder.ak" {5}
 test hello_world_example() {
   let datum =
     Datum { owner: #"00000000000000000000000000000000000000000000000000000000" }
@@ -337,7 +347,7 @@ Now, we can run `aiken check` again:
 
 It fails again, as expected, but we got further. Notice how the `mem` and `cpu` execution units are slightly higher than on the first execution. Now, we have moved to evaluating the second part of the validator requirements: `must_be_signed`. To satisfy this second requirement, we'll need to add our test owner to the transaction's extra signatories. As such:
 
-```aiken filename="validators/hello-world.ak" {15}
+```aiken filename="validators/placeholder.ak" {15}
 // ...rest of the code is unchanged
 
 test hello_world_example() {
