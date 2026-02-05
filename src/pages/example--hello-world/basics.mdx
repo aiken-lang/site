@@ -32,6 +32,12 @@ We'll use Aiken to write the script so make the command-line installed already o
 First, let's create a new Aiken project:
 
 ```
+aiken new organization/repo-name
+```
+
+For, example,
+
+```
 aiken new aiken-lang/hello-world
 cd hello-world
 ```
@@ -39,12 +45,14 @@ cd hello-world
 This command scaffolds an Aiken project. In particular, it creates a `lib` and `validators` folders in which you can put Aiken source files.
 
 ```
-./hello-world
-│
-├── README.md
+$ tree
+.
 ├── aiken.toml
+├── env
 ├── lib
+├── README.md
 └── validators
+    └── placeholder.ak
 ```
 
 ## Using the standard library
@@ -55,7 +63,9 @@ library to our `aiken.toml` for us. It should look roughly like that:
 ```toml filename="aiken.toml"
 name = "aiken-lang/hello-world"
 version = "0.0.0"
-license  = "Apache-2.0"
+compiler = "v1.1.21"
+plutus = "v3"
+license = "Apache-2.0"
 description = "Aiken contracts for project 'aiken-lang/hello-world'"
 
 [repository]
@@ -65,20 +75,95 @@ platform = 'github'
 
 [[dependencies]]
 name = "aiken-lang/stdlib"
-version = "v2"
+version = "v3.0.0"
 source = "github"
+
+[config]
 ```
 
 Now, running `aiken check`, we should see dependencies being downloaded. That shouldn't take long.
 
 ```
 ❯ aiken check
-    Compiling aiken-lang/hello-world 1.0.0 (examples/hello-world/)
+    Compiling aiken-lang/hello-world 0.0.0 (.)
+    Resolving dependencies
     Resolving aiken-lang/hello-world
-      Fetched 1 package in 0.01s from cache
-    Compiling aiken-lang/stdlib v2 (/Users/aiken/Documents/aiken-lang/hello-world/build/packages/aiken-lang-stdlib)
-      Summary 0 errors, 0 warnings
+      Fetched 1 package in 0.07s from cache
+    Compiling aiken-lang/stdlib v3.0.0 (./build/packages/aiken-lang-stdlib)
+   Collecting all tests scenarios across all modules
+
+  ⚠ I found a todo left in the code.
+    ╭─[./validators/placeholder.ak:9:5]
+  8 │   mint(_redeemer: Data, _policy_id: PolicyId, _self: Transaction) {
+  9 │     todo @"mint logic goes here"
+    ·     ──────────────┬─────────────
+    ·                   ╰── An expression of type Bool is expected here.
+ 10 │   }
+    ╰────
+  help: You probably want to replace that with actual code... eventually.
+
+
+  ⚠ I found a todo left in the code.
+    ╭─[./validators/placeholder.ak:13:5]
+ 12 │   spend(_datum: Option<Data>, _redeemer: Data, _utxo: OutputReference, _self: Transaction) {
+ 13 │     todo @"spend logic goes here"
+    ·     ──────────────┬──────────────
+    ·                   ╰── An expression of type Bool is expected here.
+ 14 │   }
+    ╰────
+  help: You probably want to replace that with actual code... eventually.
+
+
+  ⚠ I found a todo left in the code.
+    ╭─[./validators/placeholder.ak:17:5]
+ 16 │   withdraw(_redeemer: Data, _account: Credential, _self: Transaction) {
+ 17 │     todo @"withdraw logic goes here"
+    ·     ────────────────┬───────────────
+    ·                     ╰── An expression of type Bool is expected here.
+ 18 │   }
+    ╰────
+  help: You probably want to replace that with actual code... eventually.
+
+
+  ⚠ I found a todo left in the code.
+    ╭─[./validators/placeholder.ak:21:5]
+ 20 │   publish(_redeemer: Data, _certificate: Certificate, _self: Transaction) {
+ 21 │     todo @"publish logic goes here"
+    ·     ───────────────┬───────────────
+    ·                    ╰── An expression of type Bool is expected here.
+ 22 │   }
+    ╰────
+  help: You probably want to replace that with actual code... eventually.
+
+
+  ⚠ I found a todo left in the code.
+    ╭─[./validators/placeholder.ak:25:5]
+ 24 │   vote(_redeemer: Data, _voter: Voter, _self: Transaction) {
+ 25 │     todo @"vote logic goes here"
+    ·     ──────────────┬─────────────
+    ·                   ╰── An expression of type Bool is expected here.
+ 26 │   }
+    ╰────
+  help: You probably want to replace that with actual code... eventually.
+
+
+  ⚠ I found a todo left in the code.
+    ╭─[./validators/placeholder.ak:29:5]
+ 28 │   propose(_redeemer: Data, _proposal: ProposalProcedure, _self: Transaction) {
+ 29 │     todo @"propose logic goes here"
+    ·     ───────────────┬───────────────
+    ·                    ╰── An expression of type Bool is expected here.
+ 30 │   }
+    ╰────
+  help: You probably want to replace that with actual code... eventually.
+
+      Summary 0 errors, 6 warnings
 ```
+
+As we see, we have six proposed functions to fill in to eliminate the warnings.
+We might resign from most of them (at least one must be there standing), but thanks to those
+function template generation we know what each type of validators accepts as the arguments
+and what are the required types of those arguments.
 
 ## Our first validator
 
