@@ -277,7 +277,7 @@ In order to see those traces, we'll need to write a short test.
 
 Aiken has support for tests built-in! As you'll see shortly, tests can also serve as benchmarks since they display the exact memory and steps execution units required to run them. They also collect traces for us. Let's write a simple test which runs our validator. Tests are functions without arguments which return boolean. Yet unlike functions, they are denoted with the keyword `test`. We will need a datum, a redeemer and a script context as well as a few more imports:
 
-```aiken filename="validators/placeholder.ak" {3-21}
+```aiken filename="validators/hello_world.ak" {3-21}
 // ... rest of the code is unchanged
 
 test hello_world_example() {
