@@ -39,12 +39,12 @@ cd hello-world
 This command scaffolds an Aiken project. In particular, it creates a `lib` and `validators` folders in which you can put Aiken source files.
 
 ```
-./hello-world
-│
-├── README.md
 ├── aiken.toml
+├── env
 ├── lib
+├── README.md
 └── validators
+    └── placeholder.ak
 ```
 
 ## Using the standard library
@@ -55,7 +55,9 @@ library to our `aiken.toml` for us. It should look roughly like that:
 ```toml filename="aiken.toml"
 name = "aiken-lang/hello-world"
 version = "0.0.0"
-license  = "Apache-2.0"
+compiler = "v1.1.21"
+plutus = "v3"
+license = "Apache-2.0"
 description = "Aiken contracts for project 'aiken-lang/hello-world'"
 
 [repository]
@@ -65,19 +67,30 @@ platform = 'github'
 
 [[dependencies]]
 name = "aiken-lang/stdlib"
-version = "v2"
+version = "v3.0.0"
 source = "github"
+
+[config]
 ```
 
 Now, running `aiken check`, we should see dependencies being downloaded. That shouldn't take long.
 
 ```
 ❯ aiken check
-    Compiling aiken-lang/hello-world 1.0.0 (examples/hello-world/)
+    Compiling aiken-lang/hello-world 0.0.0 (.)
+    Resolving dependencies
     Resolving aiken-lang/hello-world
-      Fetched 1 package in 0.01s from cache
-    Compiling aiken-lang/stdlib v2 (/Users/aiken/Documents/aiken-lang/hello-world/build/packages/aiken-lang-stdlib)
-      Summary 0 errors, 0 warnings
+      Fetched 1 package in 0.07s from cache
+    Compiling aiken-lang/stdlib v3.0.0 (./build/packages/aiken-lang-stdlib)
+   Collecting all tests scenarios across all modules
+              ⚠ <redacted>
+      Summary 0 errors, 6 warnings
+```
+
+ We have redacted warnings from the command output above.  By default, `aiken new` generates a placeholder template for all [validator handlers](/language-tour/validators#handlers). TODOs generate warning in Aiken to serve as reminders in larger codebase. Here, we're just getting started and we don't need any of the template. So we can go ahead and delete it:
+ 
+ ```bash
+rm validators/placeholder.ak
 ```
 
 ## Our first validator
@@ -87,6 +100,7 @@ Let's write our first validator as `validators/hello_world.ak`:
 ```aiken filename="validators/hello_world.ak"
 use aiken/collection/list
 use aiken/crypto.{VerificationKeyHash}
+use cardano/script_context.{ScriptContext}
 use cardano/transaction.{OutputReference, Transaction}
 
 pub type Datum {
@@ -108,6 +122,10 @@ validator hello_world {
     let must_say_hello = redeemer.msg == "Hello, World!"
     let must_be_signed = list.has(self.extra_signatories, owner)
     must_say_hello && must_be_signed
+  }
+
+   else(_ctx: ScriptContext) {
+     False
   }
 }
 ```
@@ -136,10 +154,11 @@ In a way, validators are nothing more than _predicates_. A predicate is a functi
 
 So let's add a few traces.
 
-```aiken filename="validators/hello-world.ak" {3, 21, 29}
+```aiken filename="validators/hello_world.ak" {3, 21, 29}
 use aiken/collection/list
 use aiken/crypto.{VerificationKeyHash}
 use aiken/primitive/string
+use cardano/script_context.{ScriptContext}
 use cardano/transaction.{OutputReference, Transaction}
 
 pub type Datum {
@@ -167,6 +186,10 @@ validator hello_world {
 
     must_say_hello? && must_be_signed?
   }
+
+   else(_ctx: ScriptContext) {
+     False
+  }
 }
 ```
 
@@ -182,7 +205,7 @@ In order to see those traces, we'll need to write a short test.
 
 Aiken has support for tests built-in! As you'll see shortly, tests can also serve as benchmarks since they display the exact memory and steps execution units required to run them. They also collect traces for us. Let's write a simple test which runs our validator. Tests are functions without arguments which return boolean. Yet unlike functions, they are denoted with the keyword `test`. We will need a datum, a redeemer and a script context as well as a few more imports:
 
-```aiken filename="validators/hello-world.ak" {3-21}
+```aiken filename="validators/hello_world.ak" {3-21}
 // ... rest of the code is unchanged
 
 test hello_world_example() {
@@ -219,7 +242,7 @@ This output is already pretty useful. We can see the `trace` that we added in ou
 
 Let's fix this and ensure that we say `Hello, World!` instead.
 
-```aiken filename="validators/hello-world.ak" {5}
+```aiken filename="validators/hello_world.ak" {5}
 test hello_world_example() {
   let datum =
     Datum { owner: #"00000000000000000000000000000000000000000000000000000000" }
@@ -252,7 +275,7 @@ Now, we can run `aiken check` again:
 
 It fails again, as expected, but we got further. Notice how the `mem` and `cpu` execution units are slightly higher than on the first execution. Now, we have moved to evaluating the second part of the validator requirements: `must_be_signed`. To satisfy this second requirement, we'll need to add our test owner to the transaction's extra signatories. As such:
 
-```aiken filename="validators/hello-world.ak" {15}
+```aiken filename="validators/hello_world.ak" {15}
 // ...rest of the code is unchanged
 
 test hello_world_example() {
