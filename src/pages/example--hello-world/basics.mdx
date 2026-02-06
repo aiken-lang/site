@@ -87,10 +87,11 @@ Now, running `aiken check`, we should see dependencies being downloaded. That sh
       Summary 0 errors, 6 warnings
 ```
 
-As we see, we have six proposed functions to fill in to eliminate the warnings.
-We might resign from most of them (at least one must be there standing), but thanks to those
-function template generation we know what each type of validators accepts as the arguments
-and what are the required types of those arguments.
+ We have redacted warnings from the command output above.  By default, `aiken new` generates a placeholder template for all [validator handlers](/language-tour/validators#handlers). TODOs generate warning in Aiken to serve as reminders in larger codebase. Here, we're just getting started and we don't need any of the template. So we can go ahead and delete it:
+ 
+ ```bash
+rm validators/placeholder.ak
+```
 
 ## Our first validator
 
