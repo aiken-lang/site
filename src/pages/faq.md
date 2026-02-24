@@ -128,6 +128,7 @@ Resulting structure:
 **Key Points:**
 - `lib/` — Reusable library modules
 - `validators/` — On-chain validator source files (`.ak`)
+- `env/` — Environment-specific code that can be conditionally included  
 - `aiken.toml` — Project metadata, dependencies, and configuration
 - `plutus.json` — Generated Plutus blueprint (CIP-0057) after build
 - `build/` — Build artifacts and fetched dependencies
@@ -156,6 +157,7 @@ version = "main"
 **Key Points:**
 - `aiken build` — Full compile, generates `plutus.json`
 - `aiken check` — Type-check + run tests only
+- `aiken bench` — Type-check + run benchmarks only
 - `aiken docs` — Generate HTML documentation
 - `aiken blueprint` — Generate addresses, apply parameters, convert formats
 - Traces are removed by default on `aiken build` (use `--trace-level verbose` to keep them)
@@ -174,7 +176,7 @@ version = "main"
 - Inputs reference previous outputs; spent outputs are destroyed
 - Transactions are atomic: all-or-nothing
 - The eUTxO extension adds datums (state/config attached to outputs) and redeemers (user arguments provided at spending time)
-- Scripts (validators) are deterministic predicates — they return True or False
+- Scripts (validators) are akin to deterministic predicates — conceptually, they return True or False
 - The initial state comes from the genesis configuration
 
 **Related:** [Datums & Redeemers](#q9-what-are-datums-and-redeemers) | [Addresses](#q12-how-do-cardano-addresses-work)
@@ -484,7 +486,7 @@ test must_fail() fail {
 
 ## Q18: What is property-based testing in Aiken?
 
-**Answer:** Property-based testing is a first-class feature in Aiken that generates random test inputs to check general properties rather than specific cases. It includes integrated shrinking, which automatically simplifies counterexamples to the smallest failing input. Fuzzers are introduced using the `via` keyword and the `aiken/fuzz` library provides composable fuzzer primitives.
+**Answer:** Property-based testing is a first-class feature in Aiken that generates random test inputs to check general properties rather than specific cases. It includes integrated shrinking, which automatically simplifies counterexamples to smaller failing inputs. Fuzzers are introduced using the `via` keyword and the `aiken/fuzz` library provides composable fuzzer primitives.
 
 **Key Points:**
 - Uses the `via` keyword to attach a `Fuzzer<a>` to test arguments
@@ -597,7 +599,7 @@ fn unwrap_option(opt: Option<Int>) -> Int {
 
 ---
 
-## Q21: How do I handle errors in Aiken?
+## Q21: How do I deal with errors in Aiken?
 
 **Answer:** Aiken provides several mechanisms for error handling: `fail` to immediately halt execution, `todo` as a placeholder that warns on compilation, `expect` for non-exhaustive pattern matching that halts if the pattern doesn't match, and the `?` operator for trace-if-false debugging. Since validators are predicates, "errors" generally mean the validator returns `False` or halts.
 
