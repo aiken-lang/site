@@ -1,3 +1,15 @@
+---
+title: "Validators"
+description: "Aiken is a functional programming language for Cardano smart contracts. Validators are named blocks defined with the validator keyword that contain one or more handlers (spend, mint, withdraw, publish, vote, propose) — each a predicate function returning True or False to authorize on-chain actions. Validators support parameters for configuration, multi-purpose handlers via fallback (else), and can be invoked as standalone functions for testing. The core construct for implementing all smart contract business logic on Cardano."
+difficulty: "intermediate"
+keywords: ["validator", "handlers", "spend", "mint", "withdraw", "publish", "vote", "propose", "datum", "redeemer", "Transaction", "ScriptContext", "parameters", "fallback", "else", "multi-purpose", "predicate", "fail", "expect", "plutus.json", "CIP-0057", "blueprint"]
+topics: ["validators", "handlers", "script-purposes", "parameters", "multi-purpose-validators"]
+prerequisites: ["functions", "custom-types", "control-flow", "eutxo"]
+related: ["tests", "modules", "common-design-patterns", "troubleshooting"]
+---
+
+# Validators
+
 import { Callout } from "nextra-theme-docs";
 
 # Validators
