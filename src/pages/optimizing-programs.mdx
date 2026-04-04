@@ -343,8 +343,6 @@ The _do_ example, however, arranges the conditions to reduce the amount of evalu
 
 Morover, the binary search has the benefit of being more **predictable**. In the previous example, it does not only average to 3 conditions evaluations, but it always evaluate 3 conditions per pass. Unlike the _don't_ example, which sometimes evaluate one condition, sometimes three, sometimes seven, etc...
 
-Below is a continuation in the same Nextra/MDX style as what you started. I also fixed the dangling sentence in your “Use Simple(r) Structures” section and kept the same general rhythm: explanatory prose, then side-by-side “Don’t / Do” examples where appropriate.
-
 ### Put Cheap and Likely Checks First
 
 When chaining conditions with `and{:ak}` or `or{:ak}`, order matters. Aiken short-circuits boolean operators, which means that the first satisfied branch of an `or{:ak}` avoids evaluating the others, and the first failing branch of an `and{:ak}` stops the rest.
