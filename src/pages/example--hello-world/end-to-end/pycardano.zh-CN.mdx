@@ -1,0 +1,436 @@
+import { Callout } from "nextra-theme-docs";
+
+# Hello, World! - 使用 PyCardano
+
+## 本教程涵盖内容
+
+<br/>
+
+- [x] 在 `Preview` 测试网上与验证器互动；
+- [x] 通过 [Blockfrost][] 使用 [PyCardano][]；
+- [x] 从 [Cardano Faucet](https://docs.cardano.org/cardano-testnet/tools/faucet) 获取测试资金；
+- [x] 使用网页版区块链浏览器，如 [CardanoScan][]。
+
+## 先决条件
+
+我们假设您已经按照 _Hello, World!_ 的 [入门步骤][First steps] 进行操作，因此已经安装并可以使用 Aiken。我们还将使用 [PyCardano][], 所以请确保您的开发环境已准备好进行 Python (3) 编写！
+
+<Callout type="info">
+  我们建议您按如下方式为 [PyCardano][] 设置新的 Python 环境：
+
+  ```
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  uv init
+  uv add setuptools pycardano
+  ```
+</Callout>
+
+## 获取资金
+
+在本教程中，我们将使用在 [入门步骤][First steps] 中构建的验证器。但在开始之前，我们需要一些资金以及一对公/私钥来持有这些资金。我们可以使用 PyCardano 生成私钥和地址。
+
+让我们将第一个脚本编写为 `generate-credentials.py`：
+
+```py filename="generate-credentials.py"
+from pycardano import Address, Network, PaymentSigningKey, PaymentVerificationKey
+
+signing_key = PaymentSigningKey.generate()
+signing_key.save("me.sk")
+
+verification_key = PaymentVerificationKey.from_signing_key(signing_key)
+
+address = Address(payment_part=verification_key.hash(), network=Network.TESTNET)
+with open("me.addr", "w") as f:
+    f.write(str(address))
+```
+
+<Callout type="info">
+  您可以通过以下方式运行上述指令：
+
+```console
+uv run generate-credentials.py
+```
+</Callout>
+
+现在，您可以前往 [Cardano 水龙头 (Cardano faucet)](https://docs.cardano.org/cardano-testnet/tools/faucet)，将一些 preview 网络的资金发送到新创建的地址（`me.addr` 内容）。
+
+<img src="/faucet_preview.webp" style={{margin: '1em auto', maxWidth: '700px'}} />
+
+👉 请确保选择 _"Preview Testnet"_ 作为网络。
+
+使用 [CardanoScan][]，我们可以观察水龙头是否向我们发送了一些 ADA。这应该会很快（几秒钟的时间）。
+
+## 使用合约
+
+现在我们有了资金，可以将其锁定在我们新创建的合约中。我们将使用 [PyCardano][] 通过 [Blockfrost][] 构建并提交交易。
+
+<Callout type="info">
+  这只是使用我们喜爱的工具进行设置的一个示例。如需更多工具，请务必查看 [Cardano 开发者门户 (Cardano Developer Portal)](https://developers.cardano.org/tools)！
+</Callout>
+
+### 设置
+
+首先，我们设置 PyCardano 并将 Blockfrost 作为提供者。这将允许我们让 PyCardano 为我们处理交易构建，包括管理找零。它还为我们提供了一种稍后提交交易的直接方式。
+
+在项目根目录创建一个名为 `hello-world-lock.py` 的文件，并添加以下代码：
+
+```py filename="hello-world-lock.py" {7}
+from pycardano import (
+    BlockFrostChainContext,
+)
+import os
+
+context = BlockFrostChainContext(
+    project_id=os.environ["BLOCKFROST_PROJECT_ID"],
+    base_url="https://cardano-preview.blockfrost.io/api/",
+)
+```
+
+<Callout type="warning">
+请注意，上述高亮行会寻找名为 `BLOCKFROST_PROJECT_ID` 的环境变量，其值必须设置为您的 Blockfrost 项目 ID。
+您可以在终端中通过运行以下命令定义新的环境变量（在运行脚本的同一个 session 中！）：
+
+```console
+export BLOCKFROST_PROJECT_ID=preview...
+```
+
+将 `preview...` 替换为您实际的项目 ID。
+</Callout>
+
+接下来，我们需要从之前生成的蓝图 (`plutus.json`) 中读取验证器。我们还需要将其转换为 PyCardano 可理解的格式。这是通过序列化验证器并将其转换为十六进制文本字符串来完成的：
+
+```py filename="hello-world-lock.py" {3-5, 10-21, 28-30}
+from pycardano import (
+    BlockFrostChainContext,
+    PaymentSigningKey,
+    PlutusV3Script,
+    ScriptHash,
+)
+import json
+import os
+
+def read_validator() -> dict:
+    with open("plutus.json", "r") as f:
+        validator = json.load(f)
+    script_bytes = PlutusV3Script(
+        bytes.fromhex(validator["validators"][0]["compiledCode"])
+    )
+    script_hash = ScriptHash(bytes.fromhex(validator["validators"][0]["hash"]))
+    return {
+        "type": "PlutusV3",
+        "script_bytes": script_bytes,
+        "script_hash": script_hash,
+    }
+
+# ... 之前的设置保持不变
+
+signing_key = PaymentSigningKey.load("me.sk")
+
+validator = read_validator()
+```
+
+### 将资金锁定到合约中
+
+现在我们可以读取验证器，开始进行第一笔交易将资金锁定到合约中。Datum 必须符合验证器所预期的表示形式（如蓝图中所指定的），因此它是一个带有单个字节数组字段的构造函数。
+
+作为该字节数组的值，我们提供公钥哈希。这将是解锁资金所必需的。
+
+```py filename="hello-world-lock.py"
+from dataclasses import dataclass
+from pycardano import (
+    Address,
+    BlockFrostChainContext,
+    Network,
+    PaymentSigningKey,
+    PaymentVerificationKey,
+    PlutusData,
+    PlutusV3Script,
+    ScriptHash,
+    TransactionBuilder,
+    TransactionOutput,
+)
+from pycardano.hash import (
+    VerificationKeyHash,
+    TransactionId,
+    ScriptHash,
+)
+import json
+import os
+
+# ... read_validator 函数定义 ...
+
+def lock(
+    amount: int,
+    into: ScriptHash,
+    datum: PlutusData,
+    signing_key: PaymentSigningKey,
+    context: BlockFrostChainContext,
+) -> TransactionId:
+    # 读取地址
+    with open("me.addr", "r") as f:
+        input_address = Address.from_primitive(f.read())
+    contract_address = Address(
+        payment_part = into,
+        network=Network.TESTNET,
+    )
+
+    # 构建交易
+    builder = TransactionBuilder(context=context)
+    builder.add_input_address(input_address)
+    builder.add_output(
+        TransactionOutput(
+            address=contract_address,
+            amount=amount,
+            datum=datum,
+        )
+    )
+    signed_tx = builder.build_and_sign(
+        signing_keys=[signing_key],
+        change_address=input_address,
+    )
+
+    # 提交交易
+    context.submit_tx(signed_tx)
+    return signed_tx.id
+
+@dataclass
+class HelloWorldDatum(PlutusData):
+    CONSTR_ID = 0
+    owner: bytes
+
+# ... context 设置 ...
+
+signing_key = PaymentSigningKey.load("me.sk")
+
+validator = read_validator()
+
+owner = PaymentVerificationKey.from_signing_key(signing_key).hash()
+
+datum = HelloWorldDatum(owner=owner.to_primitive())
+
+tx_hash = lock(
+    amount=2_000_000,
+    into=validator["script_hash"],
+    datum=datum,
+    signing_key=signing_key,
+    context=context,
+)
+
+print(
+    f"2 tADA 已锁定到合约\n\t交易 ID: {tx_hash}\n\tDatum: {datum.to_cbor_hex()}"
+)
+```
+
+<Callout type="info">
+您可以通过执行以下命令运行上述脚本：
+
+```
+python hello-world-lock.py
+```
+</Callout>
+
+上述代码要求您：
+
+- 已设置 `BLOCKFROST_PROJECT_ID` 环境变量。您可以通过 [注册 Blockfrost 账号](https://blockfrost.io/) 来获取。
+
+- 将 `hello-world-lock.py` 文件放在 `hello-world` 文件夹根目录。
+
+如果一切顺利，您应该会看到如下内容：
+
+```
+2 tADA 已锁定到合约
+    交易 ID: 2ea959e4b51b2b6046931fab80957b39e534f1c954d326e506814d3ca47726c6
+    Datum: d8799f581c1defd7502e25b312e48dc57712c434d317ea16a57728cd3c31828ea1ff
+```
+
+#### 检查交易
+
+现在是个停下来看看 CardanoScan 的好时机。这里是我们使用本教程生成的 [Hello World 交易示例](https://preview.cardanoscan.io/transaction/2ea959e4b51b2b6046931fab80957b39e534f1c954d326e506814d3ca47726c6?tab=utxo)。
+
+如果您注意到合约输出地址旁边的小图标，我们甚至可以 [检查 datum](https://preview.cardanoscan.io/datumInspector?datum=d8799f581c1defd7502e25b312e48dc57712c434d317ea16a57728cd3c31828ea1ff)：
+
+```json
+{
+  "constructor": 0,
+  "fields": [
+    {
+      "bytes": "1defd7502e25b312e48dc57712c434d317ea16a57728cd3c31828ea1"
+    }
+  ]
+}
+```
+
+### 从合约解锁资金
+
+最后一步：我们现在想要花费被 `hello-world` 合约锁定的 UTxO。
+
+要使交易有效，必须满足两个条件：
+
+- 必须提供 "Hello, World!" 作为 redeemer；并且
+- 必须由 datum 中引用的密钥（即所有者）签署。
+
+让我们创建一个新文件 `hello-world-unlock.py` 并复制一些模板代码。
+
+```py filename="hello-world-unlock.py"
+from pycardano import (
+    Address,
+    BlockFrostChainContext,
+    Network,
+    PaymentSigningKey,
+    PlutusV3Script,
+    ScriptHash,
+    UTxO,
+)
+import json
+import os
+import sys
+
+# ... read_validator 函数定义 ...
+
+def get_utxo_from_str(context, tx_id: str, contract_address: Address) -> UTxO:
+    for utxo in context.utxos(str(contract_address)):
+        if str(utxo.input.transaction_id) == tx_id:
+            return utxo
+    raise Exception(f"找不到交易 {tx_id} 的 UTxO")
+
+# ... context 设置 ...
+
+signing_key = PaymentSigningKey.load("me.sk")
+
+validator = read_validator()
+
+# 获取要花费的 utxo
+utxo = get_utxo_from_str(context, sys.argv[1], Address(
+    payment_part = validator["script_hash"],
+    network=Network.TESTNET,
+))
+```
+
+最后，我们可以添加剩余部分代码，并构建一个交易来解锁我们之前锁定的资金。这次我们需要构建一个 redeemer。
+
+<Callout type="warning">
+  请注意，我们需要使用 `.required_signers` 显式添加签署者，以便将其添加到交易的 `extra_signatories` 中 —— 并能被我们的脚本访问。
+
+  此外，`.add_input_address` 对于确保交易构建器添加输入以支付费用和抵押品是必要的。
+</Callout>
+
+```py filename="hello-world-unlock.py"
+from dataclasses import dataclass
+from pycardano import (
+    Address,
+    BlockFrostChainContext,
+    Network,
+    PaymentSigningKey,
+    PaymentVerificationKey,
+    PlutusData,
+    PlutusV3Script,
+    Redeemer,
+    ScriptHash,
+    TransactionBuilder,
+    TransactionOutput,
+    UTxO,
+)
+from pycardano.hash import (
+    VerificationKeyHash,
+    TransactionId,
+    ScriptHash,
+)
+import json
+import os
+import sys
+
+# ... read_validator 函数定义 ...
+
+def unlock(
+    utxo: UTxO,
+    from_script: PlutusV3Script,
+    redeemer: Redeemer,
+    signing_key: PaymentSigningKey,
+    owner: VerificationKeyHash,
+    context: BlockFrostChainContext,
+) -> TransactionId:
+    # 读取地址
+    with open("me.addr", "r") as f:
+        input_address = Address.from_primitive(f.read())
+
+    # 构建交易
+    builder = TransactionBuilder(context=context)
+    builder.add_script_input(
+        utxo=utxo,
+        script=from_script,
+        redeemer=redeemer,
+    )
+    builder.add_input_address(input_address)
+    builder.add_output(
+        TransactionOutput(
+            address=input_address,
+            amount=utxo.output.amount.coin,
+        )
+    )
+    builder.required_signers = [owner]
+    signed_tx = builder.build_and_sign(
+        signing_keys=[signing_key],
+        change_address=input_address,
+    )
+
+    # 提交交易
+    context.submit_tx(signed_tx)
+    return signed_tx.id
+
+# ... get_utxo_from_str 等定义 ...
+
+@dataclass
+class HelloWorldRedeemer(PlutusData):
+    CONSTR_ID = 0
+    msg: bytes
+
+# ... context, signing_key, validator setup ...
+
+# 获取要花费的 utxo (来自 sys.argv[1])
+utxo = get_utxo_from_str(context, sys.argv[1], Address(
+    payment_part = validator["script_hash"],
+    network=Network.TESTNET,
+))
+
+# 构建 redeemer
+redeemer = Redeemer(data=HelloWorldRedeemer(msg=b"Hello, World!"))
+
+# 执行交易
+tx_hash = unlock(
+    utxo=utxo,
+    from_script=validator["script_bytes"],
+    redeemer=redeemer,
+    signing_key=signing_key,
+    owner=PaymentVerificationKey.from_signing_key(signing_key).hash(),
+    context=context,
+)
+
+print(
+    f"2 tADA 已从合约解锁\n\t交易 ID: {tx_hash}\n\tRedeemer: {redeemer.to_cbor_hex()}"
+)
+```
+
+<Callout type="info">
+像往常一样运行此脚本，但这次还要传递锁定资金之前命令获得的交易 ID。例如：
+
+```console
+python hello-world-unlock.py 2ea959e4b51b2b6046931fab80957b39e534f1c954d326e506814d3ca47726c6
+```
+</Callout>
+
+如果一切按计划进行，您应该会看到如下输出：
+
+```
+2 tADA 已从合约解锁
+    交易 ID:    d3d5e828a3989691b0960d22a265c8c9ae4723134b52aa05ec0fb7d40f060392
+    Redeemer: 840000d8799f4d48656c6c6f2c20576f726c6421ff82198ee61a00bd3334
+```
+
+大功告成 🎉！
+
+我们可以检查 [CardanoScan 上的赎回交易](https://preview.cardanoscan.io/transaction/c014620fcf6c108fdd2dc696dc3a8f8abfe58e5d685f4119c4eb2992548acf64?tab=contracts) 并看到它成功执行了我们的 _Hello World_ 合约。
+
+[PyCardano]: https://github.com/Python-Cardano/pycardano
+[Blockfrost]: https://blockfrost.io
+[CardanoScan]: https://preview.cardanoscan.io
+[First steps]: /example--hello-world/basics

@@ -1,0 +1,302 @@
+---
+title: "模組"
+description: "Aiken 是一種用於撰寫 Cardano 智慧合約的函數式程式語言，程式碼被組織成稱為模組的可重複使用專案。模組是包含函式、型別和常數的檔案，其命名空間由檔案路徑決定。用於優化專案結構、在驗證器之間共享程式碼、導入標準庫以及使用 pub 控制可見性。"
+difficulty: "beginner"
+keywords: ["模組", "use", "import", "pub", "命名空間", "不透明型別", "標準庫", "stdlib", "prelude", "aiken.toml", "依賴"]
+topics: ["modules", "imports", "namespaces", "visibility", "stdlib"]
+---
+
+import { Tabs } from "nextra/components";
+import { Callout } from "nextra-theme-docs";
+
+# 模組
+
+Aiken 程式由稱為「模組 (modules)」的函式和型別包組成。每個模組都有自己的命名空間，並可以導出型別和值，供程式中的其他模組使用。
+
+```aiken
+// 位於 lib/straw_hats/sunny.ak 模組中
+
+fn count_down() {
+  "3... 2... 1..."
+}
+
+fn blast_off() {
+  "BOOM!"
+}
+
+pub fn set_sail() {
+  [
+    count_down(),
+    blast_off(),
+  ]
+}
+```
+
+在這裡，我們可以看到一個名為 `straw_hats/sunny` 的模組，該名稱由檔案路徑 `lib/straw_hats/sunny.ak` 決定。通常，一個專案的所有模組都位於一個與專案同名的目錄中，例如本例中的 `straw_hats`。
+
+`pub` 關鍵字使該型別或值可以從其他模組存取。
+
+對於 `count_down` 和 `blast_off` 函式，我們省略了 `pub` 關鍵字，因此這些函式是「私有」模組函式。它們只能由同一個模組內的其他函式呼叫。
+
+函式、型別別名和常數都可以使用 `pub` 關鍵字從模組導出。
+
+### 限定導入 (Qualified imports)
+
+要使用另一個模組的函式或型別，我們需要使用 `use` 關鍵字導入它們。
+
+```aiken
+// 位於 src/straw_hats/laugh_tale.ak 模組中
+
+use straw_hats/sunny
+
+pub fn find_the_one_piece() {
+  sunny.set_sail()
+}
+```
+
+#### 自定義名稱
+
+在導入模組時，還可以使用 `as` 關鍵字為其指定自定義名稱。
+
+```aiken
+use unix/dog
+use animal/dog as kitty
+```
+
+當導入的多個模組具有相同的預設名稱時，這對於區分它們非常有用。
+
+定義 `use straw_hats/sunny` 會建立一個名為 `sunny` 的新變數，其值為 `sunny` 模組。
+
+在 `find_the_one_piece` 函式中，我們使用 `.` 運算子呼叫導入模組的公共 `set_sail` 函式。如果嘗試呼叫 `count_down`，則會導致編譯錯誤，因為該函式對 `sunny` 模組是私有的。
+
+### 非限定導入 (Unqualified import)
+
+值和型別也可以以非限定的方式導入。
+
+```ak
+use animal/dog.{Dog, stroke}
+
+pub fn foo() {
+  let puppy = Dog { name: "Zeus" }
+  stroke(puppy)
+}
+```
+
+這對於在模組中頻繁使用的值很有用，但通常更推薦使用限定導入，因為它能更清晰地表明值是在哪裡定義的。
+
+您也可以將非限定導入與自定義名稱結合使用，如下所示：
+
+```aiken
+use animal/dog.{Dog, stroke} as kitty
+```
+
+## 不透明型別 (Opaque types)
+
+有時，建立一個型別並將其構造函數和欄位設為私有是很有用的，這樣該型別的使用者就只能透過公開導出的函式來使用該型別。
+
+例如，我們可以建立一個 `Counter` 型別，它持有一可以遞增的整數。我們不希望使用者除了遞增之外還更改 `Int` 的值，因此我們可以將該型別設為「不透明 (opaque)」以防止他們這樣做。
+
+```aiken
+// 使用 opaque 關鍵字定義型別
+pub opaque type Counter {
+  Counter(value: Int)
+}
+
+pub fn new() {
+  Counter(0)
+}
+
+pub fn increment(counter: Counter) {
+  Counter(counter.value + 1)
+}
+```
+
+因為 `Counter` 型別已被標記為 `opaque`，所以其他模組中的程式碼無法構造 `Counter` 值、對其進行模式匹配或存取其 `value` 欄位。相反，其他模組必須使用該模組導出的函式（在本例中為 `new` 和 `increment`）來操作該不透明型別。
+
+<Callout type="warning">
+  無法將 `Data{:ak}` 向下轉型為不透明型別，因為通常無法知道該型別有哪些限制。例如，想像一個持有代表分子和分母的一對整數的 `Rational{:ak}` 不透明型別。
+
+  透過使用不透明型別，可以確保分母始終為非負數，且兩個數字互質。因此，在許多情況下，將任意的一對整數向下轉型為 `Rational` 是不安全的，因為這裡不僅僅存在結構上的等效性。
+
+  基於同樣的原因，不能將不透明型別（或任何持有不透明型別的型別）用作驗證器的 datum 和/或 redeemer。
+</Callout>
+
+對於只有一個構造函數且該構造函數只有 1 個欄位的不透明型別，存在「特殊處理」。在底層，它的行為類似於 Haskell 的 `newtype`。這在處理 CBOR 時非常重要。
+
+範例：
+
+```aiken
+pub opaque type NewType<a> { field: a }
+pub fn new_type(a) -> NewType<a> { NewType(a) }
+..
+trace new_type(43) // 43
+
+// 將其與非不透明型別進行比較：
+pub type Constr<a> { field: a }
+pub fn new_constr(a) -> Constr<a> { Constr(a) }
+..
+trace new_constr(43) // 121([_ 43])
+```
+
+## 知名模組
+
+### Prelude 模組
+
+語言內建了兩個模組，第一個是 `aiken` prelude 模組。預設情況下，其型別和值會自動導入到您撰寫的每個模組中，但您仍然可以選擇以常規方式導入它。如果您建立了一個與 prelude 中的項目同名的型別或值，這可能會很有用。
+
+```aiken
+use aiken
+
+/// 此定義局部覆蓋了 `Option` 型別
+/// 和 `Some` 構造函數。
+pub type Option {
+  Some
+}
+
+/// 原始的 `Option` 和 `Some` 仍然可以使用
+pub fn go() -> aiken.Option<Int> {
+  aiken.Some(1)
+}
+```
+
+Prelude 模組的內容記錄在 [aiken-lang/prelude](https://aiken-lang.github.io/prelude/aiken.html) 中。
+
+### Builtin 模組
+
+語言自帶的第二個模組用於公開 Plutus Core 中有用的內建函式。大多數底層平台函式在這裡都以「snake_case」名稱提供。Aiken 的許多語法最終都會編譯為某些內建函式的組合，但許多內建函式並未透過語法「公開」，需要直接使用。標準庫將這些函式封裝在更符合 Aiken 風格的介面中，因此除非您正在製作自己的標準庫，否則可能永遠不需要直接使用這些函式。
+
+```aiken
+use aiken/builtin
+
+fn eq(a, b) {
+    builtin.equals_integer(a, b)
+}
+
+// 在執行以下操作時會隱式使用：
+
+a == b
+```
+
+Builtin 模組的內容記錄在 [aiken-lang/prelude](https://aiken-lang.github.io/prelude/aiken/builtin.html) 中。
+
+## 條件編譯模組
+
+### 環境 (Environments)
+
+自 `v1.1.0` 起，Aiken 支援條件環境模組。環境模組遵循特殊規則：
+
+1. 它們必須位於專案根目錄的 `env` 目錄中。
+2. 使用時，其中至少一個必須命名為 `default.ak`；當未提供顯式模組時，預設使用它。
+3. 在給定的編譯階段中，一次只有其中一個可用。
+4. 在其他模組中，無論其「實際名稱」為何，它們始終被稱為 `env`。
+
+例如，假設以下專案結構：
+
+```
+.
+├── aiken.toml
+├── env
+│   ├── default.ak
+│   ├── preprod.ak
+│   └── preview.ak
+└── validators
+    └── main.ak
+```
+
+在 `main` 中，可以假設存在一個 `env` 模組，並像導入任何其他模組一樣導入它：`use env{:ak}`。模組的內容取決於傳遞給用於 `check` 或 `build` 專案命令的 `--env` 參數。省略 `--env` 時，預設為 `default.ak`。請注意，這些模組中的每一個都必須定義類似的 API。通常，它們會導出在整個驗證器中使用但取決於執行環境的常數。
+
+範例：
+
+```aiken filename="validators/main.ak"
+use env
+
+validator main() {
+  mint(redeemer, policy_id, self)  {
+    self.signatories
+      |> list.has(env.administrator)
+  }
+}
+```
+
+<Tabs items={['default', 'preprod', 'preview']}>
+
+<Tabs.Tab>
+
+```aiken filename="env/default.ak"
+pub const administrator = #"0000000000"
+```
+
+</Tabs.Tab>
+
+<Tabs.Tab>
+
+```aiken filename="env/preprod.ak"
+pub const administrator = #"12341234"
+```
+
+</Tabs.Tab>
+
+<Tabs.Tab>
+
+```aiken filename="env/preview.ak"
+pub const administrator = #"56785678"
+```
+
+</Tabs.Tab>
+</Tabs>
+
+環境名稱沒有限制（除了 Aiken 模組名稱的通常限制外）。它們可以包含任意邏輯和定義，也可以透過顯式導入 `use preview` 等方式導入其他模組以及其他環境模組。然而，關於導入循環的規則仍然適用。
+
+### 配置 (Configurations)
+
+環境模組非常靈活且極具表現力。在需要將可能還利用其他函式的複雜動態配置組合在一起時，它們非常有用。但在許多情況下，並不需要它們的全部功能，只需要定義一些靜態常數即可。對於這些場景，Aiken 提供了一個名為條件配置值的類似功能。
+
+這些配置直接在 `aiken.toml` 中定義，可以代表整數、布林值、位元組陣列或這些型別的列表/元組。與環境類似，它們期望一個配置命名為 `default`。其下的所有值隨後都會被注入到一個特殊的 `config{:ak}` 模組中，該模組可以按常規方式導入。
+
+以下是一個條件配置的詳盡示例，及其在 Aiken 中的等效形式：
+
+```toml filename="aiken.toml"
+name = "aiken-lang/scratchpad"
+version = "1.0.0"
+
+[config.default]
+price = 1000000               # pub const price: Int = 1_000_000
+is_mainnet = true             # pub const is_mainnet: Bool = True
+network = "mainnet"           # pub const network: ByteArray = "mainnet"
+quotas = [1, 2, 3]            # pub const ratio: List<Int> = [1, 2, 3]
+asset = ["HOSKY", 42]         # pub const asset: (ByteArray, Int) = ("HOSKY", 42)
+[config.default.owner]        # pub const owner: ByteArray = #"0000111122223333"
+bytes = "0000111122223333"
+encoding = "hex"
+```
+
+然後，可以像引用標準模組一樣引用任何配置值：
+
+```aiken
+use config
+
+fn main() {
+  if config.is_mainnet {
+    config.price * 2
+  } else {
+    ..
+  }
+}
+```
+
+與條件環境模組一樣，`--env` 選項驅動著正確配置值的選擇。但與模組不同，配置值不能引用其他配置值，且僅限於 TOML 語法支援的內容。
+
+## 文件
+
+您可以在模組頂部使用每行一個模組文件註解 `////`（四個斜線！）添加面向使用者的文件。Markdown 是受支援的，這段文本塊將包含在生成的 HTML 文件中。
+
+### 隱藏模組
+
+有時，您可能希望在生成的文件中隱藏某些模組，因為它們可能包含不適合向使用者公開的內部函式，但基於各種原因被拆分出來。
+
+要隱藏模組，可以在模組文件的開頭使用 `@hidden` 標籤。
+
+```aiken
+//// @hidden
+//// 更多的文件內容
+```

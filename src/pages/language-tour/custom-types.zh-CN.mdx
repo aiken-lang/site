@@ -1,0 +1,572 @@
+---
+title: "自定义类型"
+description: "Aiken 是一种用于编写 Cardano 智能合约的函数式编程语言，具有强大的静态类型系统。自定义类型是使用 type 关键字定义的具名字段集合，支持记录 (records)、枚举 (enums)、泛型 (generics) 和代数数据类型 (algebraic data types) —— 类似于 Rust 中的结构体 (structs) 和枚举 (enums)。用于定义验证器需在链上处理的 datum、redeemer 以及任何结构化数据。"
+difficulty: "beginner"
+keywords: ["type", "自定义类型", "记录", "枚举", "构造函数", "代数数据类型", "泛型", "解构", "不透明类型", "Data", "datum", "redeemer"]
+topics: ["custom-types", "records", "enums", "algebraic-data-types", "generics"]
+---
+
+import { Callout } from "nextra-theme-docs";
+
+# 自定义类型
+
+## 定义自定义类型
+
+### 基础知识
+
+Aiken 的自定义类型是键和/或值的具名集合。它们类似于面向对象语言中的对象，但没有方法。
+
+自定义类型使用 `type{:ak}` 关键字定义。它们可以包含具名字段，也可以不包含；但不能混用。
+
+```aiken
+// 带有具名字段
+type Datum {
+  Datum { signer: ByteArray, count: Int }
+}
+
+// 带有匿名字段
+type DatumNameless {
+  DatumNameless(ByteArray, Int)
+}
+```
+
+在这里，我们定义了两个自定义类型，分别称为 `Datum{:ak}` 和 `DatumNameless{:ak}`。
+
+`Datum{:ak}` 的构造函数名为 `Datum{:ak}`，它有两个字段：`signer{:ak}` 字段是 `ByteArray{:ak}`，`count{:ak}` 字段是 `Int{:ak}`。同样地，`DatumNameless{:ak}` 的构造函数也有两个类型分别为 `ByteArray{:ak}` 和 `Int{:ak}` 的字段。
+
+自定义类型定义好之后，就可以在函数中通过调用其构造函数来创建值。
+
+```aiken
+fn datums() {
+  // 具名字段可以按任何顺序给出
+  let named_1 = Datum { signer: #[0xAA, 0xBB], count: 2001 }
+  let named_2 = Datum { count: 1805, signer: #[0xAA, 0xCC] }
+
+  // 匿名字段作为位置参数给出
+  let nameless_1 = DatumNameless(#[0xAA, 0xBB], 2001)
+
+  // 即使是具名字段，也可以作为位置参数给出
+  let named_3 = Datum(#[0xAA, 0xBB], 2001)
+
+  (named_1, named_2, nameless_1, named_3)
+}
+```
+
+### 简写标记
+
+由于单一构造函数非常常见，当类型和构造函数同名时，存在一种特殊的简写标记。因此，上述内容可以写成：
+
+```aiken
+type Datum {
+  signer: ByteArray,
+  count: Int
+}
+```
+
+这两种标记（带或不带构造函数）是等价的。使用简写时，我们隐式地表示有一个名为 `Datum` 的单一构造函数，它可以用于构造 `Datum` 类型的值，也可以用于解构（见下文）。
+
+### 多重构造函数
+
+Aiken 中的自定义类型可以定义多个构造函数（亦称变体 (variants)），使其成为一种对可能是几种不同变体之一的数据进行建模的方法。
+
+我们已经在语言概览中看过具有多重构造函数的自定义类型，例如 [`Bool{:ak}`](./primitive-types#bool) 或 [`Option{:ak}`](./primitive-types#option)。
+
+Aiken 内建的 `Bool` 类型是这样定义的：
+
+```aiken
+/// Bool 是 True 或 False 两者之一的值
+type Bool {
+  False
+  True
+}
+```
+
+这是一个简单的自定义类型，其构造函数甚至不接收任何参数！使用它来回答是/否问题，并指示某事是 `True{:ak}` 还是 `False{:ak}`。
+
+自定义类型的不同构造函数所创建的记录可以包含不同的值。例如，一个 `User{:ak}` 自定义类型可以有一个带有名称的 `LoggedIn` 构造函数，以及一个不包含任何值的 `Guest` 构造函数。
+
+```aiken
+type User {
+  LoggedIn { username: ByteArray }  // 已登录用户
+  Guest // 没有详细信息的访客用户
+}
+```
+
+```aiken
+let user1 = LoggedIn { username: "Alice" }
+let user2 = LoggedIn { username: "Bob" }
+let visitor = Guest
+```
+
+### 泛型
+
+自定义类型可以使用其他类型作为参数，使其内容变得可变。我们在 [`Option{:ak}`](./primitive-types#option) 中已经看过这一点。
+
+让我们看另一个 `Box{:ak}` 类型的例子，它是一个持有单一值的简单记录。
+
+```aiken
+type Box<inner_type> {
+  Box(inner: inner_type)
+}
+```
+
+字段 `inner{:ak}` 的类型是 `inner_type{:ak}`，它是 `Box{:ak}` 类型的一个参数。如果它持有 `Int{:ak}`，盒子的类型就是 `Box<Int>{:ak}`；如果它持有字符串，盒子的类型就是 `Box<ByteArray>{:ak}`。
+
+```aiken
+fn foo() {
+  let a = Box(420) // 类型为 Box<Int>
+  let b = Box("That's my ninja way!") // 类型为 Box<ByteArray>
+}
+```
+
+## 检查自定义类型
+
+### 具名访问器
+
+如果一个自定义类型**只有一个构造函数**并且拥有**具名字段**，则可以使用点符号 (`.{:ak}`) 后跟字段名称来访问它们。
+
+例如，考虑一个类型 `Dog`：
+
+```aiken
+type Dog {
+  name: ByteArray,
+  cuteness: Int,
+  age: Int,
+}
+```
+
+我们可以使用 `.name{:ak}`、`.cuteness{:ak}` 和 `.age{:ak}` 分别访问它的任何字段。
+
+```aiken
+let dog = Dog { name: "bob", cuteness: 2001, age: 6 }
+dog.name // 返回 "bob"
+dog.cuteness // 返回 2001
+dog.age // 返回 6
+```
+
+### 解构 (Destructuring)
+
+在 Aiken 中，值可以被「解构」。解构与构造值相反，使用类似但相反的语法。**构造**时，构造函数和字段出现在赋值的**右侧**。**解构**时，它们出现在**左侧**。
+
+继续以我们的 `Dog{:ak}` 为例，我们有如下对等关系：
+
+```aiken
+// 构造
+let dog = Dog { name: "bob", cuteness: 2001, age: 6 }
+
+// 解构
+let Dog { name, cuteness, age } = dog
+name == "bob" // True
+cuteness == 2001 // True
+age == 6 // True
+
+// 等同于
+let name = dog.name
+let cuteness = dog.cuteness
+let age = dog.age
+```
+
+如您所见，第二个表达式分别为 `name{:ak}`、`cuteness{:ak}` 和 `age{:ak}` 引入了新的绑定。这里之所以能进行解构，是因为相关类型只有单一构造函数，且我们引入的标识符名称与字段名称相同。
+
+#### 重命名字段
+
+如果需要，我们还可以使用冒号符号 (`:{:ak}`) 重命名字段，如下所示：
+
+```aiken
+// 解构
+let Dog { name: its_name, cuteness, age: its_age } = dog
+its_name == "bob" // True
+its_age == 6 // True
+```
+
+请注意，我们也可以通过为每个字段引入标识符来解构匿名字段的构造函数。与构造时一样，当被视为匿名字段时，参数是按位置对应的。
+
+```aiken
+// 解构匿名字段
+let Dog(name, cuteness, age) = dog
+name == "bob" // True
+cuteness == 2001 // True
+age == 6 // True
+
+// 解构匿名字段，参数顺序对调
+let Dog(age, name, cuteness) = dog
+age == "bob" // 虽然令人困惑，但为 True
+name == 2001 // 虽然令人困惑，但为 True
+cuteness == 6 // 虽然令人困惑，但为 True
+```
+
+### 模式匹配
+
+对于具有多个变体的类型，必须使用 `when *expr* is{:ak}` 关键字进行「模式匹配」。这种语法允许根据类型定义的各个分支来检查值，确保所有可能的路径都得到了妥善处理。换句话说，这就像是在对编译器说「如果数据具备这种形状，那就做那件事」，涵盖所有可能的形状。
+
+还记得我们之前的 `User{:ak}` 类型吗？
+
+```aiken
+type User {
+  LoggedIn { username: ByteArray }
+  Guest
+}
+```
+
+让我们编写一个提取 `User{:ak}` 名称的函数 `get_name{:ak}`：
+
+```aiken
+fn get_name(user: User) -> ByteArray {
+  when user is {
+    LoggedIn { username } -> username
+    Guest -> "Guest user"
+  }
+}
+```
+
+`when *expr* is{:ak}` 块强制我们穷举处理类型定义中的每个构造函数。
+
+#### 通用匹配符 (Wildcard)
+
+模式总是需要完备的，但枚举每一个字段或构造函数有时会很繁琐。在这种情况下，Aiken 允许使用通用匹配符。
+
+通用匹配符就像一个后备模式，用 `_{:ak}` 表示，它可以用于模式中以匹配任何剩余的模式。例如：
+
+```aiken
+fn get_name(user: User) -> ByteArray {
+  when user is {
+    LoggedIn { username } -> username
+    _ -> "Guest user"
+  }
+}
+```
+
+请注意，通用匹配符也可以命名。一般来说，任何以下划线 `_{:ak}` 开头的标识符都会被视为通用匹配符。
+
+但请注意，通常不推荐使用通用匹配符，因为它们会使代码变得脆弱。事实上，如果您要在 `User` 类型中添加一个新的构造函数，该函数在编译时不会产生任何警告或错误，因为通用匹配符 `_` 会吞掉所有剩余的构造函数。然而，请想象以下情况：
+
+```aiken
+type User {
+  LoggedInAsAdministrator { username: ByteArray }
+  LoggedIn { username: ByteArray }
+  Guest
+}
+```
+
+使用通用匹配符，`get_name` 会照常编译，并会为以管理员身份登录的用户返回 `"Guest user"`！因此，只有在别无他法时才使用通用匹配符。在许多情况下，显式列出所有模式会更好。
+
+<Callout type="info">
+  解构时同样可以使用通用匹配符，如果您只需要将特定字段引入作用域。
+
+  ```aiken
+  let Dog(name, _cuteness, _age) = dog
+
+  // 等同于
+
+  let name = dog.name
+  ```
+</Callout>
+
+#### 多重模式 (Alternative patterns)
+
+为了避免在多个分支中重复相同的逻辑片段，Aiken 提供了一种使用管道符号 `|{:ak}` 同时处理多个模式的语法。当这些模式在作用域中引入具有相同名称和相应类型的标识符时，这种方式尤其有效。
+
+```aiken
+fn get_name(user: User) -> ByteArray {
+  when user is {
+    LoggedInAsAdministrator { username } | LoggedIn { username } -> username
+    Guest -> "Guest user"
+  }
+}
+```
+
+#### 展开运算符 (Spread operator)
+
+同样地，有时从构造函数中仅提取特定的具名字段，甚至一个也不提取，是非常有用的。在这些情况下，Aiken 提供了展开运算符 `..{:ak}` 来表示忽略其余任何内容。
+
+例如，假设我们在 `LoggedIn` 构造函数变体中添加了一个字段 `days_of_activity: Int`。
+
+```aiken
+fn is_authorized(user: User) -> Bool {
+  when user is {
+    LoggedInAsAdministrator { .. } -> True
+    LoggedIn { days_of_activity, .. } -> days_of_activity > 30
+    Guest -> False
+  }
+}
+```
+
+在上面的函数中，我们授权任何管理员或任何活动天数至少为 30 天的登录用户。展开运算符用于表示记录的其他具名字段被忽略。
+
+<Callout type="info">
+  展开运算符也适用于解构，如果您只需要将特定字段引入作用域。
+
+  ```aiken
+  let Dog { name, .. } = dog
+
+  // 等同于
+
+  let name = dog.name
+  ```
+</Callout>
+
+#### 列表 (List)
+
+模式匹配也适用于列表，并具有其专属语法。在 Aiken 中，列表是链表 (linked-lists)，因此它们实际上等同于具有两个构造函数的自定义类型：要么是一个空列表，要么是一个值和另一个列表（可能为空）。
+
+在对列表进行匹配时，可以使用通用匹配符和展开运算符。此外，对于列表，展开运算符可以命名以显式捕捉列表的其余部分（尾部）。让我们看一些例子：
+
+```aiken
+fn get_head(xs: List<a>) -> Option<a> {
+  when xs is {
+    [] -> None
+    [a, ..] -> Some(a)
+  }
+}
+
+fn is_empty(xs: List<a>) -> Bool {
+  when xs is {
+    [] -> True
+    [_, ..] -> False
+  }
+}
+
+fn get_tail(xs: List<a>) -> List<a> {
+  when xs is {
+    [] -> [] // 有待商榷
+    [_, ..tail] -> tail
+  }
+}
+```
+
+#### 嵌套模式 (Nested patterns)
+
+模式不仅限于类型结构的第一层。可以对任何复合类型进行任意深度的模式匹配。
+
+```aiken
+fn get_name_with_default(dog: Option<Dog>, default: ByteArray) -> ByteArray {
+  when dog is {
+    Some(Dog { name, .. }) -> name
+    _ -> default
+  }
+}
+```
+
+您还可以在记录中的嵌套字段上进行模式匹配。为此，请使用字段标签和 `:{:ak}` 运算符，如下所示：
+
+```aiken
+fn get_age_of_oscar(dog: Dog) -> Option<Int> {
+  when dog is {
+    Dog { name: "Oscar", age, ..} -> Some(age)
+    _ -> None
+  }
+}
+```
+
+#### 为子模式分配名称
+
+有时在进行模式匹配时，我们希望在指定其形状的同时为该值分配一个名称。我们可以使用 `as{:ak}` 关键字来做到这一点。
+
+```aiken
+when xs is {
+  [[_, ..] as inner_list] -> inner_list
+  _other -> []
+}
+```
+
+## 更新自定义类型
+
+Aiken 提供了一种专用语法来更新自定义类型记录中的某些字段。
+
+```aiken
+type Person {
+  name: ByteArray,
+  shoe_size: Int,
+  age: Int,
+  is_happy: Bool,
+}
+
+fn have_birthday(person) {
+  // 今天是这个人的生日，所以增加其年龄并让其开心
+  Person { ..person, age: person.age + 1, is_happy: True }
+}
+```
+
+更新语法使用初始记录的值创建一个新记录。它将给定的绑定替换为其新值。
+
+## 与 Data 的关系
+
+在运行时，自定义类型会变为 Plutus 不透明的 Data。在 Aiken 的类型系统中，`Data` 与任何用户定义的类型相匹配（但不与任何基础类型匹配）。
+
+### 向上转型 (Upcasting)
+
+因此，可以将任何自定义类型转换**为** `Data{:ak}`（即向上转型）。这种隐式转换对于与操作原始 `Data{:ak}` 的内建函数进行交互非常方便。任何接收 `Data{:ak}` 的函数都将自动支持任何自定义类型。
+
+```aiken
+type Datum {
+  count: Int,
+}
+
+let datum: Datum = Datum { count: 1 }
+
+// fn(Data) -> ByteArray
+builtin.serialise_data(datum)
+
+// 或者同样地，通过提供注解。
+let as_data: Data = datum
+```
+
+### 向下转型 (Downcasting)
+
+然而，将 `Data{:ak}` 提取**回**自定义类型（即向下转型）需要使用 [`expect{:ak}`](./control-flow#expect) 或 [`if *pattern* is{:ak}`](./control-flow#if-is)，这将在[下一节：流程控制](./control-flow)中解释。
+
+向上转型总是可行且安全的，但向下转型则不然，它可能会失败。如何选择处理失败的方式决定了是使用 `expect{:ak}`（立即发出警告并失败）还是 `if/is{:ak}`（优雅地退回）。
+
+总结如下：
+
+| 从 | 到 | 失败时崩溃？ | 方式 |
+| --- | --- | --- | --- |
+| *任何自定义类型* | `Data{:ak}` | \- (不会失败) | let 绑定 + 类型注解 |
+| `Data{:ak}` | *任何自定义类型* | 否 | [`if *pattern* is{:ak}`](./control-flow#if-is) |
+| `Data{:ak}` | *任何自定义类型* | 是 | [`expect{:ak}`](./control-flow#expect) |
+
+## 类型别名 (Type aliases)
+
+最后，还可以为类型定义别名。类型别名允许您创建一个与另一个类型完全相同的名称，而无需任何额外信息。
+
+```aiken
+type MyNumber = Int
+```
+
+别名完全可以互换，在运行时没有任何区别。它们对于简化类型特征 (type signatures) 非常有用。
+
+```aiken
+type Person = (String, Int)
+
+fn create_person(name: String, age: Int) -> Person {
+  (name, age)
+}
+```
+
+<Callout type="info">
+虽然类型别名在运行时被完全抹除，但其信息在类型检查以及生成验证器最终蓝图时会被保留。换句话说，类型别名也将出现在错误消息和生成的文档中。
+</Callout>
+
+## 文档
+
+您可以使用以 `///{:ak}` 开头的文档注释为任何数据类型定义和构造函数添加面向用户的文档。Markdown 是受支持的，这段文本将包含在生成的 HTML 文档中。
+
+```aiken
+/// 一个**非常有用的**注释，告诉您这个类型代表：一个人。
+type Person {
+  /// 出生后经过的年数。
+  age: Int,
+  /// 别人为了吸引这个人的注意而喊出的词
+  name: String,
+}
+```
+
+<Callout type="info">
+当常数定义作为模块文档导出时，类型定义会按字母顺序（升序）进行排序。
+</Callout>
+
+## 自定义编码
+
+有一种语法可用于控制自定义数据类型底层 `PlutusData` 表示形式的预期编码。
+
+所有 Aiken 类型在底层都由具有 CBOR 编码的 `PlutusData` 表示。Aiken 内建类型 `Data{:ak}` 正是如此。`Data{:ak}` 是一种表示某个值可以是 *任何* `PlutusData` 的方式。如果 `PlutusData` 本身是一个 Aiken 类型，它看起来会像这样：
+
+```aiken
+type PlutusData {
+  Constr { tag: Int, fields: List<PlutusData> }
+  PlutusList(List<PlutusData>)
+  Map(List<(PlutusData, PlutusData)>)
+  I(Int)
+  B(ByteArray)
+}
+```
+
+请记住，這只是一个示例，以便您更好地想象底层发生的事情。实际创建一个这样类型是徒劳的，但启用 `when/is{:ak}` 对 `Data{:ak}` 进行模式匹配以手动拆分构造函数是我们可能在未来版本的 Aiken 中看到的內容，因为这需要在编译器內部进行特殊处理。
+
+现在，考虑到 `PlutusData` 被用于表示所有自定义类型，让我们先看一些常用的类型，并了解它们在底层是如何表示的。作为第一个例子，让我们考虑 `Bool{:ak}` 类型，定义如下：
+
+```aiken
+type Bool {
+  False
+  True
+}
+```
+
+该类型将使用 `PlutusData` 的 `Constr{:ak}` 形式来表示。这意味着要构建一个代表 `Bool{:ak}` 的正确 `PlutusData` 载荷，您可以这样做：
+
+**False**
+
+```aiken
+Constr { tag: 0, fields: [] }
+```
+
+**True**
+
+```aiken
+Constr { tag: 1, fields: [] }
+```
+
+<Callout type="info">
+  Aiken 带有一些精巧的內建工具，可以直接查看数据类型的 CBOR 表示形式。欲了解更多信息，请[查看此章节](./troubleshooting)。
+</Callout>
+
+最值得注意的是，`False{:ak}` 可以说成是「带有标签 (tag) **0** 的构造函数」，而 `True{:ak}` 可以说成是「带有标签 **1** 的构造函数」。这里的关键点是，Aiken 中的所有构造函数都将由 `Constr{:ak}` 表示，标签将根据定义处所写的顺序来决定。由于 `False{:ak}` 排在第一位，它的标签自然为 **0**。
+
+Aiken `v1.1.19` 引入了控制标签数子的能力。如下所示：
+
+```aiken
+type Bool {
+  @tag(1)
+  True
+  
+  @tag(0)
+  False
+}
+```
+
+这里虽然微妙，但我们交换了两个构造函数定义顺序，但保留了其原有的标签，这在往来转换 `Data{:ak}` 时会被遵循。这解耦了类型的文本表示与其底层的编码方式。大多数情况下，您应该依赖默认标签顺序，但如果需要控制类型构造函数的标签，是可以办到的。
+
+现在是时候转向类型名与类型本身相同的单一构造函数简写标记了。根据我们现在所知的，不难推断出它们*必须*全部使用标签 **0**，并包含一个或多个递归身为 `PlutusData` 的字段。让我们回顾之前的 `Datum{:ak}` 类型：
+
+```aiken
+type Datum {
+  signer: ByteArray,
+  count: Int
+}
+```
+
+通常，这在底层看起来像这样的 `PlutusData`：
+
+```aiken
+Constr { tag: 0, fields: [B(#"aabbcc"), I(5)]  }
+```
+
+您也可以在这里自由自定义标签：
+
+```aiken
+@tag(9000)
+type Datum {
+  signer: ByteArray,
+  count: Int
+}
+```
+
+最后，当您拥有这种类型时，甚至可以跳过 `Constr{:ak}` 直而使用 `PlutusList{:ak}`，它不需要标签，并且在许多情况下性能优于 `Constr{:ak}`，因为在访问内部字段时不需要在底层调用 `un_constr_data{:ak}` 和 `snd_pair{:ak}`。
+
+```aiken
+@list
+type Datum {
+  signer: ByteArray,
+  count: Int
+}
+```
+
+生成的编码如下：
+
+```aiken
+PlutusList([B(#"aabbcc"), I(5)])
+```
+
+> 「能力越大，责任越大。」 —— 班叔叔
+
+请尽量使用默认值，只有在您明确知道自己在做什么时才使用这些高级功能。

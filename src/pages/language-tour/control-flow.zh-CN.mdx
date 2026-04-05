@@ -1,0 +1,260 @@
+---
+title: "流程控制"
+description: "Aiken 是一种用于编写 Cardano 智能合约的函数式编程语言，它将每个代码块视为一个表达式。流程控制通过 if/else 表达式、when/is 模式匹配、管道运算符和递归来处理 —— 这里没有循环。用于引导验证器逻辑、解构自定义类型、处理交易场景以及组合操作。"
+difficulty: "beginner"
+keywords: ["when", "is", "if", "else", "模式匹配", "管道运算符", "expect", "递归", "表达式块", "流程控制", "没有循环"]
+topics: ["control-flow", "pattern-matching", "when-is", "if-else", "pipe-operator", "recursion"]
+---
+
+import { Callout } from "nextra-theme-docs";
+
+# 流程控制
+
+## 代码块 (Blocks)
+
+Aiken 中的每个代码块都是一个表达式。代码块中的所有表达式都会被执行，并返回最后一个表达式的结果。
+
+```aiken
+let value: Bool = {
+    "Hello"
+    42 + 12
+    False
+}
+
+value == False
+```
+
+表达式块可以用来代替括号，以改变运算的顺序。
+
+```aiken
+let celsius = { fahrenheit - 32 } * 5 / 9
+```
+
+## 管道 (Piping)
+
+| 运算符 | 优先级 |
+| :-----: | ---------- |
+| `\|>{:ak}` | 0 |
+
+Aiken 提供了一种将一个函数的结果传递给另一个函数参数的语法：管道运算符 (`|>`)。这在功能上类似于 Elixir、Elm 或 F# 中的相同运算符。
+
+管道运算符允许您在不使用大量括号和嵌套的情况下链接函数调用。举一个简单的例子，考虑在 Aiken 中模拟一个想象中的 `string.reverse` 实现：
+
+```aiken
+string_builder.to_string(string_builder.reverse(string_builder.from_string(string)))
+```
+
+使用管道运算符可以更自然地表达这一点，从而无需追踪括号的闭合。
+
+```aiken
+string
+  |> string_builder.from_string
+  |> string_builder.reverse
+  |> string_builder.to_string
+```
+
+该表达式的每一行都将函数应用于前一行的结果。这之所以能轻松运行，是因为这些函数中的每一个都只接收一个参数。对于接收多个参数的函数，可以使用语法来替换特定的参数；更多信息，请参见下方「函数捕获」章节。
+
+## 通过递归实现循环
+
+Aiken 是一种函数式编程语言，因此不提供任何用于循环的流程控制（如 for 或 while）。相反，Aiken 拥抱递归。递归函数是在其定义中调用自身的函数。同样地，递归类型是根据自身定义的类型。
+
+让我们各看一个例子。
+
+```aiken
+type MyList<a> {
+  Empty
+  Prepend(a, MyList<a>)
+}
+
+fn length(xs: MyList<a>) -> Int {
+  when xs is {
+    Empty -> 0
+    Prepend(_head, tail) -> 1 + length(tail)
+  }
+}
+
+length(Prepend(1, Prepend(2, Prepend(3, Empty)))) // == 3
+```
+
+在这里，我们人为地定义了一个代表链表的自定义 `MyList{:ak}` 类型。并且我们在其上定义了一个计算其长度的函数。在这两种情况下，您可以看到存在终止条件是至关重要的。
+
+递归非常强大，尤其是在 Cardano 的 Plutus 执行环境中。请善用它。
+
+## If-Else
+
+不鼓励对 `Bool{:ak}` 值进行模式匹配，而应使用 `if *condition* else` 表达式。
+
+```aiken
+let some_bool = True
+
+if some_bool {
+  "It's true!"
+} else {
+  "It's not true."
+}
+```
+
+请注意，虽然它看起来像是一条指令：如果这样就做那样，否则做另一件事，但它实际上是一个单一的表达式。这意味着两个分支的返回类型必须一致。
+
+顺便提一下，您可以根据需要拥有多个条件 `else/if{:ak}` 分支：
+
+```aiken
+fn fibonacci(n: Int) -> Int {
+  if n == 0 {
+    0
+  } else if n == 1 {
+    1
+  } else {
+    fibonacci(n-2) + fibonacci(n-1)
+  }
+}
+```
+
+## Fail & Todo
+
+有时，您需要停止程序的求值，因为您遇到了一个被视为无效的情况，或者仅仅是因为您还没有完成某些逻辑的开发。Aiken 为此提供了两个方便的关键字：`fail{:ak}` 和 `todo{:ak}`。
+
+当遇到这两者之一时，都会停止程序的求值，程序将被视为失败。它们在语义上有所不同，即编译器对待它们的方式不同。
+
+事实上，`todo{:ak}` 会在编译时触发警告，以提醒您那些未完成的部分。`fail{:ak}` 则不会，因为它被假定为一个预期的中断点。请注意，警告还包括需要替换 `todo{:ak}` 的表达式的预期类型。如果您不确定需要什么类型，这是一种询问编译器的有用方式。
+
+让我们各看一个例子来理解其中的区别：
+
+```aiken
+fn favourite_number() -> Int {
+  // 类型注解显示这返回一个 Int，但我们还不需要实现它。
+  todo
+}
+
+fn expect_some_value(opt: Option<a>) -> a {
+  when opt is {
+    Some(a) -> a
+    None -> fail // 我们希望在遇到 'None' 时失败。
+  }
+}
+```
+
+当这段代码被构建时，Aiken 会进行类型检查和编译以确保其有效，如果运行该函数，`todo{:ak}` 或 `fail{:ak}` 将被替换为导致程序崩溃的代码。
+
+### 提供理由
+
+可以提供一个 `String{:ak}` 消息作为文档形式。当 `todo{:ak}` 或 `fail{:ak}` 代码被求值时，该消息将被追踪。请注意，这可能是您唯一会遇到 `String{:ak}` 类型的地方，这是因为消息需要是可打印的 —— 绝大多数 `ByteArray{:ak}` 通常只是纯粹的乱码。
+
+```aiken
+fn favourite_number() -> Int {
+  todo @"相信那一个相信着你自己的你！"
+}
+
+fn expect_some_value(opt: Option<a>) -> a {
+  when opt is {
+    Some(a) -> a
+    None -> fail @"选项 (Option) 没有值"
+  }
+}
+```
+
+## Expect
+
+`expect{:ak}` 是一个特殊的赋值关键字，它的工作方式类似于 `let{:ak}`，但允许执行某些潜在不安全的转换。它有两个主要的应有场景：
+
+### 非穷举模式匹配
+
+如果您有一个拥有多个构造函数变体的类型的值，但您只对其中一个可能的变体作为结果感兴趣（即任何其他结果都会使程序无效），那么 `expect{:ak}` 是完美的工具。考虑以下示例中的 `Option{:ak}` 类型：
+
+```aiken
+let x = Some(42)
+
+// 作为模式匹配
+let y = when x is {
+  None -> fail
+  Some(y) -> y
+}
+
+// 使用 expect
+expect Some(y) = x
+```
+
+如您所见，`expect{:ak}` 的工作方式类似于非穷举模式匹配。不同之处在于，如果右侧不具备预期的形状，它会被指示使整个程序崩溃。它向编译器发出信号，表示在这种特定情况下，不具备穷举性是可以接受的。
+
+<Callout type="info">
+  这在传统开发领域中可能被视为一种不好的做法，但请记住 Aiken 是在智能合约上下文中使用，那里通常没有错误处理的空间。数据要么符合预期格式，要么整个合约失败。
+</Callout>
+
+### 从 Data 转换为自定义类型
+
+`expect{:ak}` 的另一个至关重要的用途是将某些不透明的 `Data{:ak}` 转换为具体表示形式。在 Cardano 智能合约的上下文中，我们会在各处遇到 `Data{:ak}`，通常是在处理附加在输出上的 datum 时。
+
+通常，我们确实期望某个 datum 具有特定的结构，因此能够在验证器中安全地体现这些假设是非常方便的。
+
+其语法与另一种应用场景相同，但它需要明确的类型注解。
+
+```aiken
+type MyDatum {
+  foo: Int,
+  bar: ByteArray,
+}
+
+fn to_my_datum(data: Data) -> MyDatum {
+  expect my_datum: MyDatum = data
+  my_datum
+}
+```
+
+请注意，如果给定的 `Data{:ak}` 实际上不是目标类型 `MyDatum{:ak}` 的有效表示，则此转换将失败。这里的主要应用场景是将以序列化形式提供给脚本的脚本上下文 (script contexts)、datum 和 redeemer 实例化。
+
+### 自定义追踪
+
+在以「详细 (verbose)」模式（`--trace-level verbose`）编译时，expect 表达式将生成相应的运行时追踪。这有助于更轻松地对代码进行疑难排解。默认情况下，追踪消息是根据源代码自动生成的，但可以使用文档注释将其替换为自定义消息：
+
+```aiken
+/// 生命、宇宙以及万事万物的终极答案。
+expect answer == 42
+```
+
+注意前面有 3 个（不是 2 个！）斜杠。如果断言失败，则会产生一个 `"<expected> 生命、宇宙以及万事万物的终极答案."{:ak}` 的追踪。在「紧凑 (compact)」模式下，追踪将被截断为其「标签（如果有的话）」。标签定义为冒号 `:{:ak}` 之前的文本部分。
+
+例如：
+
+```aiken
+/// 断言 001: 重新定义数学
+expect 1 + 1 == 3
+```
+
+在详细模式下将产生 `"<expected> 断言 001: 重新定义数学"{:ak}`，但在紧凑模式下仅产生 `"<expected> 断言 001"{:ak}`。当然，在「静默 (silent)」模式下什么都不会产生。
+
+## 使用 `if/is` 进行软转型 (Soft casting)
+
+`expect{:ak}` 关键字在失败是一个选项的情况下运作良好。但在有些情况，例如在递归遍历列表元素时，失败是不可接受的。因此，当您需要在右侧的值不具备正确形状时退回（而不是响亮地失败）时，`if *expr* is *pattern*{:ak}` 就派上用场了。当您根本不知道不透明 `Data{:ak}` 的预期类型，并需要尝试多种替代方案时，它也特别方便。
+
+有一个对 if 表达式的扩展项目，可以通过使用提供的 else 来尝试转型而不返回错误。
+
+```aiken
+type Foo {
+  foo: Int
+}
+
+type Bar {
+  Buzz(Int)
+  Bazz(Int)
+}
+
+fn soft_casting(d: Data, x: Data) -> Bool {
+  // 未提供模式
+  if d is Foo {
+    d.foo == 1
+  // 提供模式
+  } else if d is Bazz(y): Bar {
+    y == 1
+  // 提供模式
+  } else if x is Buzz(y): Bar {
+    y == 2
+  } else {
+    False
+  }
+}
+```
+
+与 `expect{:ak}` 类似，模式可以用于类型转型或针对单一模式进行模式匹配。同样像 `expect{:ak}` 一样，它也可以将新的标识符引入作用域。如图所示，在第二和第三个分支中，我们引入了一个变量 `y{:ak}`，它仅在这些分支中可用。请注意，在不需要类型转型的情况下，不鼓励使用 `if/is{:ak}`：这种情况请直接使用 `when/is{:ak}`。
+
+最后一个 `else{:ak}` 总是必需的，它充当通用匹配符 / 笼统情况，以处理任何先前分支未明确涵盖的剩余模式或转型。

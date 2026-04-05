@@ -1,0 +1,218 @@
+import { Callout } from "nextra-theme-docs";
+
+# 禮品卡 (Gift Card)
+
+讓我們構建一個 UI，使用 Cardano 上的智能合約來發送和兌換禮品卡。
+
+<Callout type="info">
+  您可以在 [Aiken 的主倉庫](https://github.com/aiken-lang/aiken/tree/main/examples/gift_card) 中找到支持本教學的程式碼。
+</Callout>
+
+## 本教學涵蓋內容
+
+<br />
+
+- [x] 編寫 `Aiken` 相互依賴的 `mint` 和 `spend` 處理程序。
+- [x] 參數化驗證器。
+- [x] 使用 [Weld](https://github.com/Cardano-Forge/weld) 管理錢包連接。
+- [x] 透過 [Blockfrost](https://blockfrost.io) 使用 [Lucid Evolution](https://github.com/Anastasia-Labs/lucid-evolution)<sup>★</sup>。
+  <sub>
+    ★ 我們將再次使用 `Blockfrost` 提供者。因此請準備好您的 Blockfrost API 金鑰。
+  </sub>
+- [x] 使用 [SvelteKit](https://kit.svelte.dev/)<sup>★</sup>。
+  <sub>★ 請確保已安裝 Node.js。</sub>
+
+<Callout type="info" emoji="📘">
+  遇到不熟悉的語法或概念時，請隨時參考 [語言導覽](language-tour/primitive-types) 以獲取詳細資訊和更多範例。
+</Callout>
+
+## 什麼是禮品卡？
+
+在本教學的語境下，禮品卡涉及將某些資產鎖定在智能合約中。在鎖定資產的同時，我們會在同一筆交易中鑄造一個 NFT。這個 NFT 可以發送到任何地方，而 NFT 的持有者可以將其銷毀 (burn) 以解鎖之前鎖定的資產。我們可以將這個 NFT 視為一張禮品卡。
+
+## Aiken 是最簡單的部分
+
+讓我們直接建立一個新的 `Aiken` 專案：
+
+```sh
+aiken new my-org/gift-card
+cd gift-card
+```
+
+<Callout type="info">
+  上面的 `my-org` 可以替換為任何名稱。我們建議使用 Github 組織名稱或您自己的用戶名。
+</Callout>
+
+我們在之前的教學中已經介紹過 `aiken new` 生成的內容，所以讓我們直接進入程式碼。
+
+首先刪除 `lib/` 資料夾，本教學不需要它。
+
+```sh
+rm -rf lib
+```
+
+現在在 `validators/` 資料夾中建立一個名為 `oneshot.ak` 的新檔案。
+
+```sh
+touch validators/oneshot.ak
+```
+
+<Callout type="info">
+  `oneshot.ak` 可以隨意命名。`validators/` 中的任何檔案都可以根據需要匯出任意數量的驗證器。
+</Callout>
+
+現在用您喜愛的編輯器打開專案資料夾，並定義兩個空的驗證器函式。
+
+```aiken filename="validators/oneshot.ak"
+use cardano/assets.{PolicyId}
+use cardano/transaction.{OutputReference, Transaction} as tx
+
+validator gift_card {
+  spend(_d, _r, own_ref: OutputReference, transaction: Transaction) -> Bool {
+    todo @"redeem"
+  }
+
+  mint(_rdmr: Data, policy_id: PolicyId, transaction: Transaction) -> Bool {
+    todo @"mint and burn"
+  }
+}
+```
+
+`gift_card` 驗證器將透過 `mint` 處理程序用於鑄造和銷毀禮品卡 NFT。`spend` 處理程序將用於兌換禮品卡並解鎖資產。這張禮品卡的生命週期涉及兩筆交易。第一筆交易將禮品卡鑄造為 NFT，並將某些資產發送到 `gift_card` 驗證器的地址。禮品卡可以在第一筆交易中發送到任何地方。第二筆交易將銷毀 NFT，並將鎖定的資產發送到持有被銷毀 NFT 的地址。
+
+### 鑄造禮品卡
+
+由於此範例是用於一次性 (oneshot) 鑄造合約，讓我們為驗證器添加一些參數，以便我們保證其唯一性。
+
+```aiken filename="validators/oneshot.ak" /token_name/ /utxo_ref/
+use cardano/assets.{PolicyId}
+use cardano/transaction.{OutputReference, Transaction} as tx
+
+validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
+// ...
+}
+```
+
+我們將使用 `utxo_ref` 參數來確保此驗證器僅允許鑄造一次。由於 Cardano 帳本保證 UTXO 只能被花費一次，我們可以利用它們在驗證器中繼承類似的保證。
+
+接下來，讓我們為 `rdmr` 定義一個類型。此驗證器將執行兩個動作：鑄造，然後銷毀 NFT。
+
+```aiken filename="validators/oneshot.ak"
+type Action {
+  CheckMint
+  CheckBurn
+}
+
+validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
+  // ...
+  mint(rdmr: Action, policy_id: PolicyId, transaction: Transaction) -> Bool {
+    when rdmr is {
+      CheckMint ->
+        todo @"mint"
+      CheckBurn ->
+        todo @"burn"
+    }
+  }
+}
+```
+
+接下來我們將按順序執行這些操作，以便獲得執行最終檢查所需的一切：
+
+- 對 `transaction` 進行模式比對，以獲取其 `inputs` 和持有鑄造資產的 `mint`
+- `expect` 鑄造的資產 (`mint`) 僅包含一個具有 `asset_name` 和 `amount` 的項目
+
+```aiken filename="validators/oneshot.ak"
+use aiken/collection/dict
+// ...
+  mint(rdmr: Action, policy_id: PolicyId, transaction: Transaction) -> Bool {
+    let Transaction { inputs, mint, .. } = transaction
+
+    expect [Pair(asset_name, amount)] =
+      mint
+        |> assets.tokens(policy_id)
+        |> dict.to_pairs()
+// ...
+```
+
+此時，我們已經擁有了對 `CheckMint` 動作執行最終檢查所需的所有數據。為了使此驗證器成功，我們需要確保 `utxo_ref` 參數等於交易中的 `inputs` 之一。此外，我們需要確保 `amount` 等於 1（因為我們正在鑄造一個 NFT）。為了有趣起見，我們還會檢查 `asset_name` 是否等於參數中的 `token_name`。
+
+```aiken filename="validators/oneshot.ak"
+use aiken/collection/list
+// ...
+      CheckMint -> {
+        expect True =
+          list.any(inputs, fn(input) { input.output_reference == utxo_ref })
+
+        amount == 1 && asset_name == token_name
+      }
+// ...
+```
+
+### 兌換禮品卡
+
+要兌換禮品卡，我們需要一筆同時使用兩個處理程序的交易。我們將使用帶有 `CheckBurn` 動作的 `mint` 處理程序來銷毀 NFT。我們還將使用 `spend` 處理程序來解鎖該地址的資產。
+
+讓我們完成 `mint` 處理程序的 `CheckBurn` 動作。我們只需要檢查 `amount` 是否等於 -1，且 `asset_name` 是否等於 `token_name`。
+
+```aiken filename="validators/oneshot.ak"
+// ...
+      CheckBurn ->
+        amount == -1 && asset_name == token_name
+// ...
+```
+
+現在我們可以開始編寫 `spend` 處理程序。我們需要確認 `asset_name` 等於 `token_name` 且 `amount` 等於 -1。
+
+```aiken filename="validators/oneshot.ak"
+validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
+  spend(_d, _r, own_ref: OutputReference, transaction: Transaction) -> Bool {
+    let Transaction { mint, inputs, .. } = transaction
+
+    expect Some(own_input) =
+      list.find(inputs, fn(input) { input.output_reference == own_ref })
+
+    expect Script(policy_id) = own_input.output.address.payment_credential
+
+    expect [Pair(asset_name, amount)] =
+      mint
+        |> assets.tokens(policy_id)
+        |> dict.to_pairs()
+
+    amount == -1 && asset_name == token_name
+  }
+// ...
+```
+
+確保它能夠成功構建：
+
+```sh
+aiken build
+```
+
+## 構建前端
+
+完成簡單的部分後，我們可以開始構建前端，以便在瀏覽器中與我們的智能合約進行互動。在本教學中，我們將使用 SvelteKit 來構建 UI。
+
+### 設定
+
+在與 Aiken 專案相同的目錄中生成一個 SvelteKit 專案。
+
+```sh
+npx sv create .
+```
+
+<Callout type="warning">
+  出現提示時，請使用當前目錄，即使目錄非空也請繼續，選擇 skeleton project，使用 Svelte 5，並啟用 TypeScript。請確保包含 Tailwind CSS。
+</Callout>
+
+現在我們需要添加 Lucid Evolution 和 Weld。
+
+```sh
+npm i @ada-anvil/weld @lucid-evolution/lucid vite-plugin-wasm vite-plugin-top-level-await
+```
+
+然後確保更新 `vite.config.js` 檔案以包含新插件，並允許從 `plutus.json` 提供檔案。
+
+(前端程式碼細節可參考英文原版，邏輯主要是利用 token_name 和 utxo_ref 參數化驗證器，並執行鑄造與銷毀交易)
+
+恭喜您！您現在已經了解了如何構建一個包含參數化驗證器和前端互動的完整 DApp 範例 🎉。

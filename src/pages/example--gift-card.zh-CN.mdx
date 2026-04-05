@@ -1,0 +1,891 @@
+import { Callout } from "nextra-theme-docs";
+
+# 礼品卡 (Gift Card)
+
+让我们构建一个 UI，使用 Cardano 上的智能合约来发送和兑换礼品卡。
+
+<Callout type="info">
+  您可以在 [Aiken 的主仓库](https://github.com/aiken-lang/aiken/tree/main/examples/gift_card) 中找到支持本教程的代码。
+</Callout>
+
+## 本教程涵盖内容
+
+<br />
+
+- [x] 编写 `Aiken` 相互依赖的 `mint` 和 `spend` 处理程序。
+- [x] 参数化验证器。
+- [x] 使用 [Weld](https://github.com/Cardano-Forge/weld) 管理钱包连接。
+- [x] 通过 [Blockfrost](https://blockfrost.io) 使用 [Lucid Evolution](https://github.com/Anastasia-Labs/lucid-evolution)<sup>★</sup>。
+  <sub>
+    ★ 我们将再次使用 `Blockfrost` 提供者。因此请准备好您的 Blockfrost API 密钥。
+  </sub>
+- [x] 使用 [SvelteKit](https://kit.svelte.dev/)<sup>★</sup>。
+  <sub>★ 请确保已安装 Node.js。</sub>
+
+<Callout type="info" emoji="📘">
+  遇到不熟悉的语法或概念时，请随时参考 [语言导览](language-tour/primitive-types) 以获取详细信息和更多示例。
+</Callout>
+
+## 什么是礼品卡？
+
+在本教程的语境下，礼品卡涉及将某些资产锁定在智能合约中。在锁定资产的同时，我们会在同一笔交易中铸造一个 NFT。这个 NFT 可以发送到任何地方，而 NFT 的持有者可以将其销毁 (burn) 以解锁之前锁定的资产。我们可以将这个 NFT 视为一张礼品卡。
+
+## Aiken 是最简单的部分
+
+让我们直接创建一个新的 `Aiken` 项目：
+
+```sh
+aiken new my-org/gift-card
+cd gift-card
+```
+
+<Callout type="info">
+  上面的 `my-org` 可以替换为任何名称。我们建议使用 Github 组织名称或您自己的用户名。
+</Callout>
+
+我们在之前的教程中已经介绍过 `aiken new` 生成的内容，所以让我们直接进入代码。
+
+首先删除 `lib/` 文件夹，本教程不需要它。
+
+```sh
+rm -rf lib
+```
+
+现在在 `validators/` 文件夹中创建一个名为 `oneshot.ak` 的新文件。
+
+```sh
+touch validators/oneshot.ak
+```
+
+<Callout type="info">
+  `oneshot.ak` 可以随意命名。`validators/` 中的任何文件都可以根据需要导出任意数量的验证器。
+</Callout>
+
+现在用您喜爱的编辑器打开项目文件夹，并定义两个空的验证器函数。
+
+```aiken filename="validators/oneshot.ak"
+use cardano/assets.{PolicyId}
+use cardano/transaction.{OutputReference, Transaction} as tx
+
+validator gift_card {
+  spend(_d, _r, own_ref: OutputReference, transaction: Transaction) -> Bool {
+    todo @"redeem"
+  }
+
+  mint(_rdmr: Data, policy_id: PolicyId, transaction: Transaction) -> Bool {
+    todo @"mint and burn"
+  }
+}
+```
+
+`gift_card` 验证器将通过 `mint` 处理程序用于铸造和销毁礼品卡 NFT。`spend` 处理程序将用于兑换礼品卡并解锁资产。这张礼品卡的生命周期涉及两笔交易。第一笔交易将礼品卡铸造为 NFT，并将某些资产发送到 `gift_card` 验证器的地址。礼品卡可以在第一笔交易中发送到任何地方。第二笔交易将销毁 NFT，并将锁定的资产发送到持有被销毁 NFT 的地址。
+
+### 铸造礼品卡
+
+由于此示例是用于一次性 (oneshot) 铸造合约，让我们为验证器添加一些参数，以便我们保证其唯一性。
+
+```aiken filename="validators/oneshot.ak" /token_name/ /utxo_ref/
+use cardano/assets.{PolicyId}
+use cardano/transaction.{OutputReference, Transaction} as tx
+
+validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
+// ...
+}
+```
+
+我们将使用 `utxo_ref` 参数来确保此验证器仅允许铸造一次。由于 Cardano 账本保证 UTXO 只能被花费一次，我们可以利用它们在验证器中继承类似的保证。
+
+接下来，让我们为 `rdmr` 定义一个类型。此验证器将执行两个动作：铸造，然后销毁 NFT。
+
+```aiken filename="validators/oneshot.ak"
+type Action {
+  CheckMint
+  CheckBurn
+}
+
+validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
+  // ...
+  mint(rdmr: Action, policy_id: PolicyId, transaction: Transaction) -> Bool {
+    when rdmr is {
+      CheckMint ->
+        todo @"mint"
+      CheckBurn ->
+        todo @"burn"
+    }
+  }
+}
+```
+
+接下来我们将按顺序执行这些操作，以便获得执行最终检查所需的一切：
+
+- 对 `transaction` 进行模式匹配，以获取其 `inputs` 和持有铸造资产的 `mint`
+- `expect` 铸造的资产 (`mint`) 仅包含一个具有 `asset_name` 和 `amount` 的项目
+
+```aiken filename="validators/oneshot.ak"
+use aiken/collection/dict
+// ...
+  mint(rdmr: Action, policy_id: PolicyId, transaction: Transaction) -> Bool {
+    let Transaction { inputs, mint, .. } = transaction
+
+    expect [Pair(asset_name, amount)] =
+      mint
+        |> assets.tokens(policy_id)
+        |> dict.to_pairs()
+// ...
+```
+
+此时，我们已经拥有了对 `CheckMint` 动作执行最终检查所需的所有数据。为了使此验证器成功，我们需要确保 `utxo_ref` 关键字等于交易中的 `inputs` 之一。此外，我们需要确保 `amount` 等于 1（因为我们正在铸造一個 NFT）。为了有趣起见，我们还会检查 `asset_name` 是否等于参数中的 `token_name`。
+
+```aiken filename="validators/oneshot.ak"
+use aiken/collection/list
+// ...
+      CheckMint -> {
+        expect True =
+          list.any(inputs, fn(input) { input.output_reference == utxo_ref })
+
+        amount == 1 && asset_name == token_name
+      }
+// ...
+```
+
+### 兑换礼品卡
+
+要兑换礼品卡，我们需要一笔同时使用两个处理程序的交易。我们将使用带有 `CheckBurn` 动作的 `mint` 处理程序来销毁 NFT。我们还将使用 `spend` 处理程序来解锁该地址的资产。
+
+让我们完成 `mint` 处理程序的 `CheckBurn` 动作。我们只需要检查 `amount` 是否等于 -1，且 `asset_name` 是否等于 `token_name`。
+
+```aiken filename="validators/oneshot.ak"
+// ...
+      CheckBurn ->
+        amount == -1 && asset_name == token_name
+// ...
+```
+
+現在我們可以開始編寫 `spend` 处理程序。我们需要确认 `asset_name` 等于 `token_name` 且 `amount` 等于 -1。
+
+```aiken filename="validators/oneshot.ak"
+validator gift_card(token_name: ByteArray, utxo_ref: OutputReference) {
+  spend(_d, _r, own_ref: OutputReference, transaction: Transaction) -> Bool {
+    let Transaction { mint, inputs, .. } = transaction
+
+    expect Some(own_input) =
+      list.find(inputs, fn(input) { input.output_reference == own_ref })
+
+    expect Script(policy_id) = own_input.output.address.payment_credential
+
+    expect [Pair(asset_name, amount)] =
+      mint
+        |> assets.tokens(policy_id)
+        |> dict.to_pairs()
+
+    amount == -1 && asset_name == token_name
+  }
+// ...
+```
+
+确保它能够成功构建：
+
+```sh
+aiken build
+```
+
+## 构建前端
+
+完成简单的部分后，我们可以开始构建前端，以便在浏览器中与我们的智能合约进行交互。在本教程中，我们将使用 SvelteKit 来构建 UI。
+
+### 设置
+
+在与 Aiken 项目相同的目录中生成一个 SvelteKit 项目。
+
+```sh
+npx sv create .
+```
+
+<Callout type="warning">
+  出现提示时，请使用当前目录，即使目录非空也请继续，选择 skeleton project，使用 Svelte 5，并启用 TypeScript。请确保包含 Tailwind CSS。
+</Callout>
+
+现在我们需要添加 Lucid Evolution 和 Weld。
+
+```sh
+npm i @ada-anvil/weld @lucid-evolution/lucid vite-plugin-wasm vite-plugin-top-level-await
+```
+
+然后确保更新 `vite.config.js` 文件以包含新插件，并允许从 `plutus.json` 提供文件。
+
+```js filename="vite.config.js"
+import { sveltekit } from "@sveltejs/kit/vite";
+import wasm from "vite-plugin-wasm";
+import topLevelAwait from "vite-plugin-top-level-await";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [sveltekit(), wasm(), topLevelAwait()],
+  server: {
+    fs: {
+      // Allow serving files from one level up to the project root
+      allow: ["plutus.json"],
+    },
+  },
+});
+```
+
+接着我们再添加一些可复用组件。
+
+```svelte filename="src/lib/components/Button.svelte"
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+
+  type Props = {
+    disabled?: boolean;
+    children: Snippet;
+  };
+
+  let { disabled = false, children }: Props = $props();
+</script>
+
+<button
+  {disabled}
+  class="group inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 focus:outline-none active:bg-blue-800 active:text-blue-100"
+  >{@render children()}</button
+>
+```
+
+```svelte filename="src/lib/components/Input.svelte"
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+  import type { HTMLInputAttributes } from 'svelte/elements';
+
+  interface Props extends HTMLInputAttributes {
+    children: Snippet<[]>;
+  }
+
+  let { id, children, value = $bindable(), ...props }: Props = $props();
+</script>
+
+<div>
+  <label for={id} class="mb-3 block text-sm font-medium text-gray-700">
+    {@render children()}
+  </label>
+  <input
+    bind:value
+    {...props}
+    {id}
+    class="block w-full appearance-none rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-blue-500 sm:text-sm"
+  />
+</div>
+```
+
+### 首页
+
+接下来与验证器和交易相关的操作都会完全在客户端完成。因此我们只需要渲染一个 `+page.svelte` 组件，绝大部分代码也都可以直接写在这个页面组件里。
+
+先把 `src/routes/+page.svelte` 改成下面这样：
+
+```svelte filename="src/routes/+page.svelte"
+<svelte:head>
+  <title>One Shot</title>
+</svelte:head>
+
+<div class="mx-auto mb-10 mt-20 max-w-2xl">
+  <div class="mb-10">
+    <h2 class="text-lg font-semibold text-gray-900">Make a one shot minting and lock contract</h2>
+
+    <h3 class="mb-2 mt-4">Gift Card Template</h3>
+    <pre class="overflow-x-scroll rounded bg-gray-200 p-2">
+      TODO: Render non-parameterized gift_card validator
+    </pre>
+  </div>
+
+  <div>Oneshot</div>
+</div>
+```
+
+代码里故意留了一个 `TODO`，提醒我们后面把验证器渲染出来。这里会把编译后的 Aiken 代码以十六进制字符串展示出来。虽然不是必须的，但看起来很直观。
+
+接下来我们要读取 `plutus.json`，拿到编译后的 Aiken 代码。创建一个名为 `lib/utils.ts` 的文件，并加入以下内容：
+
+```ts filename="lib/utils.ts"
+import blueprint from "../../plutus.json" assert { type: "json" };
+
+export type Validators = {
+  giftCard: string;
+};
+
+export function readValidators(): Validators {
+  const giftCard = blueprint.validators.find(
+    (v) => v.title === "oneshot.gift_card.spend"
+  );
+
+  if (!giftCard) {
+    throw new Error("Gift Card validator not found");
+  }
+
+  return {
+    giftCard: giftCard.compiledCode,
+  };
+}
+```
+
+这里没有特别复杂的逻辑。我们只是读取 `plutus.json`，找到 `gift_card` 验证器对应的编译代码。同时也导出了一个类型，方便后面在页面里使用。这个函数如果抛错，本质上就是在告诉我们：某个地方配置错了。
+
+现在把新的 `readValidators` 引入到 `src/routes/+page.server.ts`，并在服务端 loader 中使用它。这样 `+page.svelte` 页面组件就能通过 props 拿到数据，并把验证器的编译结果渲染出来。
+
+```ts filename="src/routes/+page.server.ts"
+import { readValidators } from "$lib/utils";
+import type { PageServerLoad } from "./$types";
+
+export const load: PageServerLoad = async () => {
+  const validator = readValidators().giftCard;
+
+  return { validator };
+};
+```
+
+```svelte filename="src/routes/+page.svelte"
+<script lang="ts">
+  import type { PageData } from './$types';
+
+  type Props = {
+    data: PageData;
+  };
+
+  let { data }: Props = $props();
+</script>
+
+<svelte:head>
+  <title>One Shot</title>
+</svelte:head>
+
+<div class="mx-auto mb-10 mt-20 max-w-2xl">
+  <div class="mb-10">
+    <h2 class="text-lg font-semibold text-gray-900">Make a one shot minting and lock contract</h2>
+
+    <h3 class="mb-2 mt-4">Gift Card Template</h3>
+    <pre class="overflow-x-scroll rounded bg-gray-200 p-2">{data.validator}</pre>
+  </div>
+
+  <div>Oneshot</div>
+</div>
+```
+
+### 应用主体
+
+现在终于进入关键部分了。在这里我们会收集用户输入，把参数应用到原始验证器上，然后执行交易。
+
+为了简化流程，这里假设你的浏览器里已经安装好了 [eternl](https://eternl.io/)。另一个简化点是：礼品卡铸造后先发送给自己。这样测试兑换流程时，就不需要先发给别人，也不需要第二个钱包。
+
+#### Token name
+
+我们需要先拿到 `token_name`，以便稍后把参数应用到原始验证器上。同时 Lucid 和 Weld 也需要初始化，所以先把样板代码准备好。
+
+```ts filename="src/lib/wallet.svelte.ts"
+import { createWeldInstance, type WeldConfig } from "@ada-anvil/weld";
+import { getContext, setContext } from "svelte";
+
+export class Weld {
+  weld = createWeldInstance();
+
+  // Use the $state rune to create a reactive object for each Weld store
+  config = $state(this.weld.config.getState());
+  wallet = $state(this.weld.wallet.getState());
+  extensions = $state(this.weld.extensions.getState());
+
+  constructor(persist?: Partial<WeldConfig>) {
+    this.weld.config.update({ updateInterval: 2000 });
+
+    if (persist) this.weld.persist(persist);
+
+    $effect(() => {
+      this.weld.init();
+
+      // Subscribe to Weld stores and update reactive objects when changse occur
+      // Note: No need to use subscribeWithSelector as $state objects are deeply reactive
+      this.weld.config.subscribe((s) => (this.config = s));
+      this.weld.wallet.subscribe((s) => (this.wallet = s));
+      this.weld.extensions.subscribe((s) => (this.extensions = s));
+
+      return () => this.weld.cleanup();
+    });
+  }
+}
+
+// Use the context API to scope weld stores and prevent unwanted sharing
+// of data between clients when rendering on the server
+const weldKey = Symbol("weld");
+
+export function setWeldContext(persist?: Partial<WeldConfig>) {
+  const value = new Weld(persist);
+  setContext(weldKey, value);
+  return value;
+}
+
+export function getWeldContext() {
+  return getContext<ReturnType<typeof setWeldContext>>(weldKey);
+}
+```
+
+```svelte filename="src/routes/+layout.svelte"
+<script lang="ts">
+  import '../app.css';
+
+  import { setWeldContext } from '$lib/wallet.svelte';
+
+  let { children } = $props();
+
+  setWeldContext({ enablePersistence: true });
+</script>
+
+{@render children()}
+
+```
+
+```svelte filename="src/routes/+page.svelte"
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { getWeldContext } from '$lib/wallet.svelte';
+  import {
+    Lucid,
+    Blockfrost,
+    type LucidEvolution,
+    Data,
+    Constr,
+    fromText
+  } from '@lucid-evolution/lucid';
+
+  // Components
+  import Input from '$lib/components/Input.svelte';
+  import Button from '$lib/components/Button.svelte';
+
+  // Local Types
+  import type { PageData } from './$types';
+
+  // Props
+  type Props = {
+    data: PageData;
+  };
+
+  let { data }: Props = $props();
+
+  let weld = getWeldContext();
+
+  let displayedBalance = $derived(weld.wallet.balanceAda?.toFixed(2) ?? '-');
+
+  let blockfrostAPIKey = $state('');
+  let tokenName = $state('');
+
+  onMount(() => {
+    weld.wallet.connect('eternl');
+  });
+
+  async function setupBlockfrost(e: Event) {
+    e.preventDefault();
+
+    lucid = await Lucid(
+      new Blockfrost(
+        'https://cardano-preprod.blockfrost.io/api/v0',
+        blockfrostAPIKey
+      ),
+      'Preprod'
+    );
+
+    // @ts-expect-error this is normal
+    lucid.selectWallet.fromAPI(weld.wallet.handler!.enabledApi);
+  }
+
+  function submitTokenName(e: Event) {
+    e.preventDefault();
+
+    console.log('TODO: apply params to raw validators');
+  }
+</script>
+
+<svelte:head>
+  <title>One Shot</title>
+</svelte:head>
+
+<div class="mx-auto mb-10 mt-20 max-w-2xl">
+  <div class="mb-10">
+    <h2 class="text-lg font-semibold text-gray-900">Make a one shot minting and lock contract</h2>
+
+    balance: {displayedBalance}
+
+    <h3 class="mb-2 mt-4">Gift Card Template</h3>
+    <pre class="overflow-x-scroll rounded bg-gray-200 p-2">{data.validator}</pre>
+  </div>
+
+  <div>
+    {#if !lucid}
+      <form class="mt-10 grid grid-cols-1 gap-y-8" onsubmit={setupBlockfrost}>
+        <Input
+          type="password"
+          id="blockfrostAPIKey"
+          bind:value={blockfrostAPIKey}
+        >
+          Blockfrost API Key
+        </Input>
+
+        <Button type="submit">Setup Wallet</Button>
+      </form>
+    {:else}
+      <form class="mt-10 grid grid-cols-1 gap-y-8" onsubmit={submitTokenName}>
+        <Input
+          type="text"
+          name="tokenName"
+          id="tokenName"
+          bind:value={tokenName}
+        >
+          Token Name
+        </Input>
+
+        {#if tokenName.length > 0}
+          <Button type="submit">Make Contracts</Button>
+        {/if}
+      </form>
+    {/if}
+  </div>
+</div>
+```
+
+#### 应用参数
+
+现在我们会用 `token_name` 给原始验证器应用参数。可以在 `utils.ts` 里写一个辅助函数来做这件事。
+
+```ts filename="utils.ts" {2-6,8}
+import {
+  applyDoubleCborEncoding,
+  applyParamsToScript,
+  Constr,
+  fromText,
+  validatorToAddress,
+  validatorToScriptHash,
+  type MintingPolicy,
+  type OutRef,
+  type SpendingValidator,
+} from "@lucid-evolution/lucid";
+import blueprint from "../../plutus.json" assert { type: "json" };
+
+// ... export type Validators ...
+
+// ... export function readValidators(): Validators ...
+
+export type AppliedValidators = {
+  redeem: SpendingValidator;
+  giftCard: MintingPolicy;
+  policyId: string;
+  lockAddress: string;
+};
+
+export function applyParams(
+  tokenName: string,
+  outputReference: OutRef,
+  validator: string
+): AppliedValidators {
+  const outRef = new Constr(0, [
+    new Constr(0, [outputReference.txHash]),
+    BigInt(outputReference.outputIndex),
+  ]);
+
+  const giftCard = applyParamsToScript(validator, [
+    fromText(tokenName),
+    outRef,
+  ]);
+
+  const policyId = validatorToScriptHash({
+    type: "PlutusV2",
+    script: giftCard,
+  });
+
+  const lockAddress = validatorToAddress("Preprod", {
+    type: "PlutusV2",
+    script: giftCard,
+  });
+
+  return {
+    redeem: { type: "PlutusV2", script: applyDoubleCborEncoding(giftCard) },
+    giftCard: { type: "PlutusV2", script: applyDoubleCborEncoding(giftCard) },
+    policyId,
+    lockAddress,
+  };
+}
+```
+
+`applyParams` 接收三个输入：`tokenName`、稍后通过 Lucid 获取的 `outputReference`，以及通过 props 拿到的 `validator`。首先我们用 `outputReference` 构造出 `PlutusData` 格式的 `outRef`。然后把 `tokenName` 和 `outRef` 应用到 `giftCard` 验证器上。接着用 Lucid 计算 `policyId`，并得到 `lockAddress`。这样这个函数就返回了后续交易需要的全部数据。`lockAddress` 实际上就是验证器地址，之后我们会把可兑换资产锁到这里。到这一步，`utils.ts` 就不用再改了。接下来在 `src/routes/+page.svelte` 中，于 `tokenName` 提交后调用这个新函数。
+
+```svelte filename="src/routes/+page.svelte" {3,6-6,13-23,29-34}
+<script lang="ts">
+// ... other imports ...
+import { AppliedValidators, applyParams, Validators } from "~/utils.ts";
+
+// ... other $state ...
+let parameterizedContracts: AppliedValidators | undefined = $state();
+
+// async function setupBlockfrost(e: Event) {
+
+async function submitTokenName(e: Event) {
+  e.preventDefault();
+
+  const utxos = await lucid!.wallet().getUtxos()!;
+
+  const utxo = utxos[0];
+  const outputReference = {
+    txHash: utxo.txHash,
+    outputIndex: utxo.outputIndex
+  };
+
+  const contracts = applyParams(tokenName, outputReference, data.validator);
+
+  parameterizedContracts = contracts;
+}
+</script>
+
+<div>
+  <!-- {#if lucid} -->
+  {#if lucid && parameterizedContracts}
+    <h3 class="mt-4 mb-2">New Gift Card</h3>
+    <pre class="bg-gray-200 p-2 rounded overflow-x-scroll">
+      {parameterizedContracts.redeem.script}
+    </pre>
+  {/if}
+</div>
+```
+
+现在我们已经可以根据用户输入，**在运行时动态生成可以直接上链使用的验证器**。你可能已经开始想到很多玩法了。不过先别急着做下一个大项目，先把这些新生成的验证器真正用进交易里。
+
+#### 铸造并锁定
+
+接下来我们要铸造一些资产，并把它们锁进 `applyParams` 返回的 `lockAddress`。为了保持简单，这里只提供一个输入框，让用户填写要锁定的 ADA 数量。技术上这些验证器允许锁定任意资产，但先只支持 ADA 更容易实现。除了输入框，我们还需要一个按钮，在点击时构建、签名并提交交易。交易完成后，再渲染交易哈希，并把它链接到 Cardano Scan。
+
+```svelte filename="src/routes/+page.svelte" {3-9,14-16,22-80,87-113}
+<script lang="ts">
+// ... other imports ...
+import {
+  Blockfrost,
+  Constr,
+  Data,
+  fromText,
+  Lucid,
+} from "@lucid-evolution/lucid";
+import { AppliedValidators, applyParams, Validators } from "~/utils.ts";
+
+
+// ... other $state ...
+let giftADA: string | undefined = $state();
+let lockTxHash: string | undefined = $state();
+let waitingLockTx = $state(false);
+
+// async function setupBlockfrost(e: Event) {
+
+// async function submitTokenName(e: Event) {
+
+async function createGiftCard(e: Event) {
+  e.preventDefault();
+
+  waitingLockTx = true;
+
+  try {
+    const lovelace = Number(giftADA) * 1000000;
+
+    const assetName = `${parameterizedContracts!.policyId}${fromText(
+      tokenName
+    )}`;
+
+    // Action::Mint
+    const mintRedeemer = Data.to(new Constr(0, []));
+
+    const utxos = await lucid!.wallet().getUtxos()!;
+    const utxo = utxos[0];
+
+    const tx = await lucid!
+      .newTx()
+      .collectFrom([utxo])
+      .attach.MintingPolicy(parameterizedContracts!.giftCard)
+      .mintAssets({ [assetName]: BigInt(1) }, mintRedeemer)
+      .pay.ToContract(
+        parameterizedContracts!.lockAddress,
+        { kind: 'inline', value: Data.void() },
+        { lovelace: BigInt(lovelace) }
+      )
+      .complete();
+
+    const txSigned = await tx.sign.withWallet().complete();
+
+    const txHash = await txSigned.submit();
+
+    const success = await lucid!.awaitTx(txHash);
+
+    // Wait a little bit longer so ExhaustedUTxOError doesn't happen
+    // in the next Tx
+    setTimeout(() => {
+      waitingLockTx = false;
+
+      if (success) {
+        localStorage.setItem(
+          'cache',
+          JSON.stringify({
+            tokenName,
+            giftADA,
+            parameterizedValidators: parameterizedContracts,
+            lockTxHash: txHash
+          })
+        );
+
+        lockTxHash = txHash;
+      }
+    }, 3000);
+  } catch {
+    waitingLockTx = false;
+  }
+}
+</script>
+
+<div>
+  <!-- {#if !lucid} -->
+  {#if lucid && parameterizedContracts}
+    <!-- ... show applied contracts ... -->
+    <div class="mt-10 grid grid-cols-1 gap-y-8">
+      <form onsubmit={createGiftCard}>
+        <Input type="text" name="giftADA" id="giftADA" bind:value={giftADA}>
+          ADA Amount
+        </Input>
+
+        <Button type="submit" disabled={waitingLockTx || !!lockTxHash}>
+          {#if waitingLockTx}
+            Waiting for Tx...
+          {:else}
+             Create Gift Card (Locks ADA)
+          {/if}
+        </Button>
+      </form>
+
+      {#if lockTxHash}
+        <h3 class="mb-2 mt-4">ADA Locked</h3>
+
+        <a
+          class="mb-2"
+          target="_blank"
+          href={`https://preprod.cardanoscan.io/transaction/${lockTxHash}`}
+        >
+          {lockTxHash}
+        </a>
+      {/if}
+    </div>
+  {/if}
+</div>
+```
+
+有了这段代码之后，我们就可以输入要锁定的 ADA 数量，然后点击按钮执行交易。交易会用我们的 token 铸造一个新资产，并把 ADA 发送到验证器地址，从而完成锁定。
+
+<Callout type="warning">
+  你现在可能很想立刻运行它，但如果你还没有把当前数据缓存到 local storage，之后可能很难把这些被锁定的资产找回来。因为后面还会继续写代码，这通常意味着应用会重新加载，而你会丢失当前所有状态，包括那个唯一参数化后的 `redeem` 验证器编译代码。
+</Callout>
+
+#### 销毁并解锁
+
+这个示例的最后一步，就是使用礼品卡把锁定资产取回。和前一节类似，这里同样通过按钮点击来驱动交易执行。兑换按钮点击后，如果交易成功，我们就把交易哈希渲染出来，并像上一节一样链接到 Cardano Scan。
+
+```svelte filename="src/routes/+page.svelte" {5-6,14-53,73-81,84-94}
+<script lang="ts">
+  // ... imports ...
+
+  // ... other useState ...
+  let unlockTxHash: string | undefined = $state();
+  let waitingUnlockTx = $state(false);
+
+  // async function setupBlockfrost(e: Event)
+
+  // async function submitTokenName(e: Event)
+
+  // async function createGiftCard(e: Event)
+
+  async function redeemGiftCard(e: Event) {
+    e.preventDefault();
+
+    waitingUnlockTx = true;
+
+    try {
+      const utxos = await lucid!.utxosAt(parameterizedContracts!.lockAddress);
+
+      const assetName = `${parameterizedContracts!.policyId}${fromText(
+        tokenName
+      )}`;
+
+      // Action::Burn
+      const burnRedeemer = Data.to(new Constr(1, []));
+
+      const tx = await lucid!
+        .newTx()
+        .collectFrom(utxos, Data.void())
+        .attach.MintingPolicy(parameterizedContracts!.giftCard)
+        .attach.SpendingValidator(parameterizedContracts!.redeem)
+        .mintAssets({ [assetName]: BigInt(-1) }, burnRedeemer)
+        .complete();
+
+      const txSigned = await tx.sign.withWallet().complete();
+
+      const txHash = await txSigned.submit();
+
+      const success = await lucid!.awaitTx(txHash);
+
+      waitingUnlockTx = false;
+
+      if (success) {
+        localStorage.removeItem('cache');
+
+        unlockTxHash = txHash;
+      }
+    } catch {
+      waitingUnlockTx = false;
+    }
+  }
+</script>
+
+<div>
+  <!-- {#if !lucid} -->
+  {#if lucid && parameterizedContracts}
+    <!-- ... show applied contracts ... -->
+    <div class="mt-10 grid grid-cols-1 gap-y-8">
+      <!-- ... Create gift card ... -->
+      {#if lockTxHash}
+        <h3 class="mb-2 mt-4">ADA Locked</h3>
+
+        <a
+          class="mb-2"
+          target="_blank"
+          href={`https://preprod.cardanoscan.io/transaction/${lockTxHash}`}
+        >
+          {lockTxHash}
+        </a>
+
+        <form onsubmit={redeemGiftCard}>
+          <Button type="submit" disabled={waitingLockTx || !!unlockTxHash}>
+            {#if waitingUnlockTx}
+              Waiting for Tx...
+            {:else}
+              Redeem Gift Card (Unlocks ADA)
+            {/if}
+          </Button>
+        </form>
+      {/if}
+
+      {#if unlockTxHash}
+        <h3 class="mb-2 mt-4">ADA Unlocked</h3>
+
+        <a
+          class="mb-2"
+          target="_blank"
+          href={`https://preprod.cardanoscan.io/transaction/${unlockTxHash}`}
+        >
+          {unlockTxHash}
+        </a>
+      {/if}
+    </div>
+  {/if}
+</div>
+```
+
+到这里，这个示例就完整了，我们也做出了一个相当有意思的原型。
+
+## 结语
+
+希望这个例子能让你对 Cardano 上可以构建什么产生更多想法。它也说明了一个很实际的点：DApp 里的大部分代码，其实都不是验证器本身。设计 Cardano 应用时，通常更好的思路是先想清楚你需要构造哪些交易，再去编写验证器来约束这些交易。这个完整示例的参考实现可以在 [这里](https://github.com/aiken-lang/aiken/tree/main/examples/gift_card) 找到。

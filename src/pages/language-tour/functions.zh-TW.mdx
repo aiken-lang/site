@@ -1,0 +1,304 @@
+---
+title: "函式"
+description: "Aiken 是一種用於撰寫 Cardano 智慧合約的函數式程式語言，其中函式是一等公民。函式使用 fn 關鍵字定義，具有型別化參數和隱式返回。用於構建驗證器邏輯、建立可重複使用的庫，以及透過管道運算子、匿名函式和反向傳遞來組合操作。"
+difficulty: "beginner"
+keywords: ["fn", "函式", "匿名函式", "管道運算子", "反向傳遞", "標記參數", "泛型", "型別變數", "一等函式"]
+topics: ["functions", "fn", "pipe-operator", "backpassing", "anonymous-functions"]
+---
+
+import { Callout } from "nextra-theme-docs";
+
+# 函式
+
+## 定義函式
+
+### 具名函式
+
+Aiken 中的具名函式使用 `fn{:ak}` 關鍵字定義。函式可以有（型別化）參數，並且總是有一個返回型別。在 Aiken 中，幾乎所有內容都是表達式，因此函式沒有顯式的 *return* 關鍵字。相反，它們隱式返回它們求值後的結果。
+
+```aiken
+fn add(x: Int, y: Int) -> Int {
+  x + y
+}
+
+fn multiply(x: Int, y: Int) -> Int {
+  x * y
+}
+```
+
+函式是一等公民 (first class values)，因此可以分配給變數、傳遞給其他函式，或者像對待任何其他資料型別一樣進行操作，但有一個例外：它們不能作為資料型別定義的一部分。我們將在下一節關於[自定義型別](./custom-types)中看到更多詳細資訊。
+
+```aiken
+/// 此函式接收一個函式作為參數
+fn twice(f: fn(t) -> t, x: t) -> t {
+  f(f(x))
+}
+
+fn add_one(x: Int) -> Int {
+  x + 1
+}
+
+fn add_two(x: Int) -> Int {
+  twice(add_one, x)
+}
+```
+
+### 匿名函式
+
+匿名函式可以使用類似的語法定義，並使用 let 綁定分配給一個標識符。該標識符隨後可作為呼叫和傳遞該函式的名稱。
+
+```aiken
+fn run() {
+  let add = fn(x, y) { x + y }
+
+  add(1, 2)
+}
+```
+
+<Callout type="warning">
+  不能定義「遞迴匿名函式」。如果需要遞迴，請定義為頂層具名函式。
+</Callout>
+
+## 標記參數 (Labeled arguments)
+
+當函式接收多個參數時，使用者可能很難記住參數是什麼以及預期的順序。
+
+為了幫助解決這個問題，Aiken 支援「標記參數」，即函式參數可以透過標籤而不是位置來給出。
+
+以這個替換字串部分的函式為例：
+
+```aiken
+fn replace(self: String, pattern: String, replacement: String) {
+  // ...
+}
+```
+
+呼叫該函式時，可以使用定義的標籤來傳遞參數：
+
+```aiken
+replace(self: @"A,B,C", pattern: @",", replacement: @" ")
+
+// 標記參數可以按任何順序給出
+replace(pattern: @",", replacement: @" ", self: @"A,B,C")
+
+// 位置參數和標記參數可以混合使用
+replace(@"A,B,C", pattern: @",", replacement: @" ")
+```
+
+標記參數的使用可以讓函式的呼叫以一種充滿表現力、類句子的方式進行，同時仍然提供易於閱讀且意圖清晰的函式主體。
+
+### 覆蓋預設標籤
+
+請注意，定義函式時，可以覆蓋預設標籤，以便在函式主體中使用不同的名稱（例如較短的名稱）。例如：
+
+```aiken
+fn insert(self: List<(String, Int)>, key k: String, value v: Int) {
+  // ... 使用 `k` 和 `v` 做一些事
+}
+```
+
+在外部，仍然可以使用標記的 `key` 和 `value` 來呼叫該函式，但在函式主體中，為了簡潔，它們被命名為 `k` 和 `v`。
+
+## 型別標註
+
+函式參數通常具備型別標註，編譯器會檢查這些標註並確保它們正確。
+
+```aiken
+fn identity(x: some_type) -> some_type {
+  x
+}
+
+fn inferred_identity(x) {
+  x
+}
+```
+
+Aiken 編譯器可以在沒有標註的情況下推斷出 Aiken 程式碼的所有型別，有無標註的程式碼同樣安全。為您的函式撰寫型別標註被視為一種最佳實踐，因為它們提供了有用的文件，並鼓勵在撰寫程式碼時思考型別。
+
+## 文件
+
+您可以在函式定義前添加面向使用者的文件，每行使用一個文件註解 `///{:ak}`。Markdown 是受支援的，這段文本將包含在生成的 HTML 文件中。
+
+```aiken
+/// 始終返回 **true**。
+fn always_true(_) -> Bool {
+  True
+}
+```
+
+<Callout type="info">
+與常數和資料型別定義不同，函式按其定義的順序導出並出現在生成的生成文件中。這使得我們可以將相似的函式分組在一起，以構建連貫的模組 API。
+</Callout>
+
+### 節標題 (Section headings)
+
+庫模組通常導出許多函式，這可能會讓人迅速感到眼花繚亂。因此，Aiken 透過處理節標題提供了組織函式的手法。節標題是一個雙斜線註解 `//{:ak}`，其內容以 Markdown 標籤開頭（`#{:md}`, `##{:md}`, `###{:md}`...）。
+
+這類註解標題可以散佈在模組中，以向文件生成工具指示在側邊欄以及函式主要內容中建立新標題。標題的大小和邊距取決於其重要性（`#{:md}` 為最重要）。
+
+例如：
+
+```aiken
+// ## 構造
+
+/// 構造一個持有值的 `MyType`。
+fn new(value) -> MyType {}
+
+/// 構造一個空的 `MyType`。
+fn empty() -> MyType {}
+
+// ## 檢查
+
+/// 獲取給定鍵的值（如果存在）。
+fn get(self, key) -> Option <value> {}
+```
+
+## 高級話題
+
+<Callout emoji="💡">
+如果您剛剛**開始使用** Aiken，您可以**跳過**以下部分，因為它描述了一些更高級的函式用法和行為。以後有需要時隨時可以回來閱讀。
+</Callout>
+
+### 參數解構
+
+可以直接在函式參數上使用[解構](./custom-types#destructuring)。這在從記錄 (records) 中提取欄位同時保持程式碼簡潔時特別方便：
+
+```aiken
+use aiken/math
+
+pub type Point {
+  x: Int,
+  y: Int,
+}
+
+fn distance(Point { x, y }: Point, Point { x: x_r, y: y_r }: Point) -> Option<Int> {
+  math.sqrt(math.pow2(x_r - x) + math.pow2(y_r - y))
+}
+```
+
+### 函式捕獲 (Function capturing)
+
+有一種簡寫語法可用於建立接收一個參數並呼叫另一個函式的匿名函式。`_` 用於指示參數應該傳遞的位置。
+
+```aiken
+fn add(x, y) {
+  x + y
+}
+
+fn run() {
+  let add_one = add(1, _)
+  add_one(2)
+}
+```
+
+函式捕獲語法經常與[管道運算子](./control-flow#piping)一起使用，以對某些資料建立一系列轉換。
+
+```aiken
+fn add(x: Int , y: Int ) -> Int {
+  x + y
+}
+
+fn run() {
+  // 這相當於 add(add(add(1, 3), 6), 9)
+  1
+    |> add(_, 3)
+    |> add(_, 6)
+    |> add(_, 9)
+}
+```
+
+事實上，這種用法非常普遍，以至於有一種專門的簡寫形式。
+
+```aiken
+fn run() {
+  // 這與上面的範例相同
+  1
+    |> add(3)
+    |> add(6)
+    |> add(9)
+}
+```
+
+管道運算子會首先檢查左側的值是否可以用作呼叫的第一個參數，例如 `a |> b(1, 2)` 將變為 `b(a, 1, 2)`。
+
+如果不行，它會退而將右側的結果作為一個函式來呼叫，例如 `b(1, 2)(a)`。
+
+### 泛型函式
+
+有時您可能希望撰寫對多種型別通用的泛型函式。例如，考慮一個接收任何值並返回包含兩個該值的列表的函式。這在 Aiken 中可以這樣表達：
+
+```aiken
+fn list_of_two(my_value: a) -> List<a> {
+  [my_value, my_value]
+}
+```
+
+這裡型別變數 `a` 用於代表任何可能的型別。
+
+您可以在同一個函式中使用任意數量的不同型別變數。下面這個函式聲明了型別變數 `a` 和 `b`。
+
+```aiken
+fn multi_result(x: a, y: b, condition: Bool) -> Result<a, b> {
+  when condition is {
+    True -> Ok(x)
+    False -> Error(y)
+  }
+}
+```
+
+型別變數可以命名為任何名稱，並可以包含底線 (_)，但名稱必須是小寫。與其他型別標註一樣，它們是完全選填的，但使用它們可能有助於理解程式碼。
+
+### 反向傳遞 (Backpassing) `←`
+
+接收延續 (continuation)（即只有一個參數的回呼函式）的函式可以使用反向傳遞語法呼叫：
+
+```aiken
+let x <- foo()
+
+// 這相當於：
+
+foo(fn(x) {
+
+})
+```
+
+這特別適用於對 `Option` 或 `Fuzzer` 等抽象進行操作並提供用於操作它們的原始 API 的函式。例如，讓我們考慮以下關於 `Fuzzer` 的小型 API：
+
+```aiken
+fn constant(a) -> Fuzzer<a>
+fn bool() -> Fuzzer<Bool>
+fn map(Fuzzer<a>, fn(a) -> b) -> Fuzzer<b>
+fn and_then(Fuzzer<a>, fn(a) -> Fuzzer<b>) -> Fuzzer<b>
+```
+
+讓我們看看一段*不使用反向傳遞*、使用這些原始 API 構建管道的摘錄。大致如下：
+
+```aiken
+pub fn option(fuzz_a: Fuzzer<a>) -> Fuzzer<Option<a>> {
+  bool()
+    |> and_then(
+         fn(predicate) {
+           if predicate {
+             fuzz_a |> map(Some)
+           } else {
+             constant(None)
+           }
+         },
+       )
+}
+```
+
+有點複雜。在這裡，我們可以看到如何使用 `and_then` 來逐步遍歷 bool 的 `Fuzzer`。使用反向傳遞可以更簡單地重寫為：
+
+```aiken
+pub fn option(fuzz_a: Fuzzer<a>) -> Fuzzer<Option<a>> {
+  let predicate <- and_then(bool())
+  if predicate {
+   fuzz_a |> map(Some)
+  } else {
+    constant(None)
+  }
+}
+```
+
+讀起來好多了！事實上，當有大量嵌套回呼時，這種技術甚至更有幫助，因為它將它們「扁平化」為一系列反向傳遞的 let 綁定。
