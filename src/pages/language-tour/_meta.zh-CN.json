@@ -1,0 +1,12 @@
+{
+  "primitive-types": "基础类型",
+  "variables-and-constants": "变量与常数",
+  "functions": "函数",
+  "custom-types": "自定义类型",
+  "control-flow": "流程控制",
+  "validators": "验证器",
+  "modules": "模块",
+  "tests": "测试",
+  "bench": "基准测试",
+  "troubleshooting": "疑难排解"
+}

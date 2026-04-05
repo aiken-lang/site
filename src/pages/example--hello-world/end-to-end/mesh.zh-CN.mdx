@@ -1,0 +1,301 @@
+import { Callout } from "nextra-theme-docs";
+
+# Hello, World! - 使用 Mesh
+
+## 本教程涵盖内容
+
+- [x] 在 `Preview` 测试网上与验证器互动；
+- [x] 通过 [Blockfrost][] 使用 [Mesh][]；
+- [x] 从 [Cardano 水龙头 (Cardano Faucet)](https://docs.cardano.org/cardano-testnet/tools/faucet) 获取测试资金；
+- [x] 使用网页版区块链浏览器，如 [CardanoScan][]。
+
+## 先决条件
+
+我们假设您已经按照 _Hello, World!_ 的 [入门步骤][First steps] 进行操作，因此已经安装并可以使用 Aiken。我们还将使用 [Mesh][]，因此请确保您的开发环境已准备好进行 JavaScript 编写！
+
+<Callout type="info">
+  您可以按照以下方式安装 [Mesh][] 并设置项目：
+
+  ```
+  npm init -y
+  npm install @meshsdk/core@1.9.0-beta.2 tsx
+  ```
+</Callout>
+
+## 获取资金
+
+在本教程中，我们将使用在 [入门步骤][First steps] 中构建的验证器。但在开始之前，我们需要一些资金以及一对公/私钥来持有这些资金。我们可以使用 [MeshWallet](https://meshjs.dev/apis/wallets/meshwallet) 生成私钥和地址。
+
+让我们将第一个脚本编写为 `generate-credentials.ts`：
+
+```ts filename="generate-credentials.ts"
+import { MeshWallet } from "@meshsdk/core";
+import fs from "node:fs";
+
+async function main() {
+  const secret_key = MeshWallet.brew(true) as string;
+
+  fs.writeFileSync("me.sk", secret_key);
+
+  const wallet = new MeshWallet({
+    networkId: 0,
+    key: {
+      type: "root",
+      bech32: secret_key,
+    },
+  });
+
+  fs.writeFileSync("me.addr", (await wallet.getUnusedAddresses())[0]);
+}
+
+main();
+```
+
+<Callout type="info">
+  您可以通过以下方式运行上述指令：
+
+```console
+npx tsx generate-credentials.ts
+```
+</Callout>
+
+现在，您可以前往 [Cardano 水龙头 (Cardano faucet)](https://docs.cardano.org/cardano-testnet/tools/faucet)，将一些 preview 网络的资金发送到新创建的地址（`me.addr` 内容）。
+
+<img src="/faucet_preview.webp" style={{margin: '1em auto', maxWidth: '700px'}} />
+
+👉 请确保选择 _"Preview Testnet"_ 作为网络。
+
+使用 [CardanoScan][]，我们可以观察水龙头是否向我们发送了一些 ADA。这应该会很快（几秒钟的时间）。
+
+## 使用合约
+
+现在我们有了资金，可以将其锁定在我们新创建的合约中。我们将使用 [Blockfrost 提供者 (Blockfrost Provider)](https://meshjs.dev/providers/blockfrost) 通过 [Blockfrost][] 构建并提交交易。
+
+<Callout type="info">
+  这只是使用我们喜爱的工具进行设置的一个示例。如需更多工具，请务必查看 [Cardano 开发者门户 (Cardano Developer Portal)](https://developers.cardano.org/tools)！
+</Callout>
+
+### 设置
+
+首先，我们设置 Mesh 并将 Blockfrost 作为提供者。这将允许我们让 Mesh 为我们处理交易构建，包括管理找零。它还为我们提供了一种稍后提交交易的直接方式。
+
+在项目根目录创建一个名为 `common.ts` 的文件，并添加以下代码：
+
+```ts filename="common.ts"
+import fs from "node:fs";
+import {
+  BlockfrostProvider,
+  MeshTxBuilder,
+  MeshWallet,
+  serializePlutusScript,
+  UTxO,
+} from "@meshsdk/core";
+import { applyParamsToScript } from "@meshsdk/core-csl";
+import blueprint from "./plutus.json";
+
+const blockchainProvider = new BlockfrostProvider(process.env.BLOCKFROST_PROJECT_ID);
+
+// 用于签署交易的钱包
+export const wallet = new MeshWallet({
+  networkId: 0,
+  fetcher: blockchainProvider,
+  submitter: blockchainProvider,
+  key: {
+    type: "root",
+    bech32: fs.readFileSync("me.sk").toString(),
+  },
+});
+
+export function getScript() {
+  const scriptCbor = applyParamsToScript(
+    blueprint.validators[0].compiledCode,
+    []
+  );
+
+  const scriptAddr = serializePlutusScript(
+    { code: scriptCbor, version: "V3" },
+  ).address;
+
+  return { scriptCbor, scriptAddr };
+}
+
+// 获取交易构建器的可重用函数
+export function getTxBuilder() {
+  return new MeshTxBuilder({
+    fetcher: blockchainProvider,
+    submitter: blockchainProvider,
+  });
+}
+
+// 通过交易哈希获取 UTxO 的可重用函数
+export async function getUtxoByTxHash(txHash: string): Promise<UTxO> {
+  const utxos = await blockchainProvider.fetchUTxOs(txHash);
+  if (utxos.length === 0) {
+    throw new Error("找不到 UTxO");
+  }
+  return utxos[0];
+}
+```
+
+<Callout type="warning">
+请注意，上述高亮行会寻找名为 `BLOCKFROST_PROJECT_ID` 的环境变量，其值必须设置为您的 Blockfrost 项目 ID。
+您可以在终端中通过运行以下命令定义新的环境变量（在运行脚本的同一个会话中！）：
+
+```
+export BLOCKFROST_PROJECT_ID=preview...
+```
+
+将 `preview...` 替换为您实际的项目 ID。
+</Callout>
+
+### 将资金锁定到合约中
+
+现在我们可以读取验证器，开始进行第一笔交易将资金锁定到合约中。Datum 必须符合验证器所预期的表示形式（如蓝图中所指定的），因此它是一个带有单个字节数组字段的构造函数。
+
+作为该字节数组的值，我们提供使用 `me.sk` 创建的钱包公钥哈希 (pubKeyHash)。这 cross 将是解锁资金所必需的。
+
+```ts filename="lock.ts"
+import { Asset, deserializeAddress, mConStr0 } from "@meshsdk/core";
+import { getScript, getTxBuilder, wallet } from "./common";
+
+async function main() {
+  // 这些是我们想要锁定到合约中的资产
+  const assets: Asset[] = [
+    {
+      unit: "lovelace",
+      quantity: "1000000",
+    },
+  ];
+
+  // 获取 utxo 和钱包地址
+  const utxos = await wallet.getUtxos();
+  const walletAddress = (await wallet.getUsedAddresses())[0];
+
+  const { scriptAddr } = getScript();
+
+  // 钱包公钥哈希，用于 datum
+  const signerHash = deserializeAddress(walletAddress).pubKeyHash;
+
+  // 使用 MeshTxBuilder 构建交易
+  const txBuilder = getTxBuilder();
+  await txBuilder
+    .txOut(scriptAddr, assets) // 将资产发送到脚本地址
+    .txOutDatumHashValue(mConStr0([signerHash])) // 提供 datum，其中 `"constructor": 0`
+    .changeAddress(walletAddress) // 将找零发回钱包地址
+    .selectUtxosFrom(utxos)
+    .complete();
+  const unsignedTx = txBuilder.txHex;
+
+  const signedTx = await wallet.signTx(unsignedTx);
+  const txHash = await wallet.submitTx(signedTx);
+  console.log(`1 tADA 已锁定到合约，交易 ID: ${txHash}`);
+}
+
+main();
+```
+
+<Callout type="info">
+您可以通过执行以下命令运行上述代码片段：
+
+```
+npx tsx lock.ts
+```
+</Callout>
+
+#### 检查交易
+
+现在是个停下来看看 CardanoScan 的好时机。这里我们使用本教程生成的 [Hello World 交易示例](https://preview.cardanoscan.io/transaction/8559f57234407204d8e9a6bf57ef6943c65ec7119eb1c2ca6224f8bad8e71c1e?tab=utxo)。
+
+如果您注意到合约输出地址旁边的小图标，我们甚至可以 [检查 datum](https://preview.cardanoscan.io/datumInspector?datum=d8799f581c10073fd2997d2f7dc6dadcf24966bd06b01930e5210e5de7aebf792dff)。
+
+### 从合约解锁资金
+
+最后一步：我们现在想要花费被 `hello-world` 合约锁定的 UTxO。
+
+要使交易有效，必须满足两个条件：
+
+- 必须提供 "Hello, World!" 作为 redeemer；并且
+- 必须由 datum 中引用的密钥（即所有者）签署。
+
+让我们创建一个新文件 `unlock.ts` 并添加解锁逻辑。我们需要执行之前 `lock.ts` 脚本时获得的交易识别码 (Tx ID)。
+
+<Callout type="warning">
+  请注意，我们需要使用 `.requiredSignerHash` 显式添加签署者，以便将其添加到交易的 `extra_signatories` 中 —— 并能够被我们的脚本访问。
+</Callout>
+
+```ts filename="unlock.ts"
+import {
+  deserializeAddress,
+  mConStr0,
+  stringToHex,
+} from "@meshsdk/core";
+import { getScript, getTxBuilder, getUtxoByTxHash, wallet } from "./common";
+
+async function main() {
+  // 从钱包获取 utxo、抵押品和地址
+  const utxos = await wallet.getUtxos();
+  const walletAddress = (await wallet.getUsedAddresses())[0];
+  const collateral = (await wallet.getCollateral())[0];
+
+  const { scriptCbor } = getScript();
+
+  // 钱包公钥哈希，用于 datum
+  const signerHash = deserializeAddress(walletAddress).pubKeyHash;
+  // 解锁资金所需的 redeemer 值
+  const message = "Hello, World!";
+
+  // 从锁定资金的脚本地址获取 utxo
+  const txHashFromDesposit = process.argv[2];
+  const scriptUtxo = await getUtxoByTxHash(txHashFromDesposit);
+
+  // 使用 MeshTxBuilder 构建交易
+  const txBuilder = getTxBuilder();
+  await txBuilder
+    .spendingPlutusScript("V3") // 我们使用 Plutus V3
+    .txIn( // 花费脚本地址的 utxo
+      scriptUtxo.input.txHash,
+      scriptUtxo.input.outputIndex,
+      scriptUtxo.output.amount,
+      scriptUtxo.output.address
+    )
+    .txInScript(scriptCbor)
+    .txInRedeemerValue(mConStr0([stringToHex(message)])) // 提供所需的 redeemer 值 `Hello, World!`
+    .txInDatumValue(mConStr0([signerHash])) // 只有钱包所有者可以解锁资金
+    .requiredSignerHash(signerHash)
+    .changeAddress(walletAddress)
+    .txInCollateral(
+      collateral.input.txHash,
+      collateral.input.outputIndex,
+      collateral.output.amount,
+      collateral.output.address
+    )
+    .selectUtxosFrom(utxos)
+    .complete();
+  const unsignedTx = txBuilder.txHex;
+
+  const signedTx = await wallet.signTx(unsignedTx);
+  const txHash = await wallet.submitTx(signedTx);
+  console.log(`1 tADA 已从合约解锁，交易 ID: ${txHash}`);
+}
+
+main();
+```
+
+<Callout type="info">
+像往常一样运行此脚本，但这次还要传递锁定资金之前命令获得的交易 ID。例如：
+
+```console
+npx tsx unlock.ts 48b8178e3a8842227dfbb0f73669efc163f73fd7c8758b7dafc0a5a5f07a5445
+```
+</Callout>
+
+大功告成 🎉！
+
+我们可以检查 [CardanoScan 上的赎回交易](https://preview.cardanoscan.io/transaction/af3e7d83e5ee5324a612de9126636ef55505ffb9c468dacaf419635921b7a91c?tab=contracts) 并看到它成功执行了我们的 _Hello World_ 合约。
+
+您可以在 MeshJS 的 GitHub 上找到本教程的 [完整源码](https://github.com/MeshJS/examples/tree/main/aiken-hello-world)。
+
+[Mesh]: https://meshjs.dev/
+[Blockfrost]: https://blockfrost.io
+[CardanoScan]: https://preview.cardanoscan.io
+[First steps]: /example--hello-world/basics

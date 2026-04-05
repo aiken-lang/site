@@ -1,0 +1,140 @@
+import { Tabs } from "nextra/components";
+import { Callout } from "nextra-theme-docs";
+import { InstallationInstructions } from "../components/installation-instructions";
+
+## 安装指南
+
+<Tabs items={['通过 aikup', '手动安装']}>
+
+<Tabs.Tab>
+## 通过 `aikup`
+
+首先，安装 **aikup**：这是一个基本的跨平台工具，用于下载和管理多个版本的 Aiken，并实现无缝升级。安装完成后，只需运行：
+
+```
+aikup
+```
+
+<Callout type="info">
+  `aikup` 本身会安装可用的最新版本。您可以通过指定版本号来安装特定版本。有关用法说明，请参阅 `aikup --help`。
+</Callout>
+
+### 从包管理器安装
+
+#### npm
+
+```sh
+npm install -g @aiken-lang/aikup
+```
+
+#### Homebrew
+
+```sh
+brew install aiken-lang/tap/aikup
+```
+
+#### 通过 URL 安装 (Linux & MacOS)
+
+```sh
+curl --proto '=https' --tlsv1.2 -LsSf https://install.aiken-lang.org | sh
+```
+
+#### 通过 URL 安装 (Windows)
+
+```sh
+powershell -c "irm https://windows.aiken-lang.org | iex"
+```
+
+> 您也可以在[这里](https://github.com/aiken-lang/aikup/releases/latest)找到 MSI 安装包。
+</Tabs.Tab>
+
+<Tabs.Tab>
+## 手动安装
+
+### 从包管理器安装
+
+#### npm
+
+```sh
+npm install -g @aiken-lang/aiken
+```
+
+#### Homebrew
+
+```sh
+brew install aiken-lang/tap/aiken
+```
+
+#### 从源码编译（所有平台）
+
+<InstallationInstructions />
+
+#### 从 Nix flakes 安装（仅限 Linux & MacOS）
+
+```sh
+nix build github:aiken-lang/aiken#aiken
+```
+</Tabs.Tab>
+</Tabs>
+
+## 语言服务器 (Language Server)
+
+`aiken` 命令行工具内置了 [语言服务器](https://microsoft.github.io/language-server-protocol/)。如果需要，请使用以下配置来配置您的语言客户端（请参考您的语言客户端说明）：
+
+- 命令: `aiken lsp`（该命令在命令行帮助用法中是隐藏的）
+- 根目录模式: `aiken.toml`
+- 文件类型: aiken (`.ak`)
+
+语言服务器支持多种功能（但非全部）。有关更多详细信息，请参阅主存储库上的 [支持功能](https://github.com/aiken-lang/aiken/tree/main/crates/aiken-lsp#supported-capabilities)。
+
+## 自动补全
+
+命令行工具为 `bash`、`zsh` 和 `fish` 用户提供了一些自动补全脚本。这些脚本可以通过 `aiken completion <shell>` 命令获得。您可以按照以下方式将补全脚本安装到其标准/默认位置：
+
+<Tabs items={['bash', 'zsh', 'fish']}>
+<Tabs.Tab>
+```sh
+aiken completion bash --install
+
+# 或者，手动安装
+
+aiken completion bash > /usr/local/share/bash-completion/completions/aiken
+source /usr/local/share/bash-completion/completions/aiken
+
+```
+</Tabs.Tab>
+
+<Tabs.Tab>
+```sh
+aiken completion zsh --install
+
+# 或者，手动安装
+
+aiken completion zsh > /usr/local/share/zsh/site-functions/_aiken
+source /usr/local/share/zsh/site-functions/_aiken
+```
+</Tabs.Tab>
+
+<Tabs.Tab>
+```sh
+aiken completion fish --install
+
+# 或者，手动安装
+
+aiken completion fish > ~/.config/fish/completions/aiken
+source ~/.config/fish/completions/aiken
+```
+</Tabs.Tab>
+</Tabs>
+
+## 编辑器集成
+
+以下插件为 Aiken 提供语法高亮和缩进规则。
+
+| 编辑器     | 插件                                                                                          |
+| ---------- | ----------------------------------------------------------------------------------------------- |
+| Zed        | [aiken-lang/zed-aiken](https://github.com/aiken-lang/zed-aiken)                                 |
+| VSCode     | [aiken-lang/vscode-aiken](https://github.com/aiken-lang/vscode-aiken)                           |
+| Vim/Neovim | [aiken-lang/editor-integration-nvim](https://github.com/aiken-lang/editor-integration-nvim)     |
+| Emacs      | [aiken-lang/aiken-mode](https://github.com/aiken-lang/aiken-mode)                               |
+| JetBrains  | [MedusaLabs-cardano/intellij_aiken](https://github.com/MedusaLabs-cardano/intellij_aiken)       |

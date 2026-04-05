@@ -1,0 +1,144 @@
+
+import { Callout } from "nextra-theme-docs";
+
+# 開始使用
+
+## 核對表
+
+這是一份幫助您開始使用 Aiken 的簡單核對表。如果您不知道從哪裡開始，可以參考它。
+
+<br />
+
+- [ ] 按照 [安裝說明](/installation-instructions) 安裝 `aikup` 和 `aiken`；
+- [ ] 按照下方說明建立您的第一個專案；
+- [ ] 查看 [標準函式庫](https://aiken-lang.github.io/stdlib/)；
+- [ ] 完成 [「Hello, World!」教學的第一步](/example--hello-world/basics)；
+- [ ] 如果您不熟悉 eUTxO 模型（datums、redeemers 等），請閱讀 [eUTxO 速成課程](/fundamentals/eutxo)；
+- [ ] 使用您最喜歡的前端函式庫完成 [「Hello, World!」教學的端到端部分](/example--hello-world/end-to-end/pycardano)；
+- [ ] 查看 [Aiken 的 Awesome List](https://github.com/aiken-lang/awesome-aiken#readme) 並探索您感興趣的教學、課程或專案；
+- [ ] 探索 [語言導覽](/language-tour/primitive-types)；
+- [ ] 加入 [Discord 上的 #aiken 頻道](https://discord.gg/ub6atE94v4) 並在 Twitter 上 [關注我們](https://twitter.com/aiken_eng)！
+
+想要更多？
+
+<br />
+
+- [ ] 嘗試更複雜的範例，如 [「禮品卡」(Gift Card)](/example--gift-card)；
+- [ ] 嘗試 [基於屬性的測試](/language-tour/tests#property-based-test)；
+- [ ] 閱讀關於我們剛開始接觸 Cardano 時 [希望早點知道的事](/fundamentals/what-i-wish-i-knew)；
+- [ ] 學習 eUTxO 模型中的 [設計模式](https://github.com/Anastasia-Labs/design-patterns?tab=readme-ov-file#design-patterns)；
+
+## 建立新專案
+
+使用 `aiken new foo/bar` 建立新專案骨架，並按照專案根目錄生成的 `README.md` 中的說明操作。成功後，您的專案結構大致如下：
+
+```
+.
+├── README.md
+├── aiken.toml
+├── lib
+│   └── bar
+└── validators
+```
+
+## 編譯專案
+
+使用 `aiken build` 編譯專案，使用 `aiken check` 僅進行型別檢查並執行測試。
+
+如果您正在編寫函式庫，`aiken docs` 是一個強大的公用程式，可以從型別、型別註釋和註釋中生成 HTML 文件。儘情使用它吧！
+
+最後，編譯完成後，您可以查看 `aiken blueprint` 命令組，以生成地址、套用參數並將建構輸出轉換為各種格式。
+
+## 專案結構
+
+### 資料夾組織
+
+Aiken 專案將其原始碼分為兩類：函式庫程式碼和應用程式程式碼。函式庫程式碼必須位於 `lib` 資料夾中，而應用程式程式碼（即鏈上驗證器）位於 `validators` 資料夾中。
+
+編譯後，編譯器將生成一個 Plutus 藍圖 (`plutus.json`)，這是一個摘要專案內容的互操作文件。藍圖還包含專案中每個驗證器的編譯程式碼及其對應的哈希摘要，用於地址計算。
+
+### 配置
+
+專案根目錄下有一個頂層的 `aiken.toml` 檔案，包含有關專案的元數據以及所需的相依項目。以下是專案配置的範例（已附說明）：
+
+```toml filename="aiken.toml"
+# [選填 - 如果存在 'members']
+#
+# 專案名稱，格式為 {組織}/{儲存庫}
+name = "foo/bar"
+
+# [選填 - 如果存在 'members']
+#
+# 專案版本，我們建議函式庫使用語義化版本。不過，
+# 接受任何 UTF-8 字串。
+version = "1.0.0"
+
+# [選填]
+#
+# 許可證名稱。我們建議開源專案使用 Apache-2.0 或 MPL-2.0。
+licence = "Apache-2.0"
+
+# [選填]
+#
+# 對專案的簡短說明。
+description = "下一代 DeFi 平台"
+
+# [選填]
+#
+# 尋找 Aiken 專案的資料夾列表。請參閱下方的「工作區」。
+members = ["."]
+
+# [選填]
+#
+# 要在生成的文件中顯示的專案結構化資訊。
+[repository]
+platform = "github"   # 平台類型，目前僅支援 `github`。
+user = "aiken-lang"   # 該平台上的使用者名稱或組織
+project = "stdlib"    # 該平台上的儲存庫或專案
+
+# [選填]
+#
+# 相依項目列表。避免手動編輯，請使用 `aiken packages` 來管理。
+[[dependencies]]
+source = "github"            # 平台類型，目前僅支援 `github`。
+name = "aiken-lang/stdlib"   # GitHub 專案，格式為 {組織}/{儲存庫}。
+version = "main"             # 版本，可以是 git 標籤、分支名稱或 git 提交哈希
+```
+
+### 工作區
+
+<Callout type="warning">
+  此功能仍處於早期開發階段，但逐步改進起來很簡單，
+  因此我們提前將其以較不完整的方式發布，以獲取一些回饋。
+</Callout>
+
+Aiken 對工作區（又稱 monorepo）有最基本的支援。這可以透過專案根目錄 `aiken.toml` 檔案中的 `members` 配置欄位來啟用。
+
+```toml filename="myproject/aiken.toml"
+members = ["pkgs/my_library", "pkgs/my_validators"]
+```
+
+支援萬用字元 (Globs)，因此可以這樣做：
+
+```toml filename="myproject/aiken.toml"
+members = ["pkgs/*"]
+```
+
+另請注意，當 `members` 存在時，其他配置欄位將被忽略。
+
+#### 注意事項
+
+- 目前尚不支持透過路徑引用本地相依項目。
+- 相依項目目前尚未進行智慧解析和快取。
+  每個子專案都會獲得自己的 `build/` 資料夾，目前會冗餘地擷取相依項目。
+- LSP 尚未感知此配置選項，表現可能會很奇怪。
+
+## 知名套件與模組
+
+### Aiken 的 Prelude
+
+`prelude` 包含一組供所有 Aiken 專案「預設」使用的最小函式、建構子和模組。您可以在 [aiken-lang/prelude](https://aiken-lang.github.io/prelude/) 以及本網站底部找到它。
+
+### Aiken 的標準函式庫
+
+標準函式庫（簡稱 `stdlib`）收集了在您的 Aiken 程式設計旅程中可能會用到的實用函式和資料結構。如果您需要一些範例來開始，它也是編寫良好且測試完善的 Aiken 程式碼的絕佳參考。您可以在 [aiken-lang/stdlib](https://aiken-lang.github.io/stdlib/) 以及本網站底部找到它。

@@ -1,0 +1,302 @@
+---
+title: "模块"
+description: "Aiken 是一种用于编写 Cardano 智能合约的函数式编程语言，代码被组织成称为模块的可重复使用项目。模块是包含函数、类型和常数的文件，其命名空间由文件路径决定。用于优化项目结构、在验证器之间共享代码、导入标准库以及使用 pub 控制可见性。"
+difficulty: "beginner"
+keywords: ["模块", "use", "import", "pub", "命名空间", "不透明类型", "标准库", "stdlib", "prelude", "aiken.toml", "依赖"]
+topics: ["modules", "imports", "namespaces", "visibility", "stdlib"]
+---
+
+import { Tabs } from "nextra/components";
+import { Callout } from "nextra-theme-docs";
+
+# 模块
+
+Aiken 程序由称为「模块 (modules)」的函数和类型包组成。每个模块都有自己的命名空间，并可以导出类型和值，供程序中的其他模块使用。
+
+```aiken
+// 位于 lib/straw_hats/sunny.ak 模块中
+
+fn count_down() {
+  "3... 2... 1..."
+}
+
+fn blast_off() {
+  "BOOM!"
+}
+
+pub fn set_sail() {
+  [
+    count_down(),
+    blast_off(),
+  ]
+}
+```
+
+在这里，我们可以看到一个名为 `straw_hats/sunny` 的模块，该名称由文件路径 `lib/straw_hats/sunny.ak` 决定。通常，一个项目的所有模块都位于一个与项目同名的目录中，例如本例中的 `straw_hats`。
+
+`pub` 关键字使该类型或值可以从其他模块访问。
+
+对于 `count_down` 和 `blast_off` 函数，我们省略了 `pub` 关键字，因此这些函数是「私有」模块函数。它们只能由同一个模块内的其他函数调用。
+
+函数、类型别名和常数都可以使用 `pub` 关键字从模块导出。
+
+### 限定导入 (Qualified imports)
+
+要使用另一个模块的函数或类型，我们需要使用 `use` 关键字导入它们。
+
+```aiken
+// 位于 src/straw_hats/laugh_tale.ak 模块中
+
+use straw_hats/sunny
+
+pub fn find_the_one_piece() {
+  sunny.set_sail()
+}
+```
+
+#### 自定义名称
+
+在导入模块时，还可以使用 `as` 关键字为其指定自定义名称。
+
+```aiken
+use unix/dog
+use animal/dog as kitty
+```
+
+当导入的多个模块具有相同的默认名称时，这对于区分它们非常有用。
+
+定义 `use straw_hats/sunny` 会创建一个名为 `sunny` 的新变量，其值为 `sunny` 模块。
+
+在 `find_the_one_piece` 函数中，我们使用 `.` 运算符调用导入模块的公共 `set_sail` 函数。如果尝试调用 `count_down`，则会导致编译错误，因为该函数对 `sunny` 模块是私有的。
+
+### 非限定导入 (Unqualified import)
+
+值和类型也可以以非限定的方式导入。
+
+```ak
+use animal/dog.{Dog, stroke}
+
+pub fn foo() {
+  let puppy = Dog { name: "Zeus" }
+  stroke(puppy)
+}
+```
+
+这对于在模块中频繁使用的值很有用，但通常更推荐使用限定导入，因为它能更清晰地表明值是在哪里定义的。
+
+您也可以将非限定导入与自定义名称结合使用，如下所示：
+
+```aiken
+use animal/dog.{Dog, stroke} as kitty
+```
+
+## 不透明类型 (Opaque types)
+
+有时，创建一个类型并将其实造函数和字段设为私有是很有用的，这样该类型的使用者就只能通过公开导出的函数来使用该类型。
+
+例如，我们可以创建一个 `Counter` 类型，它持有一可以递增的整数。我们不希望用户除了递增之外还更改 `Int` 的值，因此我们可以将该类型设为「不透明 (opaque)」以防止他们这样做。
+
+```aiken
+// 使用 opaque 关键字定义类型
+pub opaque type Counter {
+  Counter(value: Int)
+}
+
+pub fn new() {
+  Counter(0)
+}
+
+pub fn increment(counter: Counter) {
+  Counter(counter.value + 1)
+}
+```
+
+因为 `Counter` 类型已被标记为 `opaque`，所以其他模块中的代码无法构造 `Counter` 值、对其进行模式匹配或访问其 `value` 字段。相反，其他模块必须使用该模块导出的函数（在本例中为 `new` 和 `increment`）来操作该不透明类型。
+
+<Callout type="warning">
+  无法将 `Data{:ak}` 向下转型为不透明类型，因为通常无法知道该类型有哪些限制。例如，想象一个持有代表分子和分母的一对整数的 `Rational{:ak}` 不透明类型。
+
+  通过使用不透明类型，可以确保分母始终为非负数，且两个数字互质。因此，在许多情况下，将任意的一对整数向下转型为 `Rational` 是不安全的，因为这里不仅仅存在结构上的等效性。
+
+  基于同样的原因，不能将不透明类型（或任何持有不透明类型的类型）用作验证器的 datum 和/或 redeemer。
+</Callout>
+
+对于只有一个构造函数且该构造函数只有 1 个字段的不透明类型，存在「特殊处理」。在底层，它的行为类似于 Haskell 的 `newtype`。这在处理 CBOR 时非常重要。
+
+示例：
+
+```aiken
+pub opaque type NewType<a> { field: a }
+pub fn new_type(a) -> NewType<a> { NewType(a) }
+..
+trace new_type(43) // 43
+
+// 将其与非不透明类型进行比较：
+pub type Constr<a> { field: a }
+pub fn new_constr(a) -> Constr<a> { Constr(a) }
+..
+trace new_constr(43) // 121([_ 43])
+```
+
+## 知名模块
+
+### Prelude 模块
+
+语言内建了两个模块，第一个是 `aiken` prelude 模块。默认情况下，其类型和值会自动导入到您编写的每个模块中，但您仍然可以选择以常规方式导入它。如果您创建了一个与 prelude 中的项目同名的类型或值，这可能会很有用。
+
+```aiken
+use aiken
+
+/// 此定义局部覆盖了 `Option` 类型
+/// 和 `Some` 构造函数。
+pub type Option {
+  Some
+}
+
+/// 原始的 `Option` 和 `Some` 仍然可以使用
+pub fn go() -> aiken.Option<Int> {
+  aiken.Some(1)
+}
+```
+
+Prelude 模块的内容记录在 [aiken-lang/prelude](https://aiken-lang.github.io/prelude/aiken.html) 中。
+
+### Builtin 模块
+
+语言自有的第二个模块用于公开 Plutus Core 中有用的内建函数。大多数底层平台函数在这里都以「snake_case」名称提供。Aiken 的许多语法最终都会编译为某些内建函数的组合，但许多内建函数并未通过语法「公开」，需要直接使用。标准库将这些函数封装在更符合 Aiken 风格的接口中，因此除非您正在制作自己的标准库，否则可能永远不需要直接使用这些函数。
+
+```aiken
+use aiken/builtin
+
+fn eq(a, b) {
+    builtin.equals_integer(a, b)
+}
+
+// 在执行以下操作时会隐式使用：
+
+a == b
+```
+
+Builtin 模块的内容记录在 [aiken-lang/prelude](https://aiken-lang.github.io/prelude/aiken/builtin.html) 中。
+
+## 条件编译模块
+
+### 环境 (Environments)
+
+自 `v1.1.0` 起，Aiken 支持条件环境模块。环境模块遵循特殊规则：
+
+1. 它们必须位于项目根目录的 `env` 目录中。
+2. 使用时，其中至少一个必须命名为 `default.ak`；当未提供显式模块时，默认使用它。
+3. 在给定的编译阶段中，一次只有其中一个可用。
+4. 在其他模块中，无论其「实际名称」为何，它们始终被称为 `env`。
+
+例如，假设以下项目结构：
+
+```
+.
+├── aiken.toml
+├── env
+│   ├── default.ak
+│   ├── preprod.ak
+│   └── preview.ak
+└── validators
+    └── main.ak
+```
+
+在 `main` 中，可以假设存在一个 `env` 模块，并像导入任何其他模块一样导入它：`use env{:ak}`。模块的内容取决于传递给用于 `check` 或 `build` 项目命令的 `--env` 参数。省略 `--env` 时，默认为 `default.ak`。请注意，这些模块中的每一个都必须定义类似的 API。通常，它们会导出在整个验证器中使用但取决于运行环境的常数。
+
+示例：
+
+```aiken filename="validators/main.ak"
+use env
+
+validator main() {
+  mint(redeemer, policy_id, self)  {
+    self.signatories
+      |> list.has(env.administrator)
+  }
+}
+```
+
+<Tabs items={['default', 'preprod', 'preview']}>
+
+<Tabs.Tab>
+
+```aiken filename="env/default.ak"
+pub const administrator = #"0000000000"
+```
+
+</Tabs.Tab>
+
+<Tabs.Tab>
+
+```aiken filename="env/preprod.ak"
+pub const administrator = #"12341234"
+```
+
+</Tabs.Tab>
+
+<Tabs.Tab>
+
+```aiken filename="env/preview.ak"
+pub const administrator = #"56785678"
+```
+
+</Tabs.Tab>
+</Tabs>
+
+环境名称没有限制（除了 Aiken 模块名称的通常限制外）。它们可以包含任意逻辑和定义，也可以通过显式导入 `use preview` 等方式导入其他模块以及其他环境模块。然而，关于导入循环的规则仍然适用。
+
+### 配置 (Configurations)
+
+环境模块非常灵活且极具表现力。在需要将可能还利用其他函数的复杂动态配置组合在一起时，它们非常有用。但在许多情况下，并不需要它们的全部功能，只需要定义一些静态常数即可。对于这些场景，Aiken 提供了一个名为条件配置值的类似功能。
+
+这些配置直接在 `aiken.toml` 中定义，可以代表整数、布尔值、字节数组或这些类型的列表/元组。与环境类似，它们期望一个配置命名为 `default`。其下的所有值随后都会被注入到一个特殊的 `config{:ak}` 模块中，该模块可以按常规方式导入。
+
+以下是一个条件配置的详尽示例，及其在 Aiken 中的等效形式：
+
+```toml filename="aiken.toml"
+name = "aiken-lang/scratchpad"
+version = "1.0.0"
+
+[config.default]
+price = 1000000               # pub const price: Int = 1_000_000
+is_mainnet = true             # pub const is_mainnet: Bool = True
+network = "mainnet"           # pub const network: ByteArray = "mainnet"
+quotas = [1, 2, 3]            # pub const ratio: List<Int> = [1, 2, 3]
+asset = ["HOSKY", 42]         # pub const asset: (ByteArray, Int) = ("HOSKY", 42)
+[config.default.owner]        # pub const owner: ByteArray = #"0000111122223333"
+bytes = "0000111122223333"
+encoding = "hex"
+```
+
+然后，可以像引用标准模块一样引用任何配置值：
+
+```aiken
+use config
+
+fn main() {
+  if config.is_mainnet {
+    config.price * 2
+  } else {
+    ..
+  }
+}
+```
+
+与条件环境模块一样，`--env` 选项驱动着正确配置值的选择。但与模块不同，配置值不能引用其他配置值，且仅限于 TOML 语法支持的内容。
+
+## 文档
+
+您可以在模块顶步使用每行一个模块文档注释 `////`（四个斜杠！）添加面向用户的文档。Markdown 是受支持的，这段文本块将包含在生成的 HTML 文档中。
+
+### 隐藏模块
+
+有时，您可能希望在生成的文档中隐藏某些模块，因为它们可能包含不适合向用户公开的内部函数，但基于各种原因被拆分出来。
+
+要隐藏模块，可以在模块文件的开头使用 `@hidden` 标签。
+
+```aiken
+//// @hidden
+//// 更多的文档内容
+```

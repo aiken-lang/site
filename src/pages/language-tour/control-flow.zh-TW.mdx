@@ -1,0 +1,260 @@
+---
+title: "流程控制"
+description: "Aiken 是一種用於撰寫 Cardano 智慧合約的函數式程式語言，它將每個程式塊視為一個表達式。流程控制透過 if/else 表達式、when/is 模式匹配、管道運算子和遞迴來處理 —— 這裡沒有迴圈。用於引導驗證器邏輯、解構自定義型別、處理交易場景以及組合操作。"
+difficulty: "beginner"
+keywords: ["when", "is", "if", "else", "模式匹配", "管道運算子", "expect", "遞迴", "表達式塊", "流程控制", "沒有迴圈"]
+topics: ["control-flow", "pattern-matching", "when-is", "if-else", "pipe-operator", "recursion"]
+---
+
+import { Callout } from "nextra-theme-docs";
+
+# 流程控制
+
+## 程式塊 (Blocks)
+
+Aiken 中的每個程式塊都是一個表達式。程式塊中的所有表達式都會被執行，並返回最後一個表達式的結果。
+
+```aiken
+let value: Bool = {
+    "Hello"
+    42 + 12
+    False
+}
+
+value == False
+```
+
+表達式塊可以用來代替括號，以改變運算的優先順序。
+
+```aiken
+let celsius = { fahrenheit - 32 } * 5 / 9
+```
+
+## 管道 (Piping)
+
+| 運算子 | 優先級 |
+| :-----: | ---------- |
+| `\|>{:ak}` | 0 |
+
+Aiken 提供了一種將一個函式的結果傳遞給另一個函式參數的語法：管道運算子 (`|>`)。這在功能上類似於 Elixir、Elm 或 F# 中的相同運算子。
+
+管道運算子允許您在不使用大量括號和巢狀的情況下鏈接函式呼叫。舉一個簡單的例子，考慮在 Aiken 中模擬一個想像中的 `string.reverse` 實作：
+
+```aiken
+string_builder.to_string(string_builder.reverse(string_builder.from_string(string)))
+```
+
+使用管道運算子可以更自然地表達這一點，從而無需追蹤括號的閉合。
+
+```aiken
+string
+  |> string_builder.from_string
+  |> string_builder.reverse
+  |> string_builder.to_string
+```
+
+該表達式的每一行都將函式應用於前一行的結果。這之所以能輕鬆運作，是因為這些函式中的每一個都只接收一個參數。對於接收多個參數的函式，可以使用語法來替換特定的參數；更多資訊，請參見下方「函式捕獲」章節。
+
+## 透過遞迴實現迴圈
+
+Aiken 是一種函數式程式語言，因此不提供任何用於迴圈的流程控制（如 for 或 while）。相反，Aiken 擁抱遞迴。遞迴函式是在其定義中呼叫自身的函式。同樣地，遞迴型別是根據自身定義的型別。
+
+讓我們分別看一個例子。
+
+```aiken
+type MyList<a> {
+  Empty
+  Prepend(a, MyList<a>)
+}
+
+fn length(xs: MyList<a>) -> Int {
+  when xs is {
+    Empty -> 0
+    Prepend(_head, tail) -> 1 + length(tail)
+  }
+}
+
+length(Prepend(1, Prepend(2, Prepend(3, Empty)))) // == 3
+```
+
+在這裡，我們人為地定義了一個代表鏈結列表的自定義 `MyList{:ak}` 型別。並且我們在其上定義了一個計算其長度的函式。在這兩種情況下，您可以看到存在終止條件是至關重要的。
+
+遞迴非常強大，尤其是在 Cardano 的 Plutus 執行環境中。請善用它。
+
+## If-Else
+
+不鼓勵對 `Bool{:ak}` 值進行模式匹配，而應使用 `if *condition* else` 表達式。
+
+```aiken
+let some_bool = True
+
+if some_bool {
+  "It's true!"
+} else {
+  "It's not true."
+}
+```
+
+請注意，雖然它看起來像是一條指令：如果這樣就做那樣，否則做另一件事，但它實際上是一個單一的表達式。這意味著兩個分支的返回型別必須一致。
+
+順便提一下，您可以根據需要擁有多個條件 `else/if{:ak}` 分支：
+
+```aiken
+fn fibonacci(n: Int) -> Int {
+  if n == 0 {
+    0
+  } else if n == 1 {
+    1
+  } else {
+    fibonacci(n-2) + fibonacci(n-1)
+  }
+}
+```
+
+## Fail & Todo
+
+有時，您需要停止程式的求值，因為您遇到了一個被視為無效的情況，或者僅僅是因為您還沒有完成某些邏輯的開發。Aiken 為此提供了兩個方便的關鍵字：`fail{:ak}` 和 `todo{:ak}`。
+
+當遇到這兩者之一時，都會停止程式的求值，程式將被視為失敗。它們在語義上有所不同，即編譯器對待它們的方式不同。
+
+事實上，`todo{:ak}` 會在編譯時觸發警告，以提醒您那些未完成的部分。`fail{:ak}` 則不會，因為它被假定為一個預期的中斷點。請注意，警告還包括需要替換 `todo{:ak}` 的表達式的預期型別。如果您不確定需要什麼型別，這是一種詢問編譯器的有用方式。
+
+讓我們各看一個例子來理解其中的區別：
+
+```aiken
+fn favourite_number() -> Int {
+  // 型別標註顯示這返回一個 Int，但我們還不需要實作它。
+  todo
+}
+
+fn expect_some_value(opt: Option<a>) -> a {
+  when opt is {
+    Some(a) -> a
+    None -> fail // 我們希望在遇到 'None' 時失敗。
+  }
+}
+```
+
+當這段程式碼被建構時，Aiken 會進行型別檢查和編譯以確保其有效，如果執行該函式，`todo{:ak}` 或 `fail{:ak}` 將被替換為導致程式崩潰的程式碼。
+
+### 提供理由
+
+可以提供一個 `String{:ak}` 訊息作為文件形式。當 `todo{:ak}` 或 `fail{:ak}` 程式碼被求值時，該訊息將被追蹤。請注意，這可能是您唯一會遇到 `String{:ak}` 型別的地方，這是因為訊息需要是可列印的 —— 絕大多數 `ByteArray{:ak}` 通常只是純粹的亂碼。
+
+```aiken
+fn favourite_number() -> Int {
+  todo @"相信那一個相信著你自己的你！"
+}
+
+fn expect_some_value(opt: Option<a>) -> a {
+  when opt is {
+    Some(a) -> a
+    None -> fail @"選項 (Option) 沒有值"
+  }
+}
+```
+
+## Expect
+
+`expect{:ak}` 是一個特殊的賦值關鍵字，它的工作方式類似於 `let{:ak}`，但允許執行某些潛在不安全的轉換。它有兩個主要的應用場景：
+
+### 非窮舉模式匹配
+
+如果您有一個擁有多個構造函數變體的型別的值，但您只對其中一個可能的變體作為結果感興趣（即任何其他結果都會使程式無效），那麼 `expect{:ak}` 是完美的工具。考慮以下範例中的 `Option{:ak}` 型別：
+
+```aiken
+let x = Some(42)
+
+// 作為模式匹配
+let y = when x is {
+  None -> fail
+  Some(y) -> y
+}
+
+// 使用 expect
+expect Some(y) = x
+```
+
+如您所見，`expect{:ak}` 的工作方式類似於非窮舉模式匹配。不同之處在於，如果右側不具備預期的形狀，它會被指示使整個程式崩潰。它向編譯器發出信號，表示在這種特定情況下，不具備窮舉性是可以接受的。
+
+<Callout type="info">
+  這在傳統開發領域中可能被視為一種不好的做法，但請記住 Aiken 是在智慧合約上下文中使用，那裡通常沒有錯誤處理的空間。資料要麼符合預期格式，要麼整個合約失敗。
+</Callout>
+
+### 從 Data 轉換為自定義型別
+
+`expect{:ak}` 的另一個至關重要的用途是將某些不透明的 `Data{:ak}` 轉換為具體表示形式。在 Cardano 智慧合約的上下文中，我們會在各處遇到 `Data{:ak}`，通常是在處理附加在輸出上的 datum 時。
+
+通常，我們確實期望某個 datum 具有特定的結構，因此能夠在驗證器中安全地體現這些假設是非常方便的。
+
+其語法與另一種應用場景相同，但它需要明確的型別標註。
+
+```aiken
+type MyDatum {
+  foo: Int,
+  bar: ByteArray,
+}
+
+fn to_my_datum(data: Data) -> MyDatum {
+  expect my_datum: MyDatum = data
+  my_datum
+}
+```
+
+請注意，如果給定的 `Data{:ak}` 實際上不是目標型別 `MyDatum{:ak}` 的有效表示，則此轉換將失敗。這裡的主要應用場景是將以序列化形式提供給腳本的腳本上下文 (script contexts)、datum 和 redeemer 實例化。
+
+### 自定義追蹤
+
+在以「詳細 (verbose)」模式（`--trace-level verbose`）編譯時，expect 表達式將生成相應的執行時追蹤。這有助於更輕鬆地對程式碼進行疑難排解。預設情況下，追蹤訊息是根據原始碼自動生成的，但可以使用文件註解將其替換為自定義訊息：
+
+```aiken
+/// 生命、宇宙以及萬事萬物的終極答案。
+expect answer == 42
+```
+
+注意前面有 3 個（不是 2 個！）斜線。如果斷言失敗，則會產生一個 `"<expected> 生命、宇宙以及萬事萬物的終極答案."{:ak}` 的追蹤。在「緊湊 (compact)」模式下，追蹤將被截斷為其「標籤（如果有的話）」。標籤定義為冒號 `:{:ak}` 之前的文本部分。
+
+例如：
+
+```aiken
+/// 斷言 001: 重新定義數學
+expect 1 + 1 == 3
+```
+
+在詳細模式下將產生 `"<expected> 斷言 001: 重新定義數學"{:ak}`，但在緊湊模式下僅產生 `"<expected> 斷言 001"{:ak}`。當然，在「靜默 (silent)」模式下什麼都不會產生。
+
+## 使用 `if/is` 進行軟轉型 (Soft casting)
+
+`expect{:ak}` 關鍵字在失敗是一個選項的情況下運作良好。但有些情況，例如在遞迴遍歷列表元素時，失敗是不可接受的。因此，當您需要在右側的值不具備正確形狀時退回（而不是響亮地失敗）時，`if *expr* is *pattern*{:ak}` 就派上用場了。當您根本不知道不透明 `Data{:ak}` 的預期型別，並需要嘗試多種替代方案時，它也特別方便。
+
+有一個對 if 表達式的擴展項目，可以透過使用提供的 else 來嘗試轉型而不返回錯誤。
+
+```aiken
+type Foo {
+  foo: Int
+}
+
+type Bar {
+  Buzz(Int)
+  Bazz(Int)
+}
+
+fn soft_casting(d: Data, x: Data) -> Bool {
+  // 未提供模式
+  if d is Foo {
+    d.foo == 1
+  // 提供模式
+  } else if d is Bazz(y): Bar {
+    y == 1
+  // 提供模式
+  } else if x is Buzz(y): Bar {
+    y == 2
+  } else {
+    False
+  }
+}
+```
+
+與 `expect{:ak}` 類似，模式可以用於型別轉型或針對單一模式進行模式匹配。同樣像 `expect{:ak}` 一樣，它也可以將新的標識符引入作用域。如圖所示，在第二和第三個分支中，我們引入了一個變數 `y{:ak}`，它僅在這些分支中可用。請注意，在不需要型別轉型的情況下，不鼓勵使用 `if/is{:ak}`：這種情況請直接使用 `when/is{:ak}`。
+
+最後一個 `else{:ak}` 總是必需的，它充當通用匹配符 / 籠統情況，以處理任何先前分支未明確涵蓋的剩餘模式或轉型。
