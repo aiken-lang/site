@@ -178,6 +178,7 @@ const config: DocsThemeConfig = {
           <ul>
             <li><a href="https://discord.gg/JnWjkrErJr">Discord</a></li>
             <li><a href="https://github.com/aiken-lang/awesome-aiken#readme">Awesome list</a></li>
+            <li><a href="https://packages.aiken-lang.org/">Packages</a></li>
           </ul>
         </nav>
         <nav>

@@ -17,6 +17,11 @@
     "type": "page",
     "href": "https://aiken-lang.github.io/stdlib/"
   },
+  "packages": {
+    "title": "Packages",
+    "type": "page",
+    "href": "https://packages.aiken-lang.org"
+  },
   "playground": {
     "title": "Playground",
     "type": "page",
