@@ -1,0 +1,12 @@
+{
+  "primitive-types": "基礎型別",
+  "variables-and-constants": "變數與常數",
+  "functions": "函式",
+  "custom-types": "自定義型別",
+  "control-flow": "流程控制",
+  "validators": "驗證器",
+  "modules": "模組",
+  "tests": "測試",
+  "bench": "基準測試",
+  "troubleshooting": "疑難排解"
+}

@@ -1,0 +1,312 @@
+import { Callout } from "nextra-theme-docs";
+
+# Hello, World!
+
+让我们在 10 分钟内在 Cardano 上编写并运行一个智能合约。是的，您没看错。
+
+<Callout type="info">
+  您可以在 [Aiken 的主仓库](https://github.com/aiken-lang/aiken/tree/main/examples/hello_world) 中找到支持本教程的代码。
+</Callout>
+
+## 本教程涵盖内容
+
+<br />
+
+- [x] 编写基础的 Aiken 验证器；
+- [x] 使用 Aiken 编写并运行测试；
+- [x] 智能合约疑难排解。
+
+<Callout type="info" emoji="📘">
+  遇到不熟悉的语法或概念时，请随时参考 [语言导览](/language-tour/primitive-types) 以获取详细信息和更多示例。
+</Callout>
+
+## 先决条件
+
+我们将使用 Aiken 来编写脚本，因此请确保已安装命令行工具，否则请参阅 [安装说明](/installation-instructions)。
+
+## 项目脚手架 (Scaffolding)
+
+首先，让我们创建一个新的 Aiken 项目：
+
+```
+aiken new aiken-lang/hello-world
+cd hello-world
+```
+
+此命令会搭建一个 Aiken 项目脚手架。具体来说，它会创建 `lib` 和 `validators` 文件夹，您可以在其中放置 Aiken 源代码文件。
+
+```
+├── aiken.toml
+├── env
+├── lib
+├── README.md
+└── validators
+    └── placeholder.ak
+```
+
+## 使用标准库
+
+我们将使用 [标准库](https://aiken-lang.github.io/stdlib) 来编写验证器。幸运的是，`aiken new` 已自动为我们的 `aiken.toml` 添加了标准库。它看起来大约像这样：
+
+```toml filename="aiken.toml"
+name = "aiken-lang/hello-world"
+version = "0.0.0"
+compiler = "v1.1.21"
+plutus = "v3"
+license = "Apache-2.0"
+description = "Aiken contracts for project 'aiken-lang/hello-world'"
+
+[repository]
+user = 'aiken-lang'
+project = 'hello-world'
+platform = 'github'
+
+[[dependencies]]
+name = "aiken-lang/stdlib"
+version = "v3.0.0"
+source = "github"
+
+[config]
+```
+
+现在，运行 `aiken check`，我们应该会看到正在下载依赖项。这应该不会花太长时间。
+
+```
+❯ aiken check
+    Compiling aiken-lang/hello-world 0.0.0 (.)
+    Resolving dependencies
+    Resolving aiken-lang/hello-world
+      Fetched 1 package in 0.07s from cache
+    Compiling aiken-lang/stdlib v3.0.0 (./build/packages/aiken-lang-stdlib)
+   Collecting all tests scenarios across all modules
+              ⚠ <redacted>
+      Summary 0 errors, 6 warnings
+```
+
+我们已简略了上述命令输出的警告。默认情况下，`aiken new` 会为所有 [验证处理程序](/language-tour/validators#handlers) 生成一个预留模板。TODO 会在 Aiken 中生成警告，以便在大型代码库中作为提醒。在这里，我们才刚刚开始，不需要任何模板。因此我们可以将其删除：
+
+```bash
+rm validators/placeholder.ak
+```
+
+## 我们的第一个验证器
+
+让我们将第一个验证器编写为 `validators/hello_world.ak`：
+
+```aiken filename="validators/hello_world.ak"
+use aiken/collection/list
+use aiken/crypto.{VerificationKeyHash}
+use cardano/script_context.{ScriptContext}
+use cardano/transaction.{OutputReference, Transaction}
+
+pub type Datum {
+  owner: VerificationKeyHash,
+}
+
+pub type Redeemer {
+  msg: ByteArray,
+}
+
+validator hello_world {
+  spend(
+    datum: Option<Datum>,
+    redeemer: Redeemer,
+    _own_ref: OutputReference,
+    self: Transaction,
+  ) {
+    expect Some(Datum { owner }) = datum
+    let must_say_hello = redeemer.msg == "Hello, World!"
+    let must_be_signed = list.has(self.extra_signatories, owner)
+    must_say_hello && must_be_signed
+  }
+
+   else(_ctx: ScriptContext) {
+     False
+  }
+}
+```
+
+我们的第一个验证器虽然初级，但已经有很多值得探讨的地方了。
+
+1. 它在 datum 中寻找验证密钥哈希 (`owner`)，并在 redeemer 中寻找消息 (`msg`)。请记住，在 eUTxO 模型中，**datum** 是在合约中**锁定资金时**设置的，因此可以视为配置信息。在这里，我们将指出合约的所有者，并要求他们提供签名才能解锁资金 —— 这与典型的非脚本地址的工作方式非常相似。
+
+2. 此外，因为没有合适的 "Hello, World!" 就称不上是 "Hello, World!"，我们的小合约还要求在 redeemer 中（即从合约花费时）传递这条完全相同的消息（作为 UTF-8 编码的字节数组）。
+
+现在是构建我们第一个合约的时候了！
+
+```
+aiken build
+```
+
+此命令会在项目根目录生成一个 [CIP-0057 Plutus 蓝图](https://github.com/cardano-foundation/CIPs/pull/258)，文件名为 `plutus.json`。此蓝图描述了您的链上合约及其二进制接口。具体来说，它包含了将由账本运行的生成链上代码，以及可用於构建地址的验证器的哈希值。
+
+此格式与框架无关，旨在促进工具之间的互操作性。蓝图已完全集成到 Aiken 中，它可以根据您的类型定义和注释自动生成。
+
+让我们看看验证器的实战效果！
+
+## 添加追踪 (Traces)
+
+从某种意义上说，验证器无非就是「谓词 (predicates)」。谓词是一个返回布尔值的函数。它指出操作是否被允许。在这里，我们正在编写一个 `spend` 验证器，它控制谁被允许花费被它锁定的资金。验证器的疑难排解很快就会变得困难，因为它们给出的唯一真实输出就是「是」或「否」。为了应对这一点，您可以向验证器添加「追踪 (traces)」。追踪是特殊的命令，告诉账本 —— 或任何正在运行验证器的系统 —— 在遇到这些命令时收集消息。失败时，它会喷出遇到的消息，从而提供程序运行的追踪路径。
+
+所以让我们添加一些追踪。
+
+```aiken filename="validators/hello_world.ak" {3, 21, 29}
+use aiken/collection/list
+use aiken/crypto.{VerificationKeyHash}
+use aiken/primitive/string
+use cardano/script_context.{ScriptContext}
+use cardano/transaction.{OutputReference, Transaction}
+
+pub type Datum {
+  owner: VerificationKeyHash,
+}
+
+pub type Redeemer {
+  msg: ByteArray,
+}
+
+validator hello_world {
+  spend(
+    datum: Option<Datum>,
+    redeemer: Redeemer,
+    _own_ref: OutputReference,
+    self: Transaction,
+  ) {
+    trace @"redeemer": string.from_bytearray(redeemer.msg)
+
+    expect Some(Datum { owner }) = datum
+
+    let must_say_hello = redeemer.msg == "Hello, World!"
+
+    let must_be_signed = list.has(self.extra_signatories, owner)
+
+    must_say_hello? && must_be_signed?
+  }
+
+   else(_ctx: ScriptContext) {
+     False
+  }
+}
+```
+
+在这里我们做了两处改动：
+
+1. 我们使用 `trace` 关键字添加了一条手动消息。该消息即为传递给 redeemer 的内容。通过这点，我们可以检查验证器看到的数值是否为预期值。
+
+2. 请注意我们还在每个表达式 `must_say_hello` 和 `must_be_signed` 的末尾添加了一个问号 `?`。这就是我们所说的 `trace-if-false` 运算符，对于调试非常有用。只有当该运算符附加的表达式估值结果为 `False` 时，它才会产生追踪。这鼓励了一种将验证器构建为各项要求之与 (conjunction) 或或 (disjunction) 的方法。在执行不成功时，所有未通过的要求都会留下追踪！
+
+为了看到这些追踪，我们需要编写一个简短的测试。
+
+## 编写测试
+
+Aiken 内置了对测试的支持！正如您稍后将看到的，测试也可以作为基准测试，因为它们会显示运行所需的精确内存和步骤执行单元。它们还会为我们收集追踪。让我们编写一个运行我们验证器的简单测试。测试是不接收参数并返回布尔值的函数。但与普通函数不同，它们使用关键字 `test` 标注。我们将需要一个 datum、一个 redeemer 和一个脚本上下文，以及更多的导入 (imports)：
+
+```aiken filename="validators/hello_world.ak" {3-21}
+// ... 代码其余部分保持不变
+
+test hello_world_example() {
+  let datum =
+    Datum { owner: #"00000000000000000000000000000000000000000000000000000000" }
+
+  let redeemer = Redeemer { msg: "Aiken Rocks!" }
+
+  let placeholder_utxo = OutputReference { transaction_id: "", output_index: 0 }
+
+  hello_world.spend(
+    Some(datum),
+    redeemer,
+    placeholder_utxo,
+    transaction.placeholder,
+  )
+}
+```
+
+在这里，我们有了一个测试！一个失败的测试，但我们会让它通过的，别担心。但首先，让我们运行它。只需运行 `aiken check`：
+
+```
+❯ aiken check
+        
+  ┍━ hello_world ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  │ FAIL [mem: 11387, cpu: 4370671] hello_world_example
+  │ · with traces
+  │ | redeemer: Aiken Rocks!
+  │ | must_say_hello ? False
+  ┕━━━━━━━━━━━━━━━━━━━━━━ 1 tests | 0 passed | 1 failed
+```
+
+这个输出已经非常有用。我们可以看到在验证器中添加的 `trace`，它喷回了 redeemer 中的 `msg`。接着，我们看到了 `?` 运算符在起作用。它显示了一条追踪消息，因为谓词 `must_say_hello` 返回了 `False`。请注意，此处未显示另一个谓词 `must_be_signed`，因为 Aiken 确保按顺序逐一检查条件。由于第一个条件已经失败，整个表达式立即短路返回 `False`。
+
+让我们解决这个问题，并确保我们说的是 `Hello, World!`。
+
+```aiken filename="validators/hello_world.ak" {5}
+test hello_world_example() {
+  let datum =
+    Datum { owner: #"00000000000000000000000000000000000000000000000000000000" }
+
+  let redeemer = Redeemer { msg: "Hello, World!" }
+
+  let placeholder_utxo = OutputReference { transaction_id: "", output_index: 0 }
+
+  hello_world.spend(
+    Some(datum),
+    redeemer,
+    placeholder_utxo,
+    transaction.placeholder,
+  )
+}
+```
+
+现在，我们可以再次运行 `aiken check`：
+
+```
+❯ aiken check
+        
+  ┍━ hello_world ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  │ FAIL [mem: 18729, cpu: 7160240] hello_world_example
+  │ · with traces
+  │ | redeemer: Hello, World!
+  │ | must_be_signed ? False
+  ┕━━━━━━━━━━━━━━━━━━━━━━ 1 tests | 0 passed | 1 failed
+```
+
+正如预期的那样，它再次失败，但我们取得了进展。请注意 `mem` 和 `cpu` 运行单元比第一次运行时略高。现在，我们已进入评估验证器要求之第二部分的阶段：`must_be_signed`。要满足第二个要求，我们需要将测试所有者添加到交易的额外签署人中。如下所示：
+
+```aiken filename="validators/hello_world.ak" {15}
+// ...代码其余部分保持不变
+
+test hello_world_example() {
+  let datum =
+    Datum { owner: #"00000000000000000000000000000000000000000000000000000000" }
+
+  let redeemer = Redeemer { msg: "Hello, World!" }
+
+  let placeholder_utxo = OutputReference { transaction_id: "", output_index: 0 }
+
+  hello_world.spend(
+    Some(datum),
+    redeemer,
+    placeholder_utxo,
+    Transaction { ..transaction.placeholder, extra_signatories: [datum.owner] },
+  )
+}
+```
+
+这应该能解决问题。请注意，在此阶段，我们并不提供任何实际签名。这是因为我们没有运行任何账本第一阶段 (phase-1) 的验证。然而，在运行智能合约之前，账本将验证交易内容是否有效。具体来说，它会验证任何 `extra_signatories` 在交易中是否具有对应的有效签名。在这里，我们可以只使用我们的预留验证密钥！
+
+```
+❯ aiken check
+        
+  ┍━ hello_world ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  │ PASS [mem: 32451, cpu: 11921833] hello_world_example
+  │ · with traces
+  │ | redeemer: Hello, World!
+  ┕━━━━━━━━━━━━━━━━━━━━━━━ 1 tests | 1 passed | 0 failed
+```
+
+成功了！我们得到了 `Hello, World!` 追踪，且没有任何失败 🎉！恭喜，您做到了。当然，这个特定测试本身并非真的非常有意思。但在实践中，验证器会更加复杂且层次分明。我们鼓励您将验证器拆分为多个小函数，每个函数一次只做一件事，并独立测试这些函数。
+
+<Callout type="warning">
+  追踪会给验证器的运行增加一些额外开銷。这就是为什么当您构建验证器时，Aiken 默认会「抹除」所有追踪。如需在最终验证器中保留它们，请在构建时使用 `--trace-level verbose` 选项。相反地，`check` 命令默认会「保留」追踪，因为大多数时候这正是您想要的。如果您需要基准测试一个没有追踪的运行情况，可以在运行测试时随时传递 `--trace-level silent` 标致以移除所有追踪。
+</Callout>
+
+您现在已准备好进入下一步，尝试结合真实交易来运行这套端到端流程！令人兴奋，不是吗？

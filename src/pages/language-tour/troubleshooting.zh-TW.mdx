@@ -1,0 +1,231 @@
+---
+title: "疑難排解 (Troubleshooting)"
+description: "Aiken 是一種用於撰寫 Cardano 智慧合約的函數式程式語言，鏈上執行環境的限制使得除錯具有挑戰性。疑難排解工具包括用於標記執行路徑的 trace 關鍵字、? trace-if-false 運算子、用於檢查序列化資料的 CBOR 診斷法，以及用於捕獲執行時失敗的 expect。用於在開發期間除錯驗證器邏輯並診斷交易失敗的原因。"
+difficulty: "intermediate"
+keywords: ["trace", "疑難排解", "除錯", "CBOR 診斷", "expect", "trace-if-false", "?", "錯誤訊息", "鏈上除錯"]
+topics: ["troubleshooting", "debugging", "trace", "cbor-diagnostic"]
+---
+
+import { Callout } from "nextra-theme-docs";
+
+# 疑難排解 (Troubleshooting)
+
+鏈上編程可能有點乏味，並且與嵌入式系統編程有很多共同點。由於執行環境非常受限，程式必須經過優化，且通常幾乎沒有留下排查錯誤的空間。
+
+Aiken 盡力為開發者提供額外的工具和除錯功能。讓我們來探索一下。
+
+## 追蹤 (Traces)
+
+### `trace` 關鍵字
+
+您在本次旅程中的第一個盟友是追蹤。將追蹤想像成一條日誌訊息，由虛擬機在特定時刻捕獲。您可以使用 `trace{:aiken}` 關鍵字在 Aiken 的頂層表達式中添加追蹤。
+
+例如：
+
+```aiken
+fn is_even(n: Int) -> Bool {
+  trace @"is_even"
+  n % 2 == 0
+}
+
+fn is_odd(n: Int) -> Bool {
+  trace @"is_odd"
+  n % 2 != 0
+}
+```
+
+追蹤最初可能有點難以理解，因為 Plutus —— 以及 Aiken —— 是一個純函數式的執行引擎。編譯後的程式中沒有「語句 (statements)」。只有「表達式 (expressions)」。只有當表達式被虛擬機求值時，追蹤才會被收集。在 Aiken 中有兩種常見的捕獲追蹤的方式：透過 `aiken check` 執行測試時，或透過 `aiken tx simulate` 模擬交易時。在這兩種情況下，求值期間捕獲的追蹤都會印在螢幕上。
+
+例如，在以下程式中：
+
+```aiken
+let n = 10
+is_even(n) || is_odd(n)
+```
+
+只有追蹤 `is_even{:ak}` 會被捕獲，因為 `is_odd{:ak}` 實際上從未被求值（沒有必要，因為左側已經返回了 `True{:ak}`）。
+
+還有更多！追蹤在 Aiken 中非常強大。`trace{:ak}` 關鍵字實際上是變參數的：它接受 1 到 ... 請不要太多個參數。它的語法可能看起來有點令人驚訝，除非您將第一個參數視為一個「標籤 (label)」。
+
+```aiken
+fn foo() {
+  trace @"A": @"foo", @"bar" // 輸出 "A: foo, bar"
+  Void
+}
+```
+
+事實上，從 `v1.1.0` 開始，追蹤不再局限於字串。您可以自動追蹤任何「可序列化 (serialisable)」的值。這些值將使用[下文描述的診斷標法](#cbor-diagnostic)進行追蹤。
+
+```aiken
+fn foo(my_list: List<Option<Int>>) -> Bool {
+  trace @"foo": my_list
+  list.is_empty(my_list)
+}
+```
+
+<Callout type="warning">
+  請注意，追蹤具有以下特性：
+
+- **預設被移除**：當使用 `aiken build` 建構專案時。可以使用 `--trace-level verbose` 來保留它們。您也可以僅透過 `--trace-level compact` 保留追蹤的標籤（即第一個參數）。
+- **預設保留**：當使用 `aiken check` 檢查專案時。可以使用 `--trace-level silent` 來排除它們。
+
+這是因為追蹤會使編譯後的程式碼變大，並可能增加額外的開銷，這對於最終準備好用於生產環境的驗證器通常是不希望看到的。然而，它們在開發和測試時非常有用。因此，命令列是針對這些應用場景設計的。請注意，雖然啟用或停用追蹤不會改變程式的語義，但會有效地改變其雜湊值，進而改變與之相關的地址。
+</Callout>
+
+### `expect` 追蹤
+
+當以「詳細 (verbose)」模式（`--trace-level verbose`）編譯時，expect 表達式將生成相應的執行時追蹤。這有助於更輕鬆地對程式碼進行疑難排解。預設情況下，追蹤訊息是根據原始碼自動生成的，但可以使用文件註解將其替換為自定義訊息：
+
+```aiken
+/// 生命、宇宙以及萬事萬物的終極答案。
+expect answer == 42
+```
+
+注意前面有 3 個（不是 2 個！）斜線。如果斷言失敗，則會產生一個 `"<expected> 生命、宇宙以及萬事萬物的終極答案"{:ak}` 的追蹤。在「緊湊 (compact)」模式下，追蹤將被截斷為其「標籤（如果有的話）」。標籤定義為冒號 `:{:ak}` 之前的文本部分。
+
+例如：
+
+```aiken
+/// 斷言 001: 重新定義數學
+expect 1 + 1 == 3
+```
+
+在詳細模式下將產生 `"<expected> 斷言 001: 重新定義數學"{:ak}`，但在緊湊模式下僅產生 `"<expected> 斷言 001"{:ak}`。當然，在「靜默 (silent)」模式下什麼都不會產生。
+
+### `?` 運算子
+
+鏈上程式從根本上來說無非是謂詞。換句話說，它們是返回 `True` 或 `False` 的函式。因此，常見的做法是將鏈上程式組織為布林表達式的與 (conjunctions) 和或 (disjunctions)。
+
+然而，這可能有點難以推理，因為布林值是「盲目的」。也就是說，在評估複雜的布林表達式時，您會丟失有關原始上下文的資訊。
+
+以以下簡單表達式為例：
+
+```aiken
+let must_be_after = True
+let must_spend_token = False
+
+must_be_after && must_spend_token
+```
+
+它的評估結果為 `False`。僅從 `False` 來看，您無法判斷原始表達式中究竟是哪個分支為 `False`。然而，在排查問題時，推理甚至更大的表達式通常很有用。
+
+這就是為什麼 Aiken 提供了 `?` 運算子（讀作「trace-if-false 運算子」）。這個後綴運算子可以附加到任何布林表達式後面，且僅當表達式的評估結果為 `False` 時才會產生追蹤。這在追蹤導致最終表達式為 `False` 的整個評估路徑時非常有用。在上述範例中，我們可以這樣寫：
+
+```aiken
+must_be_after? && must_spend_token?
+```
+
+這將產生追蹤 `"must_spend_token ? False"`。
+
+很方便，對吧？
+
+<Callout type="warning">
+  `?` 運算子和 `trace` 都受 `aiken build` 的 `--trace-level` 選項影響。可用的追蹤級別選項有 `silent`、`compact` 和 `verbose`。行為如下：
+
+| 追蹤級別 (Trace Level) | `?` 運算子 | `trace` |
+|-------------|------------------------|------------------------|
+| `silent` | 不保留追蹤。 | 不保留追蹤。 |
+| `compact` | 不保留追蹤。 | 保留追蹤標籤。例如：`trace @"Label": 1, 2` 將列印 `Label` |
+| `verbose` | 列印完整追蹤。例如：`(a == 1)?` 將列印 `a == 1 ? False` | 列印完整追蹤。例如：`trace @"Label": 1, 2` 將列印 `Label: 1, 2` |
+
+`aiken build` 有一個別名 `aiken b`。如果未指定任何追蹤級別選項，則預設為 `silent` 建構。
+</Callout>
+
+## CBOR 診斷法 (CBOR diagnostic)
+
+這些都很好，但有時您需要更多。有時，您需要在「執行時」檢查某些特定物件的值。這比看起來要難，因為編譯後的 Aiken 程式已經抹去了所有上下文和型別的概念。甚至函式和變數名稱也被替換為緊湊的索引，這使得在執行時檢查程式和值相對困難。例如，這是編譯後的函式在 UPLC 中的樣子：
+
+```uplc
+(lam i_31
+  (lam i_32
+    (lam i_33
+      (force
+        [ [ [ i_2 i_32 ] (delay (con unit ())) ]
+          (delay
+            [ [ i_4 [ i_33 [ i_1 i_32 ] ] ]
+              [ [ [ i_31 i_31 ] [ i_0 i_32 ] ] i_33
+              ]
+            ]
+          )
+        ]
+      )
+    )
+  )
+)
+```
+
+不太好讀，對吧？但還有希望！[Aiken 標準庫](https://aiken-lang.github.io/stdlib/)提供了一種方便的方法來在執行時檢查「任何值」並獲得它們的 `String` 表示。用於此表示的語法稱為 [CBOR 診斷法 (CBOR diagnostic)](https://www.rfc-editor.org/rfc/rfc8949#name-diagnostic-notation)。可以將其想像成一種外觀類似 JSON 並可以表示二進制資料的高級語法。
+
+```aiken filename="aiken/cbor"
+pub fn diagnostic(data: Data) -> String
+```
+
+您可能會問，為什麼要使用 CBOR 診斷法？
+
+因為它最忠實地捕捉了執行時存在的物件表示以及鏈上驗證器介面中的物件表示。熟悉 CBOR 診斷法需要一定的練習，但在與 Cardano 互動時，這是一項非常有用的技能。CBOR 在 Cardano 中無處不在，包括鏈上驗證器。例如，Datum 和 Redeemer 是由分類帳以 CBOR 物件的形式提供給驗證器的。交易本身在序列化並傳播到網路時也編碼為 CBOR。
+
+CBOR 診斷法僅僅是一種稍微對人類更友好的視覺化二進制物件的方式。例如，序列化的整數列表如 `83010203` 在診斷標記法中表示為 `[1, 2, 3]`。
+
+此外，大多數處理 CBOR 的工具和庫都可以輕鬆地在原始編碼和診斷標記法之間進行轉換。例如 [cbor.me](https://cbor.me) 或 [cbor-diag](https://github.com/cabo/cbor-diag)。
+
+這裡有一個小速查表來幫助您解密 CBOR 診斷法：
+
+| 型別 | 範例 |
+| ----------- | ------------------------------------------- |
+| `Int` | `1`, `-14`, `42` |
+| `ByteArray` | `h'FF00'`, `h'666f6f'` |
+| `List` | `[]`, `[1, 2, 3]`, `[_ 1, 2, 3]` |
+| `Map` | `{}`, `{ 1: h'FF', 2: 14 }`, `{_ 1: "AA" }` |
+| `Tag` | `42(1)`, `10(h'ABCD')`, `1280([1, 2])` |
+
+雖然大多數都很透明，但 `Tag` 的應用場景對許多人來說可能並不顯而易見。事實上，`Tag` 被用於編碼鏈上的自定義型別，資料型別的第一個構造函數從標籤 `121` 開始，下一個從 `122` 開始，依此類推。被標記的項對應於構造函數的欄位，作為一個物件列表。
+
+讓我們看一些來自真實 Aiken 值的診斷範例。
+
+```aiken
+use aiken/cbor
+
+
+// Int 變為 CBOR 整数
+cbor.diagnostic(42) == @"42"
+
+// ByteArray 變為 CBOR bytestring
+cbor.diagnostic("foo") == @"h'666F6F'"
+
+// List 變為 CBOR 数组
+cbor.diagnostic([1, 2, 3]) == @"[_ 1, 2, 3]"
+
+// Tuple 變為 CBOR 数组
+cbor.diagnostic((1, 2)) == @"[_ 1, 2]"
+
+// 2-元組列表變為 CBOR map
+cbor.diagnostic([(1, #"ff")]) == @"{ 1: h'FF' }"
+
+// 'Some' 是 Option 的第一個構成函數 → 標記為 121
+cbor.diagnostic(Some(42)) == @"121([_ 42])"
+
+// 'None' 是 Option 的第二個構成函數 → 標記為 122
+cbor.diagnostic(None) == @"122([])"
+```
+
+診斷法僅用於開發或測試；例如結合 `trace` 使用。順便提一下，它們也為透過測試雙重檢查 datum 或 redeemer 實例的二進制表示提供了一種方便的方法。想像以下型別：
+
+```aiken
+type MyDatum {
+  foo: Int,
+  bar: ByteArray
+}
+```
+
+最終，您需要構建相容的值來建立相關交易。Aiken 將藍圖 (blueprints) 作為建構輸出提供以協助完成此工作。但您也可以直接使用 `cbor.diagnostic` 和測試來控制某些選定的值：
+
+```aiken
+use aiken/cbor
+
+test my_datum_1() {
+  let datum = MyDatum { foo: 42, bar: "Hello, World!" }
+  cbor.diagnostic(datum) == @"121([42, h'48656c6c6f2c20576f726c6421'])"
+}
+```
+
+您可以使用 [cbor.me](<https://cbor.me/?diag=121([42,%20h%2748656c6c6f2c20576f726c6421%27])>) 等工具將此診斷結果轉換為原始 CBOR。

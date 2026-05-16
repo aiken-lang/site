@@ -1,0 +1,1073 @@
+import { Callout } from 'nextra/components'
+import { Tabs } from 'nextra/components'
+import { Cards } from 'nextra/components'
+
+## 在优化之前
+
+优化代码有时可能与直觉相悖，尤其是在智能合约的背景下。虚拟机及其相关的成本模型有时可能令人困惑，并以难以预料的方式运作。
+
+因此，在进行任何优化工作之前，建立一些基准测试（benchmarks）至关重要。这些基准测试应涵盖简单和复杂的场景，以便轻松识别变更带来的影响。有时，一项变更可能会引入一次性成本，虽然略微增加简单案例的成本，但能让更复杂的场景显著改善。
+
+### 编写基准测试
+
+编写基准测试的一个好策略是编写一个简单的 _测试_，从预先构建的上下文和赎回者（redeemer）执行一个或多个验证器。这可以让您获得尽可能接近带有“真实交易”之“真实场景”的概览。
+
+例如：
+
+```aiken
+use my_validator
+
+test baseline() {
+  my_validator.main.withdraw(
+    baseline_redeemer,
+    baseline_credential,
+    baseline_transaction,
+  )
+}
+```
+
+### 使用 `const`
+
+Aiken 的常量在 **编译期间** 会被完整求值，并在使用的位置被 **内联（inlined）**。因此，强烈建议将基准测试的准备代码定义为常量。这不仅可以將测试数据（fixture）代码与基准测试执行分离，还能测量更接近真实执行的成本。
+
+```aiken
+const baseline_transaction: Transaction = Transaction {
+  ..transaction.placeholder,
+  inputs: some_inputs(3),
+}
+
+test baseline() {
+  my_validator.main.withdraw(
+    baseline_redeemer,
+    baseline_credential,
+    baseline_transaction,
+  )
+}
+```
+
+### 使用 `Fuzzer`
+
+Fuzzers 是编写测试数据的一种非常实用的方式。特别是交易，可以使用 [`fuzz/cardano`](TODO) 中的原语轻松创建。例如：
+
+```aiken
+use aiken/fuzz
+use cardano/fuzz as cardano
+
+pub fn some_basic_input() -> Fuzzer<Input> {
+  let output_reference <- fuzz.and_then(cardano.output_reference())
+  let address <- fuzz.and_then(cardano.address())
+  fuzz.constant(Input {
+    output_reference,
+    output: Output {
+      address,
+      value: min_ada_value,
+      datum: NoDatum,
+      reference_script: None,
+    }
+  })
+}
+```
+
+一个好的经验法则是从标准库的 `transaction.placeholder` 开始，逐步向交易添加元素以使其有效。Fuzzers 对于交易中可以任意设置的元素非常方便，而对于其他元素，您则可以坚持使用已知的值。
+
+```aiken
+const transaction = Transaction {
+  ..transaction.placeholder,
+  inputs: [
+    some_input_with_programmable_tokens(
+      [(policy_programmable_token, asset_name_programmable_token, 42)],
+      "programmable tokens input",
+    ),
+    some_input_fuel("fuel input"),
+  ],
+  outputs: [
+    some_output_with_programmable_tokens(
+      [(policy_programmable_token, asset_name_programmable_token, 28)],
+    ),
+    some_output_with_programmable_tokens(
+      [(policy_programmable_token, asset_name_programmable_token, 14)],
+    ),
+    some_output_change("change output"),
+  ],
+}
+```
+
+### 标准库：好还是坏？
+
+让我们在深入探讨之前涵盖最后一点：标准库。您应该使用它吗？当然，是的。它会损害您的程序性能吗？在某种程度上，是的。标准库经过了 **相当合理的优化**，但它是针对 **正确性** 和 **易用性** 进行了调整。其主要目标是让您入门并提供方便。
+
+然而，在需要的地方进行局部替换很容易。标准库中的大多数函数都是独立的，易于内联且可以特化。因此，建议始终从标准库开始编写最 _显而易见的正确_ 代码，然后再考虑哪里可以优化。
+
+许多优化实际上是领域特定的，需要内在知识才能真正奏效。在设计智能合约时，关于代码如何编写的优化不应该是首要任务（而应该只是架构层面的关注量）。一旦您的链上代码基本成型，反思您在程序的关键部分对标准库的使用是一件好事：也许您不需要这个特定函数提供的所有泛型，或者您可以使用另一个函数的更简单、更直接的递归实现。
+
+在验证器中，有一些来自标准库的函数是您特别需要留意并避免使用的。这些函数通常只适合测试，而不适合关键路径。这些警告信号是：
+
+- `assets.{flatten, flatten_with, restricted_to}{:ak}`
+- `dict.{from_pairs, keys, map, values}{:ak}`
+- `list.{count, flat_map, map, reverse, sort, zip}{:ak}`
+
+您几乎肯定永远不想在验证器中使用其中的任何一个。
+
+## 优化技术
+
+### 快速失败 (Fail Fast)
+
+链上代码不涉及错误处理。如果出了问题：就失败。`Option{:ak}` _很少_ 是您想要使用的。
+
+<Tabs items={["不建议", '建议']}>
+  <Tabs.Tab>
+  <Cards>
+    <Cards.Card title="mem=1.80K" href="#fail-fast" />
+    <Cards.Card title="cpu=501.69K" href="#fail-fast" />
+  </Cards>
+
+  ```aiken
+  // 为了照顾到交易构建者提供负值的情况
+  let value = if datum.value <= 0 { -datum.value } else { datum.value }
+  ```
+  </Tabs.Tab>
+
+  <Tabs.Tab>
+  <Cards>
+    <Cards.Card title="mem=1.40K" href="#fail-fast" />
+    <Cards.Card title="cpu=336.48K" href="#fail-fast" />
+  </Cards>
+
+  ```aiken
+  /// 不变量违规：值必须是非负数
+  expect datum.value >= 0
+  ```
+  </Tabs.Tab>
+</Tabs>
+
+
+### 使用简单（更简单）的结构
+
+除非它来自 _外部世界_（即 datum 或 redeemer），否则请避免构建大型记录。Aiken 是一种直接在编码对象（又名 `Data`）上运行的语言。当对象在脚本执行前已经预先构建好时（如 datum、redeemer 或交易本身的情况），这非常方便。
+
+然而，为了在多个交易元素之间传递上下文而构建大型记录通常会带来显著的成本。因此，当您实际上不需要具体化中间结构时，请优先使用带有显式参数的函数。
+
+<Tabs items={["不建议", "建议", "基准测试"]}>
+  <Tabs.Tab>
+  <Cards>
+    <Cards.Card title="mem=5.81M" href="#use-simpler-structures" />
+    <Cards.Card title="cpu=19.53K" href="#use-simpler-structures" />
+  </Cards>
+
+  ```aiken
+  type MultisigContext {
+    owner: VerificationKeyHash,
+    signatories: List<VerificationKeyHash>,
+    withdrawals: Pairs<VerificationKeyHash, Lovelace>,
+  }
+
+  // 注意：实现逻辑并不重要。
+  fn verify_multisig(ctx: MultisigContext) {
+    or {
+      list.has(ctx.signatories, ctx.owner),
+      list.any(ctx.withdrawals, fn(Pair(vk, _)) { vk == ctx.owner }),
+    }
+  }
+  ```
+  </Tabs.Tab>
+
+  <Tabs.Tab>
+  <Cards>
+    <Cards.Card title="mem=3.71M" href="#use-simpler-structures" />
+    <Cards.Card title="cpu=14.12K" href="#use-simpler-structures" />
+  </Cards>
+
+  ```aiken
+  // 注意：实现逻辑并不重要。
+  fn verify_multisig(owner, signatories, withdrawals) {
+    or {
+      list.has(signatories, owner),
+      list.any(withdrawals, fn(Pair(vk, _)) { vk == owner }),
+    }
+  }
+  ```
+  </Tabs.Tab>
+
+  <Tabs.Tab>
+  ```aiken
+  test baseline_dont() {
+    let ctx = MultisigContext {
+      owner: baseline_owner,
+      signatories: baseline_signatories,
+      withdrawals: baseline_withdrawals,
+    }
+
+    verify_multisig(ctx)
+  }
+
+  test baseline_do() {
+    verify_multisig(
+      baseline_owner,
+      baseline_signatories,
+      baseline_withdrawals,
+    )
+  }
+  ```
+  </Tabs.Tab>
+</Tabs>
+
+特别地，如果您能避开它，就不要构建 `Value`，并尽可能优先使用 `Dict` 或 `Pairs` 而非 `Value`。
+
+`Value` 维护了两个重要的不变量：它不包含零数量的资产或资产为空的策略。如果您不依赖这些不变量，您可以安全地降级到 `Dict`。
+
+`Dict` 维护了两个重要的不变量：它们的键按升序排列且不包含重复项。如果您不依赖这些不变量，您可以安全地降级到 `Pairs`。
+
+
+### 对不可出的搜寻使用快速递归
+
+这是快速失败策略的一个更具体的版本，适用于 _“不可出错的搜寻”_。当在集合中寻找特定元素且没有任何可能的错误恢复时，就会发生这种情况：如果不存在，那么这就是一个错误，整个验证器必须失败。
+
+这种情况在验证器中其实非常常见，特别是在处理作为协议一部分的元素时。
+
+<Tabs items={["不建议", '建议', '基准测试']}>
+  <Tabs.Tab>
+  <Cards>
+    <Cards.Card title="mem=12.15K" href="#use-fast-recursion-for-infaillible-searches" />
+    <Cards.Card title="cpu=3.13M" href="#use-fast-recursion-for-infaillible-searches" />
+  </Cards>
+
+  ```aiken
+  // 重复检查空列表
+  pub fn has(haystack: List<a>, needle: a) -> Bool {
+    when haystack is {
+      [] -> False
+      [head, ..tail] -> head == needle || has(tail, needle)
+    }
+  }
+  ```
+  </Tabs.Tab>
+
+
+  <Tabs.Tab>
+  <Cards>
+    <Cards.Card title="mem=9.56K" href="#use-fast-recursion-for-infaillible-searches" />
+    <Cards.Card title="cpu=2.33M" href="#use-fast-recursion-for-infaillible-searches" />
+  </Cards>
+
+  ```aiken
+  // 在空列表上必失败，值必须存在。
+  pub fn has(haystack: List<a>, needle: a) -> Bool {
+    head_list(haystack) == needle || has(tail_list(haystack), needle)
+  }
+  ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+
+  ```aiken
+  test baseline() {
+    expect has(["alice", "bob", "carol"], "carol")
+  }
+  ```
+  </Tabs.Tab>
+</Tabs>
+
+### 优先使用二分搜寻而非线性搜寻
+
+拥有多个条件链是非常常见的，如果以最天真的方式编写，可能会导致不必要的求值。当条件在某种程度上是等概率的（即没有明显的不平衡使得某些条件比其他条件更容易满足）时，重新构建并嵌套某些 if/then/else 以执行二分搜寻可能会很有用。
+
+<Tabs items={["不建议", '建议', '基准测试']}>
+  <Tabs.Tab>
+  <Cards>
+    <Cards.Card title="mem=46.98K" href="#favor-binary-searches-over-linear-searches" />
+    <Cards.Card title="cpu=12.68M" href="#favor-binary-searches-over-linear-searches" />
+  </Cards>
+
+  ```aiken
+  // 线性搜寻，不理想。
+  fn mod32(i) {
+    if i < 32 { 0 }
+    else if i < 64 { 1 }
+    else if i < 96 { 2 }
+    else if i < 128 { 3 }
+    else if i < 160 { 4 }
+    else if i < 192 { 5 }
+    else if i < 224 { 6 }
+    else { 7 }
+  }
+  ```
+  </Tabs.Tab>
+
+  <Tabs.Tab>
+  <Cards>
+    <Cards.Card title="mem=37.06K" href="#favor-binary-searches-over-linear-searches" />
+    <Cards.Card title="cpu=9.76M" href="#favor-binary-searches-over-linear-searches" />
+  </Cards>
+
+  ```aiken
+  // 二分搜寻，更高效且可预测。
+  fn mod32(i) {
+    if i < 128 {
+      if i < 64 {
+        if i < 32 { 0 } else { 1 }
+      } else {
+        if i < 96 { 2 } else { 3 }
+      }
+    } else {
+      if i < 192 {
+        if i < 160 { 4 } else { 5 }
+      } else {
+        if i < 224 { 6 } else { 7 }
+      }
+    }
+  }
+  ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+
+  ```aiken
+  test baseline() {
+    and {
+      mod32(15) == 0,
+      mod32(47) == 1,
+      mod32(89) == 2,
+      mod32(114) == 3,
+      mod32(147) == 4,
+      mod32(171) == 5,
+      mod32(200) == 6,
+      mod32(225) == 7,
+    }
+  }
+  ```
+  </Tabs.Tab>
+</Tabs>
+
+在此示例中，我们根据所选的 0 到 255 之间的某个整数值进行分支。第一种形式逐个评估每个条件，导致 **线性搜寻**，平均评估次数为 `(n + 1) / 2`。因此对于 `n=7`，平均评估次数为 `4` 次。
+
+然而，建议的示例安排了条件以减少每次通过时执行的评估量。它执行 **二分搜寻**，从而产生 `log2(n)` 次评估。因此对于 `n=7`，平均评估次数为 `3` 次。
+
+此外，二分搜寻具有更 **可预测** 的优点。在前面的示例中，它不仅平均进行 3 次条件评估，而且每次通过始终评估 3 個条件。与“不建议”的示例不同，后者有时评估一个条件，有时评估三个，有时评估七个，等...
+
+### 将开销低且可能性高的检查放在前面
+
+当使用 `and{:ak}` 或 `or{:ak}` 链接条件時，顺序很重要。Aiken 会短路布尔运算符，这意味着 `or{:ak}` 的第一个满足的分支避免了求值其他分支，而 `and{:ak}` 的第一個失败的分支会停止其余部分。
+
+所以，在可能的情况下，请优先放置同时具备以下特性的检查：
+
+1. 求值开销更低，且
+2. 更有可能决定结果（即更频繁地为 `True{:ak}`）
+
+<Tabs items={["不建议", "建议"]}>
+<Tabs.Tab>
+
+```aiken
+or {
+  input.output.value |> assets.has_nft_strict(my_nft),
+  input.output.address.payment_credential != my_script_credential,
+}
+```
+</Tabs.Tab>
+<Tabs.Tab>
+
+```aiken
+or {
+  input.output.address.payment_credential != my_script_credential,
+  input.output.value |> assets.has_nft_strict(my_nft),
+}
+```
+</Tabs.Tab>
+</Tabs>
+
+在这个示例中，比较凭证是一个直接且可预测的检查。而检查数位以确定是否存在特定 NFT 则更为复杂。由于第一个条件可能已经足以决定整个表达式，将其放在前面可以为运行时提供更多提前停止的机会。
+
+### 延迟区分，直到它们变得重要
+
+另一个常见的不必要工作来源是过早拆分终点情况。当多个分支最终折叠成较少数量的“真实”结果时，通常最好先测试更广泛的条件，仅在必要时进行细化。
+
+<Tabs items={["不建议", "建议", "基准测试"]}>
+<Tabs.Tab>
+<Cards>
+  <Cards.Card title="mem=85.04K" href="#defer-distinctions-until-they-matter" />
+  <Cards.Card title="cpu=29.49M" href="#defer-distinctions-until-they-matter" />
+</Cards>
+
+```aiken
+fn insert_in_order(self: List<Int>, elem: Int) -> List<Int> {
+  when self is {
+    [] -> [elem]
+    [head, ..tail] ->
+      if head == elem {
+        self
+      } else if elem < head {
+        [elem, ..self]
+      } else {
+        [head, ..insert_in_order(tail, elem)]
+      }
+  }
+}
+```
+</Tabs.Tab>
+<Tabs.Tab>
+<Cards>
+  <Cards.Card title="mem=72.91K" href="#defer-distinctions-until-they-matter" />
+  <Cards.Card title="cpu=26.11M" href="#defer-distinctions-until-they-matter" />
+</Cards>
+
+```aiken
+fn insert_in_order(self: List<Int>, elem: Int) -> List<Int> {
+  when self is {
+    [] -> [elem]
+    [head, ..tail] ->
+      if elem <= head {
+        if head == elem {
+          self
+        } else {
+          [elem, ..self]
+        }
+      } else {
+        [head, ..insert_in_order_alt(tail, elem)]
+      }
+  }
+}
+```
+</Tabs.Tab>
+<Tabs.Tab>
+
+```aiken
+test baseline() {
+  and {
+    insert_in_order([], 1) == [1],
+    insert_in_order([1, 2, 3, 4, 5, 6, 7], 8) == [1, 2, 3, 4, 5, 6, 7, 8],
+    insert_in_order([1, 2, 3, 5, 6], 4) == [1, 2, 3, 4, 5, 6],
+    insert_in_order([1, 2, 3, 4, 5], 3) == [1, 2, 3, 4, 5],
+  }
+}
+```
+</Tabs.Tab>
+</Tabs>
+
+这是一个微小的转换，但在紧凑的递归循环和在大结构上频繁执行的代码中非常重要。
+
+### 优先使用 `Data` 相等性而非手动结构比较
+
+Aiken 程序在编码后的 `Data` 上运行，直接比较 `Data` 值通常出奇地高效。如果预计两个值在结构上匹配，则原始相等性检查几乎总是比手动重新构建该逻辑更便宜。
+
+这在处理表示数值或状态快照的 datum 时特别有用。
+
+标准库已经公开了对此有用的辅助函数。例如，[`assets.match{:ak}`](https://aiken-lang.github.io/stdlib/cardano/assets.html#match) 可以将运行时的 `Value{:ak}` 与 `Data{:ak}` 表示形式进行比较，同时允许您参数化应如何检查 lovelace：
+
+```aiken
+pub fn match(
+  left: Value,
+  right: Data,
+  assert_lovelace: fn(Lovelace, Lovelace) -> Bool,
+) -> Bool
+```
+
+更普遍的教训是，如果一个结构的大部分应保持不变，通常最好直接比较不变的部分，并隔离预计会变化的部分。
+
+例如，一个强大的优化模式是将结构快速拆分为：
+
+* 可变区域之前的部分，
+* 可变区域本身，
+* 以及可变区域之后的部分。
+
+然后，您可以通过数据相等直接比较稳定区域，并仅详细检查变化的部分。
+
+```aiken
+let input_tokens_before, input_tokens_at, input_tokens_after <- split_at(input.value, policy_id)
+let output_tokens_before, output_tokens_at, output_tokens_after <- split_at(output.value, policy_id)
+```
+
+然后：
+
+```aiken
+expect and {
+  (input_tokens_before == output_tokens_before)?,
+  (input_tokens_after == output_tokens_after)?,
+  (input_tokens_at != output_tokens_at)?,
+}
+```
+
+这通常比在完整的 `Value{:ak}` 结构上重新计算完整的语义比较便宜得多。
+
+### 当返回多个值时使用回传 (Backpassing)
+
+返回大型元组或记录很方便，但也意味着要构建中间值，然后立即再次解构它们。在热点路径中，这种开销可能会变得很明显。
+
+回传允许您将“延续” (continuation) 直接线程化到函数中。
+
+<Tabs items={["不建议", "建议", "基准测试"]}>
+<Tabs.Tab>
+<Cards>
+  <Cards.Card title="mem=63.84K" href="#use-backpassing-when-returning-more-than-one-value" />
+  <Cards.Card title="cpu=19.49M" href="#use-backpassing-when-returning-more-than-one-value" />
+</Cards>
+
+```aiken
+// 每次通过時构建并解构一个 2-tuple
+pub fn count_and_sum(self: List<Int>) -> (Int, Int) {
+  when self is {
+    [] -> (0, 0)
+    [head, ..tail] -> {
+      let (count, sum) = count_and_sum(tail)
+      (count + 1, sum + head)
+    }
+  }
+}
+```
+
+</Tabs.Tab>
+
+<Tabs.Tab>
+<Cards>
+  <Cards.Card title="mem=47.26K" href="#use-backpassing-when-returning-more-than-one-value" />
+  <Cards.Card title="cpu=12.69M" href="#use-backpassing-when-returning-more-than-one-value" />
+</Cards>
+
+```aiken
+// 利用回传避免不必要的元组构建
+pub fn count_and_sum_ret(self: List<Int>, return: fn(Int, Int) -> result) -> result {
+  when self is {
+    [] -> return(0, 0)
+    [head, ..tail] -> {
+      let count, sum <- count_and_sum_ret(tail)
+      return(count + 1, sum + head)
+    }
+  }
+}
+```
+</Tabs.Tab>
+<Tabs.Tab>
+
+```aiken
+test baseline_tuple() {
+  expect (0, 0) = count_and_sum([])
+  expect (3, 3) = count_and_sum([1, 1, 1])
+  expect (5, 15) = count_and_sum([1, 2, 3, 4, 5])
+  Void
+}
+
+test baseline_backpassing() {
+  expect 0, 0 <- count_and_sum([])
+  expect 3, 3 <- count_and_sum([1, 1, 1])
+  expect 5, 15 <- count_and_sum([1, 2, 3, 4, 5])
+  Void
+}
+```
+</Tabs.Tab>
+</Tabs>
+
+这种风格在递归代码和有状态折叠中变得更加有用。这也是为什么像 `list.foldl2{:ak}` 和 `list.foldr2{:ak}` 这样的辅助函数如此宝贵的原因：它们允许您累积多个状态片段，而无需反复打包和解封它们。
+
+### 如果回传不是一个选项，优先选择 `Pair` 而非 2-tuple
+
+当您需要精确返回两个值且回传会使代码可读性降低時，`Pair<a, b>{:ak}` 通常比 `(a, b){:ak}` 略微更可取。
+
+两者都可以轻松访问：
+
+* `pair.1st{:ak}` / `tuple.1st{:ak}`
+* `pair.2nd{:ak}` / `tuple.2nd{:ak}`
+
+但 `Pair{:ak}` 与字典和基于 Pairs 的 API 集成更自然，因此它往往能与标准库的其余部分更好地组合。
+
+这通常不算是改变游戏规则的优化，但在处理键值形状的数据時，这是一個很好的默认设置。
+
+### 避免重复遍歷
+
+多次遍歷同一個集合是积累可避免成本最簡單的方法之一。在验证器中，集合通常不那么大，但重复遍歷仍会迅速增加开销。
+
+如果您需要从同一個列表獲取多個派生值，请尝试在一次遍歷中计算它们。
+
+<Tabs items={["不建议", "建议", "基准测试"]}>
+<Tabs.Tab>
+<Cards>
+  <Cards.Card title="mem=143.78K" href="#avoid-re-traversals" />
+  <Cards.Card title="cpu=39.27M" href="#avoid-re-traversals" />
+</Cards>
+
+```aiken
+fn count_all_and_filter(
+  self: List<Int>,
+  return: fn(Int, List<Int>) -> result,
+) -> result {
+  let count = list.count(self, fn(_) { True })
+  let positive = list.filter(self, fn(n) { n >= 0 })
+  return(count, positive)
+}
+```
+</Tabs.Tab>
+<Tabs.Tab>
+<Cards>
+  <Cards.Card title="mem=103.30K" href="#avoid-re-traversals" />
+  <Cards.Card title="cpu=27.79M" href="#avoid-re-traversals" />
+</Cards>
+
+```aiken
+fn count_all_and_filter(
+  self: List<Int>,
+  return: fn(Int, List<Int>) -> result,
+) -> result {
+  list.foldr2(self, 0, [], fn(n, count, positive, next) {
+      next(
+        count + 1,
+        if n >= 0 {
+          [n, ..positive]
+        } else {
+          positive
+        },
+      )
+    },
+    return
+  )
+}
+```
+</Tabs.Tab>
+<Tabs.Tab>
+
+```aiken
+test baseline() {
+  expect 0, [] <- count_all_and_filter([])
+  expect 1, [] <- count_all_and_filter([-1])
+  expect 3, [1, 2, 3] <- count_all_and_filter([1, 2, 3])
+  expect 8, [1, 3, 5, 7] <- count_all_and_filter([1, -2, 3, -4, 5, -6, 7, -8])
+  Void
+}
+```
+</Tabs.Tab>
+</Tabs>
+
+折叠的确切形狀取决于具体情况，但原则保持不变：如果您已经掌握了该元素，请在继续之前儘可能對其进行有用的工作。
+
+### 在迭代時验证
+
+同样的原则也适用于验证。如果您的目标仅是确保所有匹配的元素都满足某些属性，则通常不需要先将它们提取到单独的列表中。
+
+<Tabs items={["不建议", "建议", "基准测试"]}>
+<Tabs.Tab>
+<Cards>
+  <Cards.Card title="mem=71.42K" href="#validate-while-iterating" />
+  <Cards.Card title="cpu=20.37M" href="#validate-while-iterating" />
+</Cards>
+
+```aiken
+fn validate_outputs(self: Pairs<ByteArray, Int>) -> Void {
+  let my_outputs = list.filter(self, fn(output) { output.1st == "my_address" })
+  expect list.all(my_outputs, fn(output) { output.2nd >= 42 })
+}
+```
+</Tabs.Tab>
+<Tabs.Tab>
+<Cards>
+  <Cards.Card title="mem=59.7K" href="#validate-while-iterating" />
+  <Cards.Card title="cpu=17.44M" href="#validate-while-iterating" />
+</Cards>
+
+```aiken
+fn validate_outputs(self: Pairs<ByteArray, Int>) -> Void {
+  expect list.all(
+    self,
+    fn(output) { output.1st != "my_address" || output.2nd >= 42 },
+  )
+}
+```
+</Tabs.Tab>
+<Tabs.Tab>
+
+```aiken
+test baseline() {
+  validate_outputs([Pair("me", 42), Pair("you", 14), Pair("me", 1337)])
+  validate_outputs([Pair("a", 1), Pair("b", 2), Pair("c", 3)])
+  validate_outputs([Pair("me", 100), Pair("me", 100), Pair("me", 100)])
+}
+```
+</Tabs.Tab>
+</Tabs>
+
+这种形式避免了构建中间列表，并通常能更早短路。
+
+### 构建局部缓存
+
+Aiken 函数是一等公民且足够便宜，使得小型局部缓存成为一种实用的优化技术。当您反复测试同一个集合的成员身份時，您可以预先构建一个捕获已知元素的闭包。
+
+<Tabs items={["不建议", "建议", "基准测试"]}>
+<Tabs.Tab>
+<Cards>
+  <Cards.Card title="mem=40.79K" href="#build-local-caches" />
+  <Cards.Card title="cpu=11.82M" href="#build-local-caches" />
+</Cards>
+
+```aiken
+// 对于每次询问，反复遍歷提款
+fn has_withdrawal(
+  script: ScriptHash,
+  withdrawals: Pairs<ScriptHash, Int>,
+) -> Bool {
+  list.any(withdrawals, fn(Pair(k, _)) { k == script })
+}
+```
+</Tabs.Tab>
+<Tabs.Tab>
+<Cards>
+  <Cards.Card title="mem=31.39K" href="#build-local-caches" />
+  <Cards.Card title="cpu=8.15M" href="#build-local-caches" />
+</Cards>
+
+
+```aiken
+// 构建一個调用起来更快的局部缓存
+fn new_cache(has: fn(k) -> Bool, elems: Pairs<k, Int>) -> fn(k) -> Bool {
+  when elems is {
+    [] -> has
+    [Pair(head, _), ..tail] -> new_cache(fn(k) { head == k || has(k) }, tail)
+  }
+}
+```
+</Tabs.Tab>
+<Tabs.Tab>
+
+```aiken
+const baseline_withdrawals =
+  [Pair("a", 1), Pair("b", 2), Pair("c", 3), Pair("d", 4)]
+
+test baseline_dont() {
+  and {
+    has_withdrawal("a", baseline_withdrawals),
+    has_withdrawal("b", baseline_withdrawals),
+    has_withdrawal("c", baseline_withdrawals),
+    has_withdrawal("d", baseline_withdrawals),
+  }
+}
+
+test baseline_do() {
+  let has_withdrawal = new_cache(fn(_) { False }, baseline_withdrawals)
+  and {
+    has_withdrawal("a"),
+    has_withdrawal("b"),
+    has_withdrawal("c"),
+    has_withdrawal("d"),
+  }
+}
+```
+</Tabs.Tab>
+</Tabs>
+
+从概念上讲，这会将集合转换为一个决策链，然后可以多次重复使用，而无需一次又一次地拆开原始结构。
+
+当源集合在整个验证器执行过程中是静态的，但被多次查询時，这种方法特别有效。
+
+### 展开递归
+
+当递归函数一次前进一步時，有时可以通过手动展开前幾步来提高其收敛性。这减少了在常见情况下所需的递归调用次數。
+
+<Tabs items={["不建议", "建议", "基准测试"]}>
+<Tabs.Tab>
+<Cards>
+  <Cards.Card title="mem=47.53K" href="#unroll-recursions" />
+  <Cards.Card title="cpu=12.74M" href="#unroll-recursions" />
+</Cards>
+
+```aiken
+fn elem_at(elems: List<a>, at: Int) -> a {
+  if at <= 0 {
+    list.head(elems)
+  } else {
+    elem_at(list.tail(elems), at - 1)
+  }
+}
+```
+</Tabs.Tab>
+<Tabs.Tab>
+<Cards>
+  <Cards.Card title="mem=35.01K" href="#unroll-recursions" />
+  <Cards.Card title="cpu=9.70M" href="#unroll-recursions" />
+</Cards>
+
+```aiken
+fn elem_at(elems: List<a>, at: Int) -> a {
+  if at >= 2 {
+    elem_at(list.tail(list.tail(elems)), at - 2)
+  } else {
+    list.head(if at == 1 { list.tail(elems) } else { elems })
+  }
+}
+```
+</Tabs.Tab>
+<Tabs.Tab>
+
+```aiken
+test baseline() {
+  and {
+    elem_at([1], 0) == 1,
+    elem_at([1, 2, 3, 4, 5], 0) == 1,
+    elem_at([1, 2, 3, 4, 5], 4) == 5,
+    elem_at([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 9) == 10,
+  }
+}
+```
+</Tabs.Tab>
+</Tabs>
+
+这种转换对于被反复调用的性能关键小型辅助函数最有用。
+
+### 编写尾递归函数
+
+Plutus VM 在尾递归函数方面的表现通常较好，尤其是在处理位元组和累加器時。因此，当您可以将函数表达为具有显式累加器的循环時，请优先选择该形式。
+
+<Tabs items={["不建议", "建议", "基准测试"]}>
+<Tabs.Tab>
+<Cards>
+  <Cards.Card title="mem=80.36K" href="#write-tail-recursive-functions" />
+  <Cards.Card title="cpu=21.83M" href="#write-tail-recursive-functions" />
+</Cards>
+
+```aiken
+fn fib(n: Int) -> Int {
+  if n <= 1 { 1 }
+  else { fib(n - 1) + fib(n - 2) }
+}
+```
+</Tabs.Tab>
+<Tabs.Tab>
+<Cards>
+  <Cards.Card title="mem=49.98K" href="#write-tail-recursive-functions" />
+  <Cards.Card title="cpu=12.60M" href="#write-tail-recursive-functions" />
+</Cards>
+
+```aiken
+fn fib(n: Int) -> Int {
+  do_fib(1, 1, n)
+}
+
+fn do_fib(last: Int, current: Int, n: Int) -> Int {
+  if n <= 1 { current }
+  else { do_fib(current, current + last, n - 1) }
+}
+```
+</Tabs.Tab>
+<Tabs.Tab>
+
+```aiken
+test baseline() {
+  and {
+    fib(0) == 1,
+    fib(1) == 1,
+    fib(2) == 2,
+    fib(3) == 3,
+    fib(4) == 5,
+    fib(5) == 8,
+  }
+}
+```
+</Tabs.Tab>
+</Tabs>
+
+尾递归版本使控制流更加显式，且通常能避免在调用之间积攒延迟工作。
+
+这种模式特别适用于：
+
+* 折叠 (folds),
+* 列表遍歷,
+* 位元组处理,
+* 数值循环。
+
+
+### 依靠 ByteArray
+
+与丰富的结构化数据相比，位元组数组极其便宜。因此，当成本绝对关键時，一種选择是放弃结构化编码的一些便利，直接在位元组上操作。
+
+<Tabs items={["不建议", "建议"]}>
+<Tabs.Tab>
+
+```aiken
+pub type MyRedeemer {
+  key: ByteArray,
+  signature: ByteArray,
+}
+
+let MyRedeemer { key, signature } = redeemer
+```
+
+</Tabs.Tab>
+
+<Tabs.Tab>
+
+```aiken
+pub type MyRedeemer = ByteArray
+
+let key = bytearray.slice(redeemer, 0, 32)
+let signature = bytearray.slice(redeemer, 32, 64)
+```
+
+</Tabs.Tab> </Tabs>
+
+这带来了明显的权衡：
+
+* 代码的可读性降低,
+* 更多的手动切片和偏移管理,
+* 更少的类型级保证。
+
+因此，只有在开销的节省值得牺牲可读性和可维护性時，才应使用此方法。
+
+### 用查表取代昂贵的计算
+
+一個反复出现的优化主题是计算通常比查表更昂贵。如果函数运行在有边界的定义域上，则可能预先计算所有结果并将它们存储在紧凑的查找结构中。
+
+对于非常小的定义域，位元组数组已经可以充当查找表。确切的实现可能有所不同，但在以下情况下，该技术很有用：
+
+* 输入空间有界,
+* 输出可以紧凑编码,
+* 且计算足够昂贵值，得进行预计算。
+
+标准库中一個很好的例子是 `math.pow2{:ak}`，它结合了位元组数组查表和展开递归以提高效率：
+
+<Tabs items={["不建议", "建议", "基准测试"]}>
+<Tabs.Tab>
+<Cards>
+  <Cards.Card title="mem=91.50K" href="#replace-expensive-computations-with-lookups" />
+  <Cards.Card title="cpu=25.44M" href="#replace-expensive-computations-with-lookups" />
+</Cards>
+
+```aiken
+// 天真地一次迭代一個操作数
+pub fn pow2(e: Int) -> Int {
+  if e <= 0 {
+    if e == 0 {
+      1
+    } else {
+      0
+    }
+  } else {
+    2 * pow2(e - 1)
+  }
+}
+```
+</Tabs.Tab>
+<Tabs.Tab>
+<Cards>
+  <Cards.Card title="mem=25.86K" href="#replace-expensive-computations-with-lookups" />
+  <Cards.Card title="cpu=6.58M" href="#replace-expensive-computations-with-lookups" />
+</Cards>
+
+```aiken
+// 借助位元组数组查表展开最后 8 级递归
+pub fn pow2(e: Int) -> Int {
+  if e < 8 {
+    if e < 0 {
+      0
+    } else {
+      bytearray.at(#[1, 2, 4, 8, 16, 32, 64, 128], e)
+    }
+  } else {
+    256 * pow2(e - 8)
+  }
+}
+```
+</Tabs.Tab>
+<Tabs.Tab>
+```aiken
+test baseline() {
+  and {
+    pow2(0) == 1,
+    pow2(1) == 2,
+    pow2(7) == 128,
+    pow2(10) == 1024,
+    pow2(11) == 2048,
+  }
+}
+```
+</Tabs.Tab>
+</Tabs>
+
+请注意小情况是如何通过直接位元组数组查表而不是重复乘法来处理的。同样的想法通常可以用于整数的小操作。甚至多个数组查表（例如对于大于 255 的值）有时也值得考虑！
+
+### 对大型注册表使用 Merkle Patricia Forestry
+
+对于更大的查表空间，简单的位元组数组不再足够。这就是 [Merkle Patricia Forestry](https://github.com/aiken-lang/merkle-patricia-forestry) 可以发揮作用的地方：它使您能够以链上非常便宜的成员资格检查来表示任意大的键值注册表。
+
+因此，与其：
+
+```aiken
+let y = expensive_function(x)
+```
+
+您有时可以这样做：
+
+```aiken
+expect mpf.member(y, root)
+```
+
+其中 `root{:ak}` 是在链下提交的预先计算的、经验证的结构。
+
+一般模式是：
+
+1. 在链外计算一个大型注册表,
+2. 在链上提交其根,
+3. 通过 redeemer 传递证明或查询的值,
+4. 验证成员资格而不是重新计算。
+
+对于定义域有界但计算昂贵（> 总执行预算的 1%）的确定性函数，这特别有吸引力。
+
+### 不要计算，要验证
+
+这带給我们一個更广泛的原则：验证器并不总是需要从头开始进行计算。通常，验证交易提供的值是否正确就足够了。
+
+<Tabs items={["不建议", "建议"]}>
+<Tabs.Tab>
+<Cards>
+  <Cards.Card title="mem=55.79K" href="#dont-compute-verify" />
+  <Cards.Card title="cpu=18.16M" href="#dont-compute-verify" />
+</Cards>
+
+```aiken
+math.sqrt(123456789) == Some(11111)
+```
+</Tabs.Tab>
+<Tabs.Tab>
+<Cards>
+  <Cards.Card title="mem=1.00K" href="#dont-compute-verify" />
+  <Cards.Card title="cpu=0.22M" href="#dont-compute-verify" />
+</Cards>
+
+```aiken
+math.is_sqrt(123456789, 11111)
+```
+</Tabs.Tab>
+</Tabs>
+
+redeemer 是实现此目的的完美选择。它们可以携带预先计算的候选值、证人、证明或分解，而验证器只需要检查它们是否有效。
+
+这是链上编程中 **最重要的优化模式之一**：只要正确性仍能在链上以便宜的成本进行验证，就将工作移至链下。
+
+### 利用账本不变量
+
+最后一種优化技术并非真正关于代码形状，而是关于对账本有足够的了解，以便依靠其保证。
+
+验证器检查的許多结构已经满足强大的不变量。例如：
+
+* 输入按字母顺序排序,
+* 价值按策略和资产名排序,
+* redeemer 和 datum 通过哈希索引,
+* 输出价值绝不包含负数量,
+* 输出价值始终包含 ADA。
+* 铸造价值绝不包含 ADA。
+* 等等...
+
+这些不仅仅是方便的事实；它们通常是编写便宜得多的算法的关键。
+
+如果您知道结构已经排序，您可以线性地合并或比较它，而不是重新排序。如果您知道数量不能为负，则可以避免防御性的规范化逻辑。如果您知道映射没有重复键，您可以使用更直接的遍歷策略。
+
+最有效的优化通常不是「聪明的代码技巧」，而是与账本已经保证的不变量紧密对齐的代码。
+
+## 结语
+
+Aiken 中的大多数优化工作都遵循一些反复出现的主题：
+
+* 尽早失败而不是恢复,
+* 避免不必要地重建丰富的结构,
+* 尽可能少地遍歷集合,
+* 在实际時用查表替换计算,
+* 只要有可能就用验证替换计算,
+* 并依靠账本已经赋予您的不变量。
+
+良好的工作流程通常是：
+
+1. 编写最简单的显然正确的验证器,
+2. 对其进行端到端基准测试,
+3. 识别实际的热路径,
+4. 只优化那些部分,
+5. 在每次重大更改后重新基准测试。

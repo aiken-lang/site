@@ -1,0 +1,304 @@
+---
+title: "函数"
+description: "Aiken 是一种用于编写 Cardano 智能合约的函数式编程语言，其中函数是一等公民。函数使用 fn 关键字定义，具有类型参数和隐式返回。用于构建验证器逻辑、创建可重复使用的库，以及通过管道运算符、匿名函数和反向传递来组合操作。"
+difficulty: "beginner"
+keywords: ["fn", "函数", "匿名函数", "管道运算符", "反向传递", "标记参数", "泛型", "类型变量", "一等函数"]
+topics: ["functions", "fn", "pipe-operator", "backpassing", "anonymous-functions"]
+---
+
+import { Callout } from "nextra-theme-docs";
+
+# 函数
+
+## 定义函数
+
+### 具名函数
+
+Aiken 中的具名函数使用 `fn{:ak}` 关键字定义。函数可以有（类型）参数，并且总是有返回类型。在 Aiken 中，几乎所有内容都是表达式，因此函数没有显式的 *return* 关键字。相反，它们隐式返回其求值后的结果。
+
+```aiken
+fn add(x: Int, y: Int) -> Int {
+  x + y
+}
+
+fn multiply(x: Int, y: Int) -> Int {
+  x * y
+}
+```
+
+函数是一等公民 (first class values)，因此可以分配给变量、传递给其他函数，或者像对待任何其他数据类型一样进行操作，但有一个例外：它们不能作为数据类型定义的一部分。我们将在下一节关于[自定义类型](./custom-types)中看到更多详细信息。
+
+```aiken
+/// 此函数接收一个函数作为参数
+fn twice(f: fn(t) -> t, x: t) -> t {
+  f(f(x))
+}
+
+fn add_one(x: Int) -> Int {
+  x + 1
+}
+
+fn add_two(x: Int) -> Int {
+  twice(add_one, x)
+}
+```
+
+### 匿名函数
+
+匿名函数可以使用类似的语法定义，并使用 let 绑定分配给一个标识符。该标识符随后可作为调用和传递该函数的名称。
+
+```aiken
+fn run() {
+  let add = fn(x, y) { x + y }
+
+  add(1, 2)
+}
+```
+
+<Callout type="warning">
+  不能定义「递归匿名函数」。如果需要递归，请定义为顶层具名函数。
+</Callout>
+
+## 标记参数 (Labeled arguments)
+
+当函数接收多个参数时，用户可能很难记住参数是什么以及预期的顺序。
+
+为了帮助解决这个问题，Aiken 支持「标记参数」，即函数参数可以通过标签而不是位置来给出。
+
+以这个替换字符串部分的函数为例：
+
+```aiken
+fn replace(self: String, pattern: String, replacement: String) {
+  // ...
+}
+```
+
+调用该函数时，可以使用定义的标签来传递参数：
+
+```aiken
+replace(self: @"A,B,C", pattern: @",", replacement: @" ")
+
+// 标记参数可以按任何顺序给出
+replace(pattern: @",", replacement: @" ", self: @"A,B,C")
+
+// 位置参数和标记参数可以混合使用
+replace(@"A,B,C", pattern: @",", replacement: @" ")
+```
+
+标记参数的使用可以让函数的调用以一种富有表现力、类句子的方式进行，同时仍然提供易于阅读且意图清晰的函数主体。
+
+### 覆盖默认标签
+
+请注意，定义函数时，可以覆盖默认标签，以便在函数主体中使用不同的名称（例如较短的名称）。例如：
+
+```aiken
+fn insert(self: List<(String, Int)>, key k: String, value v: Int) {
+  // ... 使用 `k` 和 `v` 做一些事
+}
+```
+
+在外部，仍然可以使用标记的 `key` 和 `value` 来调用该函数，但在函数主体中，为了简洁，它们被命名为 `k` 和 `v`。
+
+## 类型注解
+
+函数参数通常具备类型注解，编译器会检查这些注解并确保它们正确。
+
+```aiken
+fn identity(x: some_type) -> some_type {
+  x
+}
+
+fn inferred_identity(x) {
+  x
+}
+```
+
+Aiken 编译器可以在没有注解的情况下推断出 Aiken 代码的所有类型，有无注解的代码同样安全。为您的函数编写类型注解被视为一种最佳实践，因为它们提供了有用的文档，并鼓励在编写代码时思考类型。
+
+## 文档
+
+您可以在函数定义前添加面向用户的文档，每行使用一个文档注释 `///{:ak}`。Markdown 是受支持的，这段文本将包含在生成的 HTML 文档中。
+
+```aiken
+/// 始终返回 **true**。
+fn always_true(_) -> Bool {
+  True
+}
+```
+
+<Callout type="info">
+与常数和数据类型定义不同，函数按其定义的顺序导出并出现在生成的生成文档中。这使得我们可以将相似的函数分组在一起，以构建连贯的模块 API。
+</Callout>
+
+### 节标题 (Section headings)
+
+库模块通常导出许多函数，这可能会让人迅速感到眼花缭乱。因此，Aiken 通过处理节标题提供了组织函数的手法。节标题是一个双斜杠注释 `//{:ak}`，其内容以 Markdown 标签开头（`#{:md}`, `##{:md}`, `###{:md}`...）。
+
+这类注释标题可以散布在模块中，以向文档生成工具指示在侧边栏以及函数主要内容中创建新标题。标题的大小和边距取决于其重要性（`#{:md}` 为最重要）。
+
+例如：
+
+```aiken
+// ## 构造
+
+/// 构造一个持有值的 `MyType`。
+fn new(value) -> MyType {}
+
+/// 构造一个空的 `MyType`。
+fn empty() -> MyType {}
+
+// ## 检查
+
+/// 获取给定键的值（如果存在）。
+fn get(self, key) -> Option <value> {}
+```
+
+## 高级话题
+
+<Callout emoji="💡">
+如果您刚刚**开始使用** Aiken，您可以**跳过**以下部分，因为它描述了一些更高级的函数用法和行为。以后有需要时随时可以回来阅读。
+</Callout>
+
+### 参数解构
+
+可以直接在函数参数上使用[解构](./custom-types#destructuring)。这在从记录 (records) 中提取字段同时保持代码简洁时特别方便：
+
+```aiken
+use aiken/math
+
+pub type Point {
+  x: Int,
+  y: Int,
+}
+
+fn distance(Point { x, y }: Point, Point { x: x_r, y: y_r }: Point) -> Option<Int> {
+  math.sqrt(math.pow2(x_r - x) + math.pow2(y_r - y))
+}
+```
+
+### 函数捕获 (Function capturing)
+
+有一种简写语法可用于创建接收一个参数并调用另一个函数的匿名函数。`_` 用于指示参数应该传递的位置。
+
+```aiken
+fn add(x, y) {
+  x + y
+}
+
+fn run() {
+  let add_one = add(1, _)
+  add_one(2)
+}
+```
+
+函数捕获语法经常与[管道运算符](./control-flow#piping)一起使用，以对某些数据创建一系列转换。
+
+```aiken
+fn add(x: Int , y: Int ) -> Int {
+  x + y
+}
+
+fn run() {
+  // 这相当于 add(add(add(1, 3), 6), 9)
+  1
+    |> add(_, 3)
+    |> add(_, 6)
+    |> add(_, 9)
+}
+```
+
+事实上，这种用法非常普遍，以至于有一种专门的简写形式。
+
+```aiken
+fn run() {
+  // 这与上面的示例相同
+  1
+    |> add(3)
+    |> add(6)
+    |> add(9)
+}
+```
+
+管道运算符会首先检查左侧的值是否可以用作调用的第一个参数，例如 `a |> b(1, 2)` 将变为 `b(a, 1, 2)`。
+
+如果不行，它会退而将其右侧的结果作为一个函数来调用，例如 `b(1, 2)(a)`。
+
+### 泛型函数
+
+有时您可能希望编写多重类型的泛型函数。例如，考虑一个接收任何值并返回包含两个该值的列表的函数。这在 Aiken 中可以这样表达：
+
+```aiken
+fn list_of_two(my_value: a) -> List<a> {
+  [my_value, my_value]
+}
+```
+
+这里类型变量 `a` 用于代表任何可能的类型。
+
+您可以在同一个函数中使用任意数量的不同类型变量。下面这个函数声明了类型变量 `a` 和 `b`。
+
+```aiken
+fn multi_result(x: a, y: b, condition: Bool) -> Result<a, b> {
+  when condition is {
+    True -> Ok(x)
+    False -> Error(y)
+  }
+}
+```
+
+类型变量可以命名为任何名称，并可以包含下划线 (_)，但名称必须是小写。与其他类型注解一样，它们是完全选填的，但使用它们可能有助理解代码。
+
+### 反向传递 (Backpassing) `←`
+
+接收延续 (continuation)（即只有一个参数的回调函数）的函数可以使用反向传递语法调用：
+
+```aiken
+let x <- foo()
+
+// 这相当于：
+
+foo(fn(x) {
+
+})
+```
+
+这特别适用于对 `Option` 或 `Fuzzer` 等抽象进行操作并提供用于操作它们的原始 API 的函数。例如，让我们考虑以下关于 `Fuzzer` 的小型 API：
+
+```aiken
+fn constant(a) -> Fuzzer<a>
+fn bool() -> Fuzzer<Bool>
+fn map(Fuzzer<a>, fn(a) -> b) -> Fuzzer<b>
+fn and_then(Fuzzer<a>, fn(a) -> Fuzzer<b>) -> Fuzzer<b>
+```
+
+让我们看看一段*不使用反向传递*、使用这些原始 API 构建管道的摘录。大致如下：
+
+```aiken
+pub fn option(fuzz_a: Fuzzer<a>) -> Fuzzer<Option<a>> {
+  bool()
+    |> and_then(
+         fn(predicate) {
+           if predicate {
+             fuzz_a |> map(Some)
+           } else {
+             constant(None)
+           }
+         },
+       )
+}
+```
+
+有点复杂。在这里，我们可以看到如何使用 `and_then` 来逐步遍历 bool 的 `Fuzzer`。使用反向传递可以更简单地重写为：
+
+```aiken
+pub fn option(fuzz_a: Fuzzer<a>) -> Fuzzer<Option<a>> {
+  let predicate <- and_then(bool())
+  if predicate {
+   fuzz_a |> map(Some)
+  } else {
+    constant(None)
+  }
+}
+```
+
+读起来好多了！事实上，当有大量嵌套回调时，这种技术甚至更有帮助，因为它将它们「扁平化」为一系列反向传递的 let 绑定。

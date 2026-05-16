@@ -1,0 +1,244 @@
+# 5 分鐘學會 Aiken！
+
+以下節錄內容讓您快速了解 Aiken 語言。如果您已經熟悉類似的語言，或者需要提醒自己關於 Aiken 的用法，這是一份很好的速查表。有關詳細資訊，請務必查看語言導覽的其他章節，這些章節更深入地解釋了該語言的所有功能。
+
+```aiken
+// ## 變數與常數
+
+// 常數使用 'const' 定義
+// 常數可以用在模組的頂層
+const my_constant: Int = 42
+
+// 指派給 let 綁定的值是不可變的
+// 新的綁定可以遮蔽（shadow）先前的綁定
+let x = 1
+let y = x
+let x = 2
+// y + x == 3
+
+// ## 函式
+
+// 函式使用 'fn' 定義，且可以命名
+fn add(a: Int, b: Int) -> Int {
+  a + b
+}
+
+// 型別註解通常是選用的（儘管建議加上），因為它們可以被推論出來。
+fn add_inferred(a, b) {
+  a + b
+}
+
+// 函式預設是私有的。可以使用 'pub' 關鍵字匯出。
+pub fn public_function(x: Int) -> Int {
+  x * 2
+}
+
+// 函式可以接受函式作為參數
+fn apply_function_twice(x, f: fn(t) -> t) {
+  f(f(x))
+}
+
+// 我們可以使用管道運算子 '|>' 達成與上述相同的結果
+fn apply_function_with_pipe_twice(x, f: fn(t) -> t) {
+  x
+    |> f
+    |> f
+}
+
+// 函式可以被部分應用（partially applied）以建立新函式。這種行為也稱為「函式捕獲（function captures）」。
+fn capture_demonstration() {
+  let add_one = add(_, 1)
+  apply_function_twice(2, add_one) // 求值結果為 4
+}
+
+// ### 驗證器 (Validators)
+
+// 驗證器是 Aiken 中用於智慧合約的特殊函式
+validator my_validator {
+  mint(redeemer: Data, policy_id: PolicyId, self: Transaction) {
+    todo @"智慧合約邏輯寫在這裡"
+  }
+
+  spend(datum: Option<Data>, redeemer: Data, utxo: OutputReference, self: Transaction) {
+    todo @"智慧合約邏輯寫在這裡"
+  }
+}
+
+// ### 回傳語法 (Backpassing)
+
+// 接受回呼（callback）的函式可以利用 `<-` 使用回傳語法
+fn cubed_backpassing(n) {
+  let total <- apply_function_twice(n)
+  total * n
+}
+
+// 這相當於：
+fn cubed_callback(n) {
+  apply_function_twice(n, fn(total) {
+    total * n
+  })
+}
+
+// ## 資料型別
+
+// Aiken 有幾種原始型別：
+const my_int: Int = 10
+const my_bool: Bool = True
+const my_string: ByteArray = "Hello, Aiken!"
+const my_hex_string: ByteArray = #"666f6f"
+const my_utf8_string: String = @"Hello, Aiken!"
+
+// 列表 (Lists)
+const my_list: List<Int> = [1, 2, 3, 4, 5]
+
+// 元組 (Tuples)
+const my_tuple: (Int, ByteArray) = (1, "one")
+
+// ### 自訂型別 (Custom Types)
+
+// 記錄（Records）可以使用 'type'、建構子和具型別的欄位來定義。
+type RGB {
+  red: Int,
+  green: Int,
+  blue: Int,
+}
+
+// 更新自訂型別記錄的部分欄位。
+fn set_red_255(rgb: RGB) {
+  RGB {..rgb, red: 255}
+}
+
+// 也支援列舉（Enums），以及完整的代數資料型別（Algebraic Data Types），可帶有（或不帶有）泛型參數。
+pub type Option<a> {
+  None
+  Some(a)
+}
+
+// 型別也可以設定別名
+type CartesianCoordinates = (Int, Int)
+
+// ### 資料 (Data)
+
+// 任何可序列化的型別都可以向上轉型（upcast）為 `Data`
+const anything_int: Data = 10
+const anything_bytes: Data = "Hello, Aiken!"
+const anything_list: Data = [True, False, False]
+
+
+// 從 `Data` 向下轉型（downcast）不保證成功，但可以使用 `expect` 達成
+fn downcast(data: Data) -> RGB {
+    expect d: RGB = data // 如果資料不符合 `RGB` 則會失敗
+    d
+}
+
+// 可序列化的值在呼叫期間可以隱式向上轉型為 Data
+fn serialise(data: Data) -> ByteArray {}
+let color: RGB = RGB { red: 255, green: 255, blue: 255 }
+serialise(color) // RGB 被隱式作為 `Data` 傳遞
+
+// ## 控制流程
+
+// If 表達式
+fn abs(x: Int) -> Int {
+  if x < 0 {
+    -x
+  } else {
+    x
+  }
+}
+
+// When 表達式（模式比對）
+fn describe_list(list: List<Int>) -> String {
+  when list is {
+    [] -> @"列表是空的"
+    [x] -> @"列表有一個元素"
+    [x, y, ..] -> @"列表有多個元素"
+  }
+}
+
+// 這種語法可以用來代替 when，用於檢查單一情況，否則失敗。
+expect Some(foo) = my_optional_value
+
+// 當左側模式為 `True` 時，可以省略以求簡潔。
+fn positive_add(a, b) {
+  // 如果總和為負則報錯，否則回傳總和
+  let sum = add(abs(a), abs(b))
+  expect sum >= 0
+  sum
+}
+
+// 'and' 和 'or' 布林運算子帶有自己的語法糖
+fn my_validation_logic() -> Bool {
+  (should_satisfy_condition_1 && should_satisfy_condition_2) || should_satisfy_condition_3 || should_satisfy_condition_4
+}
+
+fn my_more_readable_validation_logic() -> Bool {
+  or {
+    and {
+      should_satisfy_condition_1,
+      should_satisfy_condition_2,
+    },
+    should_satisfy_condition_3,
+    should_satisfy_condition_4,
+  }
+}
+
+// 有時定義一個尚未完成但仍允許編譯的函式很有用
+// 'todo' 關鍵字一定會失敗，並在編譯時發出警告。
+fn favourite_number() -> Int {
+  // 型別註解說這會回傳一個 Int，但我們還不需要實現它。
+  todo @"給使用者的選用訊息"
+}
+
+// fail 關鍵字的作用類似，但在編譯時不會有任何警告。
+fn expect_some_value(opt: Option<a>) -> a {
+  when opt is {
+    Some(a) -> a
+    None -> fail @"給使用者的選用訊息"
+    // 我們希望在遇到 'None' 時失敗。
+  }
+}
+
+// 用於除錯的追蹤 (Trace)
+fn debug_function(x: Int) -> Int {
+  trace @"我們可以使用這種語法進行追蹤。"
+  (x * 2 < 10)? // 如果為 false 則會進行追蹤。
+}
+
+// Trace 是可變參數的，可以顯示任何數量的可序列化值
+let color = RGB(140, 49, 224)
+trace @"顏色": color, True
+
+// ## 模組與匯入
+
+// 匯入模組
+use aiken/collection/list
+
+// 使用匯入的函式
+fn use_imports() {
+  let numbers = [1, 2, 3, 4, 5]
+  list.at(numbers, 2) // 求值結果為 3
+}
+
+// 匯入值以便作為非限定識別碼使用
+use aiken/collection/list.{at}
+
+fn use_unqualified_imports() {
+  let numbers = [1, 2, 3, 4, 5]
+  at(numbers, 2) // 仍然是 3
+}
+
+// ## 測試
+
+// 測試使用 'test' 關鍵字定義
+test simple_addition() {
+  let result = add(2, 3)
+  result == 5
+}
+
+// 測試也可以是屬性！
+use aiken/fuzz
+test prop_commutative((a, b) via fuzz.both(fuzz.int(), fuzz.int())) {
+  add(a, b) == add(b, a)
+}
+```

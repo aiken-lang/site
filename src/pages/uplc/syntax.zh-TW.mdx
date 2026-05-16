@@ -1,0 +1,60 @@
+# 語法 (Syntax)
+
+讓我們從語法的簡要回顧開始。Untyped Plutus Core (UPLC) 的完整語法源自最初的 [Plutus Core 語言正式規範 (Formal Specification of the Plutus Core Language)](https://plutus.cardano.intersectmbo.org/resources/plutus-core-spec.pdf)。
+
+## 原始類型 (Primitive Types)
+
+Plutus Core 有 7 種原始類型（也稱為常量）：`unit{:uplc}`、`bool{:uplc}`、`integer{:uplc}`、`bytestring{:uplc}`、`string{:uplc}`、`pair{:uplc}` 和 `list{:uplc}`。
+可以使用 `con{:uplc}` 關鍵字，後跟原始類型的名稱及其值來構造常量。
+
+- Unit 表示為 `(){:uplc}`；
+- Bool 為 `True{:uplc}` 或 `False{:uplc}`；
+- Bytestring 以 `#` 開頭，後跟十六進位序列；
+- String 是 UTF-8 文本字串，放在雙引號 `"` `"` 之間；
+- Pair 和 List 封裝在方括號 `[` 和 `]` 之間。
+
+請注意，每個常量都以其類型命名。對於 Pair 和 List（兩者都是複合類型），其元素的類型指定在尖括號 `<` 和 `>` 之間。
+
+| 原始類型            | 範例                                        |
+| ------------------- | ------------------------------------------- |
+| `unit{:uplc}`       | `con unit (){:uplc}`                        |
+| `bool{:uplc}`       | `con bool True{:uplc}`                      |
+| `integer{:uplc}`    | `con integer 42{:uplc}`                     |
+| `bytestring{:uplc}` | `con bytestring #41696b656e{:uplc}`         |
+| `string{:uplc}`     | `con string "Aiken"{:uplc}`                 |
+| `pair{:uplc}`       | `con pair<bool, integer> [True, 42]{:uplc}` |
+| `list{:uplc}`       | `con list<bytestring> [#00, #aa]{:uplc}`    |
+
+## 函式 (Functions)
+
+函式（或簡單稱為 lambda）使用關鍵字 `lam{:uplc}` 構造，後跟變數名稱和一個項 (term)（即內容常量、另一個函式等）。可以使用方括號 `[ ]` 將變數套用到函式上。
+
+例如：`[ (lam x x) (con integer 42) ]{:uplc}`。
+
+這段簡短的代碼構造了一個接收參數 `x{:uplc}` 並返回它的函式；我們立即對其套用了常量 `42{:uplc}`。如果我們評估這個程式，它將簡單地輸出：`42{:uplc}`。
+
+## 內建函式 (Builtins)
+
+Plutus Core 附帶了一組內建函式，便於定義某些操作。順便提一下，即使是基本的算術運算也沒有「運算子 (operator)」，一切都以內建函式的形式提供。
+
+您還會注意到，某些內建函式是非常針對特定領域的，並針對您期望智能合約在區塊鏈上執行的操作進行了量身定制。因此，未來可能會添加新的內建函式，以應對出現的特定用例。
+
+內建函式使用關鍵字 `builtin{:uplc}` 後跟其名稱來呼叫。它們可以接收一個、兩個、三個或實際上任意數量的參數。這裡是 [內建函式完整列表](./builtins)。
+
+## 延遲與強制執行 (Delay & Force)
+
+Plutus Core 具有類型抽象 (type abstractions) 和類型實例化 (type instantiations) 的概念。也就是說，就像 lambda 是關於項值 (term values) 的函式一樣，抽象是關於類型的函式。這些抽象允許表示多型類型（例如元素列表或選項類型）。UPLC 雖然去除了類型，但引入了兩個新關鍵字，以便以某種形式保留這些抽象。
+
+- `force{:uplc}` 可用於多型函式以實例化一個類型參數。例如，內建 `ifThenElse{:uplc}` 的分支可以是任何類型 —— 儘管兩個分支必須具有相同的類型。事實上，`ifThenElse{:uplc}` 有一個類型參數。要呼叫它，必須強制執行一次：`[ [ [ (force (builtin ifThenElse)) p ] x ] y ]{:uplc}`。
+
+- 同樣，`delay{:uplc}` 可用於延遲某個項的評估；這允許人工構造或保留類型抽象，同時也在程式的部分組件中引入了某種程度的惰性 (laziness)。
+
+## 數據 (Data)
+
+除了原始類型外，Plutus Core 還具有更通用的 `data` 數據類型，旨在表示程式中任何可能的數據類型。
+
+> **TODO**: 提供有關序列化如何完成以及如何構建 Data 的更多細節。
+
+## 程式 (Programs)
+
+最後，UPLC 程式封裝在 `program` 聲明中，該聲明指示了此程式使用的 Plutus Core 版本（例如 `1.0.0`）。您不必太擔心這個。Aiken 支持最新的 Plutus 版本 (`2.0.0` 或更高)。

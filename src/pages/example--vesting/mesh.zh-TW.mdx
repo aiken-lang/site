@@ -1,0 +1,494 @@
+import { Callout } from "nextra-theme-docs";
+
+# 歸屬 (Vesting)
+
+憑藉我們剛從 _Hello, World!_ 合約中獲得的知識，讓我們增加難度，編寫一個更具挑戰性的合約。
+
+歸屬合約是一種常見的合約類型，它允許將資金鎖定一段時間，並在稍後（即經過指定時間後）解鎖。通常，歸屬合約會定義一個可能與原始所有者不同的受益人。
+
+## 本教學涵蓋內容
+
+<br/>
+
+- [x] 編寫非瑣碎 (non-trivial) 的 Aiken 驗證器，並帶有複雜的 datum。
+- [x] 使用更進階的 Aiken 功能（類型別名、模式比對）。
+- [x] 使用 Aiken 和 mocktail 編寫單元測試。
+- [x] 透過交易有效期範圍管理鏈上時間。
+
+<Callout type="info" emoji="📘">
+  遇到不熟悉的語法或概念時，請隨時參考 [語言導覽](/language-tour) 以獲取詳細資訊和更多範例。
+</Callout>
+
+## 設定
+
+與我們在 _Hello, World!_ 合約中所做的類似，我們需要一些憑證（和資金）來進行操作。這裡我們為受益人定義了一個額外的金鑰。同樣，請使用 [Cardano 水龍頭 (Cardano faucet)](https://docs.cardano.org/cardano-testnet/tools/faucet) 來接收測試資金。如果您對流程有任何疑問，請參考 [Hello, World! :: 獲取資金](/example--hello-world/end-to-end/lucid#getting-funds)。
+
+
+```js filename="generate-credentials.mjs"
+import fs from 'node:fs';
+import {
+  MeshWallet,
+} from "@meshsdk/core";
+
+
+// 為所有者錢包和受益人錢包生成私鑰
+const owner_secret_key = MeshWallet.brew(true);
+const beneficiary_secret_key = MeshWallet.brew(true);
+
+// 將私鑰儲存至檔案
+fs.writeFileSync('owner.sk', owner_secret_key);
+fs.writeFileSync('beneficiary.sk', beneficiary_secret_key);
+
+const owner_wallet = new MeshWallet({
+  networkId: 0,
+  key: {
+    type: 'root',
+    bech32: owner_secret_key,
+  },
+});
+
+const beneficiary_wallet = new MeshWallet({
+  networkId: 0,
+  key: {
+    type: 'root',
+    bech32: beneficiary_secret_key,
+  },
+});
+
+// 將未使用的地址儲存至檔案 
+fs.writeFileSync('owner.addr', (await owner_wallet.getUnusedAddresses())[0]);
+fs.writeFileSync('beneficiary.addr', (await beneficiary_wallet.getUnusedAddresses())[0]);
+```
+
+## 鏈上程式碼
+
+讓我們將時間鎖定驗證器編寫為 `validators/vesting.ak`，從其介面定義（即其 datum 的形狀）開始。
+
+```aiken filename="validators/vesting.ak"
+use aiken/crypto.{VerificationKeyHash}
+
+pub type VestingDatum {
+  /// 以毫秒為單位的 POSIX 時間，例如 1672843961000
+  lock_until: Int,
+  /// 所有者的憑證
+  owner: VerificationKeyHash,
+  /// 受益人的憑證
+  beneficiary: VerificationKeyHash,
+}
+```
+
+## 依賴項目
+
+我們將在此專案中添加的一個額外依賴項是 [vodka](https://github.com/sidan-lab/vodka)。
+要在我們的 Aiken 專案中包含 vodka，讓我們更新 `aiken.toml` 檔案，將其指定為依賴項。
+
+```aiken filename="aiken.toml"
+[[dependencies]]
+name = "sidan-lab/vodka"
+version = "0.1.1-beta"
+source = "github"
+```
+
+使用 vodka 作為依賴項可以存取幾個專為常見合約驗證需求設計的工具函式。在我們的 `vesting.ak` 檔案中，我們將使用 vodka 中的兩個特定函式：
+
+- **`key_signed`**：驗證特定金鑰是否已簽署交易。這確保了只有獲授權的用戶才能與合約互動。
+
+- **`valid_after`**：檢查交易是否僅在指定時間之後才有效。這對於在合約邏輯中設定基於時間的約束非常有用。
+
+正如我們所見，腳本的 datum 作為配置，包含了歸屬操作的不同參數。請記住，這些元素是在合約中鎖定資金時設定的；結合腳本，它們定義了釋放資金的條件。
+
+接著，讓我們定義 `spend` 驗證器本身。
+
+```aiken filename="validators/vesting.ak"
+use cardano/transaction.{OutputReference, Transaction}
+use vodka_extra_signatories.{key_signed}
+use vodka_validity_range.{valid_after}
+use aiken/crypto.{VerificationKeyHash}
+
+pub type VestingDatum {
+  /// 以毫秒為單位的 POSIX 時間，例如 1672843961000
+  lock_until: Int,
+  /// 所有者的憑證
+  owner: VerificationKeyHash,
+  /// 受益人的憑證
+  beneficiary: VerificationKeyHash,
+}
+
+validator vesting {
+  // 原則上，腳本可用於不同目的（例如鑄造資產）。
+  // 這裡我們確保它僅在從 eUTxO 「花費」時使用。
+  spend(
+    datum_opt: Option<VestingDatum>,
+    _redeemer: Data,
+    _input: OutputReference,
+    tx: Transaction,
+  ) {
+    expect Some(datum) = datum_opt
+    or {
+      key_signed(tx.extra_signatories, datum.owner),
+      and {
+        key_signed(tx.extra_signatories, datum.beneficiary),
+        valid_after(tx.validity_range, datum.lock_until),
+      },
+    }
+  }
+
+  else(_) {
+    fail
+  }
+}
+```
+
+這裡的關鍵特性是基於時間的檢查，它由 `valid_after` 函式抽象化。事實上，交易可以具有「有效期區間 (validity intervals)」，定義了交易從何時開始以及直到何時被視為有效。有效期界限在執行腳本之前由帳本進行檢查，且只有在界限合法時才會執行。
+
+這旨在為腳本提供時間概念，同時保留腳本上下文內的確定性。例如，在這種情況下，給定交易的下界 `A`，我們可以推斷出當前時間「至少」是 `A`。
+
+請注意，因為我們不控制上界，交易很有可能在歸屬延遲結束 30 年後才執行。然而，從歸屬腳本的角度來看，這是完全可以接受的。
+
+在 Aiken 中，不直接使用的值可以加上底線 (`_`) 前綴，表示它們被有意忽略。在此驗證器中，`_redeemer` 和 `_input` 被標記為未使用，這使意圖清晰並提高了可讀性。
+
+這種做法在可能需要多個參數用於不同目的（如鑄造或花費）的合約中特別有用，因為並非所有參數都始終與當前邏輯相關。
+
+### 測試
+
+在將合約部署到正式環境並面臨因不可預見的錯誤而導致損失的風險之前，讓我們編寫一個簡單的測試。Aiken 內置了對測試的支持，測試非常像是不帶參數且必須返回 `Bool{:ak}` 的函式。
+
+在下面的測試中，我們還利用了由 **vodka** 依賴項提供的 **mocktail** 模組。該模組提供了各種工具函式，簡化了我們智能合約的單元測試。
+
+測試可以使用模組中定義的任何函式、常量或類型，但請注意，它們不能引用其他測試！
+
+```aiken filename="validators/vesting.ak"
+// ^^^ 以上程式碼保持不變 ^^^
+
+// mocktail 模組來自 vodka 依賴項。
+// 這些依賴項應與其他導入的模組一起放在檔案頂部。 
+use mocktail.{complete, invalid_before, mocktail_tx, required_signer_hash}
+use mocktail/virgin_key_hash.{mock_pub_key_hash}
+use mocktail/virgin_output_reference.{mock_utxo_ref}
+
+type TestCase {
+  is_owner_signed: Bool,
+  is_beneficiary_signed: Bool,
+  is_lock_time_passed: Bool,
+}
+
+fn get_test_tx(test_case: TestCase) {
+  let TestCase { is_owner_signed, is_beneficiary_signed, is_lock_time_passed } =
+    test_case
+
+  mocktail_tx()
+    |> required_signer_hash(is_owner_signed, mock_pub_key_hash(1))
+    |> required_signer_hash(is_beneficiary_signed, mock_pub_key_hash(2))
+    |> invalid_before(is_lock_time_passed, 1672843961001)
+    |> complete()
+}
+
+fn vesting_datum() {
+  VestingDatum {
+    lock_until: 1672843961000,
+    owner: mock_pub_key_hash(1),
+    beneficiary: mock_pub_key_hash(2),
+  }
+}
+
+test success_unlocking() {
+  let output_reference = mock_utxo_ref(0, 1)
+  let datum = Some(vesting_datum())
+  let test_case =
+    TestCase {
+      is_owner_signed: True,
+      is_beneficiary_signed: True,
+      is_lock_time_passed: True,
+    }
+
+  let tx = get_test_tx(test_case)
+  vesting.spend(datum, Void, output_reference, tx)
+}
+```
+
+<Callout>
+  您可以使用 `aiken check` 執行測試；Aiken 將收集並執行在您的模組中找到的所有測試，並提供有關測試所需的執行單元（CPU 和記憶體）的一些統計資料。
+</Callout>
+
+### 構建
+
+現在是構建鏈上合約的時候了！只需執行：
+
+```
+aiken build
+```
+
+這將在專案根目錄生成一個 [CIP-0057 Plutus 藍圖](https://github.com/cardano-foundation/CIPs/pull/258)，檔名為 `plutus.json`。此藍圖描述了您的鏈上合約及其二進位介面。特別是，它包含帳本將執行的、生成的鏈上程式碼，以及可用於構建地址的驗證器雜湊值。
+
+讓我們看看驗證器的實戰效果！
+
+## 離鏈程式碼
+
+### 設定
+首先，讓我們安裝 [dotenv](https://www.npmjs.com/package/dotenv) 套件，它允許我們從 `.env` 檔案匯入 API 金鑰。接下來，我們將建立一個名為 `common` 的目錄，並在其中建立一個名為 `common.mjs` 的檔案。
+
+此檔案將存放用於鎖定和解鎖資產的工具函式。在此設定中，我們將從 `.env` 檔案匯入我們的 [BLOCKFROST_API](https://blockfrost.dev/overview/getting-started) 金鑰。
+
+```js filename="common/common.mjs"
+import 'dotenv/config';
+import {
+  MeshWallet,
+  BlockfrostProvider,
+  MeshTxBuilder,
+  serializePlutusScript,
+} from "@meshsdk/core";
+import { applyParamsToScript } from "@meshsdk/core-csl";
+import fs, { read } from 'fs';
+
+
+export const blockchainProvider = new BlockfrostProvider(process.env.BLOCKFROST_API);
+
+
+export const owner_wallet = new MeshWallet({
+  networkId: 0,
+  fetcher: blockchainProvider,
+  submitter: blockchainProvider,
+  key: {
+    type: "root",
+    bech32: fs.readFileSync("owner.sk").toString(),
+  },
+});
+
+export const beneficiary_wallet = new MeshWallet({
+  networkId: 0,
+  fetcher: blockchainProvider,
+  submitter: blockchainProvider,
+  key: {
+    type: "root",
+    bech32: fs.readFileSync("beneficiary.sk").toString(),
+  },
+});
+
+export function getTxBuilder() {
+  return new MeshTxBuilder({
+    fetcher: blockchainProvider,
+    submitter: blockchainProvider,
+    verbose: true, // <-- 如果不想看到記錄，可以移除此行
+  });
+}
+
+const blueprint = JSON.parse(fs.readFileSync("./plutus.json"));
+export const scriptCbor = applyParamsToScript(blueprint.validators[0].compiledCode, []);
+export const scriptAddr = serializePlutusScript(
+  { code: scriptCbor, version: "V3" },
+  undefined,
+  0
+).address;
+```
+
+### 將資金鎖定到合約中
+
+首先，我們設定 `depositFundTx` 函式。此函式將封裝將資金鎖定到智能合約的核心邏輯，確保存款過程得到高效且安全的處理。
+
+```js filename="vesting_lock.mjs"
+import { mConStr0 } from "@meshsdk/common";
+import { deserializeAddress } from "@meshsdk/core";
+import {
+  getTxBuilder,
+  owner_wallet,
+  beneficiary_wallet,
+  scriptAddr,
+} from "./common/common.mjs";
+
+async function depositFundTx(amount, lockUntilTimeStampMs) {
+  const utxos = await owner_wallet.getUtxos();
+  const { pubKeyHash: ownerPubKeyHash } = deserializeAddress(
+    owner_wallet.addresses.baseAddressBech32
+  );
+  const { pubKeyHash: beneficiaryPubKeyHash } = deserializeAddress(
+    beneficiary_wallet.addresses.baseAddressBech32
+  );
+
+  const txBuilder = getTxBuilder();
+  await txBuilder
+    .txOut(scriptAddr, amount)
+    .txOutInlineDatumValue(
+      mConStr0([lockUntilTimeStampMs, ownerPubKeyHash, beneficiaryPubKeyHash])
+    )
+    .changeAddress(owner_wallet.addresses.baseAddressBech32)
+    .selectUtxosFrom(utxos)
+    .complete();
+  return txBuilder.txHex;
+}
+```
+
+現在我們已經構建了核心邏輯，讓我們設定負責簽署和提交交易的 `main` 函式。它還會呼叫帶有所需參數的 `depositFundTx`。
+
+```js filename="vesting_lock.mjs"
+// ^^^ 以上程式碼保持不變 ^^^
+
+async function main() {
+  const assets = [
+    {
+      unit: "lovelace",
+      quantity: "3000000",
+    },
+  ];
+
+  const lockUntilTimeStamp = new Date();
+  lockUntilTimeStamp.setMinutes(lockUntilTimeStamp.getMinutes() + 1);
+
+  const unsignedTx = await depositFundTx(assets, lockUntilTimeStamp.getTime());
+
+  const signedTx = await owner_wallet.signTx(unsignedTx);
+  const txHash = await owner_wallet.submitTx(signedTx);
+
+  // 複製此 txHash。您在 vesting_unlock.mjs 中會需要它。
+  console.log("txHash", txHash);
+}
+
+main();
+```
+
+<Callout>
+  您可以使用 Node 透過以下方式執行上述指令：
+```console
+node vesting_lock.mjs
+```
+</Callout>
+
+如果一切按計劃進行，您應該會在控制台中看到交易識別碼。請確保複製此雜湊值，您在 `vesting_unlock.mjs` 檔案中會需要它。
+
+### 從合約解鎖資金
+
+現在想要花費被 `vesting` 合約鎖定的 UTxO。要使交易有效，必須滿足以下兩個條件之一：
+
+- 必須由 datum 中引用的「所有者 (owner)」簽署；或者
+- 必須由受益人（在 datum 中引用的「beneficiary」）簽署，且交易發生在特定的時間閾值之後。此閾值定義為設定鎖定條件時目前時間之後的一分鐘。
+
+讓我們建立一個新檔案 `vesting_unlock.mjs` 並添加解鎖合約資金的部分。此檔案包含 `withdrawFundTx` 函式，該函式允許受益人從歸屬合約中解鎖資金。該函式處理必要的交易構建，並確保只有在滿足指定條件後才能存取資金。
+
+```js filename="vesting_unlock.mjs"
+import {
+  deserializeAddress,
+  deserializeDatum,
+  unixTimeToEnclosingSlot,
+  SLOT_CONFIG_NETWORK,
+} from "@meshsdk/core";
+
+import {
+  getTxBuilder,
+  beneficiary_wallet,
+  scriptAddr,
+  scriptCbor,
+  blockchainProvider,
+} from "./common/common.mjs";
+
+async function withdrawFundTx(vestingUtxo) {
+  const utxos = await beneficiary_wallet.getUtxos();
+  const beneficiaryAddress = beneficiary_wallet.addresses.baseAddressBech32;
+  const collateral = await beneficiary_wallet.getCollateral();
+  const collateralInput = collateral[0].input;
+  const collateralOutput = collateral[0].output;
+
+  const { pubKeyHash: beneficiaryPubKeyHash } = deserializeAddress(
+    beneficiary_wallet.addresses.baseAddressBech32
+  );
+
+  const datum = deserializeDatum(vestingUtxo.output.plutusData);
+
+  const invalidBefore =
+    unixTimeToEnclosingSlot(
+      Math.min(datum.fields[0].int, Date.now() - 19000),
+      SLOT_CONFIG_NETWORK.preview
+    ) + 1;
+
+  const txBuilder = getTxBuilder();
+  await txBuilder
+    .spendingPlutusScript("V3")
+    .txIn(
+      vestingUtxo.input.txHash,
+      vestingUtxo.input.outputIndex,
+      vestingUtxo.output.amount,
+      scriptAddr
+    )
+    .spendingReferenceTxInInlineDatumPresent()
+    .spendingReferenceTxInRedeemerValue("")
+    .txInScript(scriptCbor)
+    .txOut(beneficiaryAddress, vestingUtxo.output.amount)
+    .txInCollateral(
+      collateralInput.txHash,
+      collateralInput.outputIndex,
+      collateralOutput.amount,
+      collateralOutput.address
+    )
+    .invalidBefore(invalidBefore)
+    .requiredSignerHash(beneficiaryPubKeyHash)
+    .changeAddress(beneficiaryAddress)
+    .selectUtxosFrom(utxos)
+    .complete();
+  return txBuilder.txHex;
+}
+```
+
+在此部分，我們定義了一個 `main` 函式，用於檢索執行 `vesting_lock.mjs` 檔案時生成的交易雜湊。此雜湊將用於獲取對應的 UTxO 以供提款。
+
+```js filename="vesting_unlock.mjs"
+// ^^^ 以上程式碼保持不變 ^^^
+
+async function main() {
+  const txHashFromDesposit =
+    // 這是我們在鎖定檔案中提交交易時生成的雜湊。
+    "ed7559c7aa5a8bfcba9ec8d75fb2ee1902da8b909722ca4726261d35e8250645";
+
+  const utxo = await getUtxoByTxHash(txHashFromDesposit);
+
+  if (utxo === undefined) throw new Error("找不到 UTxO");
+
+  const unsignedTx = await withdrawFundTx(utxo);
+
+  const signedTx = await beneficiary_wallet.signTx(unsignedTx);
+
+  const txHash = await beneficiary_wallet.submitTx(signedTx);
+  console.log("txHash", txHash);
+}
+
+async function getUtxoByTxHash(txHash) {
+  const utxos = await blockchainProvider.fetchUTxOs(txHash);
+  if (utxos.length === 0) {
+    throw new Error("找不到 UTxO");
+  }
+  return utxos[0];
+}
+
+main();
+```
+
+<Callout>
+  您可以想像，我們可以使用以下命令執行此腳本：
+```
+node vesting_unlock.mjs
+```
+</Callout>
+
+<Callout type="info">
+```
+專案結構應如下所示：
+./vesting
+│
+├── README.md
+├── aiken.toml
+└── common
+    └── common.mjs
+├── beneficiary.addr
+├── beneficiary.sk
+├── .env
+├── owner.addr
+├── owner.sk
+├── node_modules
+├── package.json
+├── package-lock.json
+├── plutus.json
+└── validators
+    └── vesting.ak
+├── vesting_lock.mjs
+├── vesting_unlock.mjs
+```
+</Callout>
+
+假設一切順利... 恭喜您 🎉！

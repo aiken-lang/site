@@ -1,0 +1,572 @@
+---
+title: "自定義型別"
+description: "Aiken 是一種用於撰寫 Cardano 智慧合約的函數式程式語言，具有強大的靜態型別系統。自定義型別是使用 type 關鍵字定義的具名字欄集合，支援記錄 (records)、列舉 (enums)、泛型 (generics) 和代數資料型別 (algebraic data types) —— 類似於 Rust 中的結構體 (structs) 和列舉 (enums)。用於定義驗證器需在鏈上處理的 datum、redeemer 以及任何結構化資料。"
+difficulty: "beginner"
+keywords: ["type", "自定義型別", "記錄", "列舉", "構造函數", "代數資料型別", "泛型", "解構", "不透明型別", "Data", "datum", "redeemer"]
+topics: ["custom-types", "records", "enums", "algebraic-data-types", "generics"]
+---
+
+import { Callout } from "nextra-theme-docs";
+
+# 自定義型別
+
+## 定義自定義型別
+
+### 基礎知識
+
+Aiken 的自定義型別是鍵和/或值的具名集合。它們類似於物件導向語言中的物件，但沒有方法。
+
+自定義型別使用 `type{:ak}` 關鍵字定義。它們可以包含具名欄位，也可以不包含；但不能混用。
+
+```aiken
+// 帶有具名欄位
+type Datum {
+  Datum { signer: ByteArray, count: Int }
+}
+
+// 帶有匿名欄位
+type DatumNameless {
+  DatumNameless(ByteArray, Int)
+}
+```
+
+在這裡，我們定義了兩個自定義型別，分別稱為 `Datum{:ak}` 和 `DatumNameless{:ak}`。
+
+`Datum{:ak}` 的構造函數名為 `Datum{:ak}`，它有兩個欄位：`signer{:ak}` 欄位是 `ByteArray{:ak}`，`count{:ak}` 欄位是 `Int{:ak}`。同樣地，`DatumNameless{:ak}` 的構造函數也有兩個型別分別為 `ByteArray{:ak}` 和 `Int{:ak}` 的欄位。
+
+自定義型別定義好之後，就可以在函式中透過呼叫其構造函數來建立值。
+
+```aiken
+fn datums() {
+  // 具名欄位可以按任何順序給出
+  let named_1 = Datum { signer: #[0xAA, 0xBB], count: 2001 }
+  let named_2 = Datum { count: 1805, signer: #[0xAA, 0xCC] }
+
+  // 匿名欄位作為位置參數給出
+  let nameless_1 = DatumNameless(#[0xAA, 0xBB], 2001)
+
+  // 即使是具名欄位，也可以作為位置參數給出
+  let named_3 = Datum(#[0xAA, 0xBB], 2001)
+
+  (named_1, named_2, nameless_1, named_3)
+}
+```
+
+### 簡寫標記
+
+由於單一構造函數非常常見，當型別和構造函數同名時，存在一種特殊的簡寫標記。因此，上述內容可以寫成：
+
+```aiken
+type Datum {
+  signer: ByteArray,
+  count: Int
+}
+```
+
+這兩種標記（帶或不帶構造函數）是等價的。使用簡寫時，我們隱式地表示有一個名為 `Datum` 的單一構造函數，它可以用於構造 `Datum` 型別的值，也可以用於解構（見下文）。
+
+### 多重構造函數
+
+Aiken 中的自定義型別可以定義多個構造函數（亦稱變體 (variants)），使其成為一種對可能是幾種不同變體之一的資料進行建模的方法。
+
+我們已經在語言概覽中看過具有多重構造函數的自定義型別，例如 [`Bool{:ak}`](./primitive-types#bool) 或 [`Option{:ak}`](./primitive-types#option)。
+
+Aiken 內建的 `Bool` 型別是這樣定義的：
+
+```aiken
+/// Bool 是 True 或 False 兩者之一的值
+type Bool {
+  False
+  True
+}
+```
+
+這是一個簡單的自定義型別，其構造函數甚至不接收任何參數！使用它來回答是/否問題，並指示某事是 `True{:ak}` 還是 `False{:ak}`。
+
+自定義型別的不同構造函數所建立的記錄可以包含不同的值。例如，一個 `User{:ak}` 自定義型別可以有一個帶有名稱的 `LoggedIn` 構造函數，以及一個不包含任何值的 `Guest` 構造函數。
+
+```aiken
+type User {
+  LoggedIn { username: ByteArray }  // 已登入使用者
+  Guest // 沒有詳細資訊的訪客使用者
+}
+```
+
+```aiken
+let user1 = LoggedIn { username: "Alice" }
+let user2 = LoggedIn { username: "Bob" }
+let visitor = Guest
+```
+
+### 泛型
+
+自定義型別可以使用其他型別作為參數，使其內容變得可變。我們在 [`Option{:ak}`](./primitive-types#option) 中已經看過這一點。
+
+讓我們看另一個 `Box{:ak}` 型別的例子，它是一個持有單一值的簡單記錄。
+
+```aiken
+type Box<inner_type> {
+  Box(inner: inner_type)
+}
+```
+
+欄位 `inner{:ak}` 的型別是 `inner_type{:ak}`，它是 `Box{:ak}` 型別的一個參數。如果它持有 `Int{:ak}`，盒子的型別就是 `Box<Int>{:ak}`；如果它持有字串，盒子的型別就是 `Box<ByteArray>{:ak}`。
+
+```aiken
+fn foo() {
+  let a = Box(420) // 型別為 Box<Int>
+  let b = Box("That's my ninja way!") // 型別為 Box<ByteArray>
+}
+```
+
+## 檢查自定義型別
+
+### 具名存取器
+
+如果一個自定義型別**只有一個構造函數**並且擁有**具名欄位**，則可以使用點符號 (`.{:ak}`) 後跟欄位名稱來存取它們。
+
+例如，考慮一個型別 `Dog`：
+
+```aiken
+type Dog {
+  name: ByteArray,
+  cuteness: Int,
+  age: Int,
+}
+```
+
+我們可以使用 `.name{:ak}`、`.cuteness{:ak}` 和 `.age{:ak}` 分別存取它的任何欄位。
+
+```aiken
+let dog = Dog { name: "bob", cuteness: 2001, age: 6 }
+dog.name // 返回 "bob"
+dog.cuteness // 返回 2001
+dog.age // 返回 6
+```
+
+### 解構 (Destructuring)
+
+在 Aiken 中，值可以被「解構」。解構與構造值相反，使用類似但相反的語法。**構造**時，構造函數和欄位出現在賦值的**右側**。**解構**時，它們出現在**左側**。
+
+繼續以我們的 `Dog{:ak}` 為例，我們有如下對等關係：
+
+```aiken
+// 構造
+let dog = Dog { name: "bob", cuteness: 2001, age: 6 }
+
+// 解構
+let Dog { name, cuteness, age } = dog
+name == "bob" // True
+cuteness == 2001 // True
+age == 6 // True
+
+// 等同於
+let name = dog.name
+let cuteness = dog.cuteness
+let age = dog.age
+```
+
+如您所見，第二個表達式分別為 `name{:ak}`、`cuteness{:ak}` 和 `age{:ak}` 引入了新的綁定。這裡之所以能進行解構，是因為相關型別只有單一構造函數，且我們引入的標識符名稱與欄位名稱相同。
+
+#### 重命名欄位
+
+如果需要，我們還可以使用冒號符號 (`:{:ak}`) 重命名欄位，如下所示：
+
+```aiken
+// 解構
+let Dog { name: its_name, cuteness, age: its_age } = dog
+its_name == "bob" // True
+its_age == 6 // True
+```
+
+請注意，我們也可以透過為每個欄位引入標識符來解構匿名欄位的構造函數。與構造時一樣，當被視為匿名欄位時，參數是按位置對應的。
+
+```aiken
+// 解構匿名欄位
+let Dog(name, cuteness, age) = dog
+name == "bob" // True
+cuteness == 2001 // True
+age == 6 // True
+
+// 解構匿名欄位，參數順序對調
+let Dog(age, name, cuteness) = dog
+age == "bob" // 雖然令人困惑，但為 True
+name == 2001 // 雖然令人困惑，但為 True
+cuteness == 6 // 雖然令人困惑，但為 True
+```
+
+### 模式匹配
+
+對於具有多個變體的型別，必須使用 `when *expr* is{:ak}` 關鍵字進行「模式匹配」。這種語法允許根據型別定義的各個分支來檢查值，確保所有可能的路徑都得到了妥善處理。換句話說，這就像是在對編譯器說「如果資料具備這種形狀，那就做那件事」，涵蓋所有可能的形狀。
+
+還記得我們之前的 `User{:ak}` 型別嗎？
+
+```aiken
+type User {
+  LoggedIn { username: ByteArray }
+  Guest
+}
+```
+
+讓我們撰寫一個提取 `User{:ak}` 名稱的函式 `get_name{:ak}`：
+
+```aiken
+fn get_name(user: User) -> ByteArray {
+  when user is {
+    LoggedIn { username } -> username
+    Guest -> "Guest user"
+  }
+}
+```
+
+`when *expr* is{:ak}` 區塊強制我們窮舉處理型別定義中的每個構造函數。
+
+#### 通用匹配符 (Wildcard)
+
+模式總是需要完備的，但枚舉每一個欄位或構造函數有時會很繁瑣。在這種情況下，Aiken 允許使用通用匹配符。
+
+通用匹配符就像一個後備模式，用 `_{:ak}` 表示，它可以用在模式中以匹配任何剩餘的模式。例如：
+
+```aiken
+fn get_name(user: User) -> ByteArray {
+  when user is {
+    LoggedIn { username } -> username
+    _ -> "Guest user"
+  }
+}
+```
+
+請注意，通用匹配符也可以命名。一般來說，任何以底線 `_{:ak}` 開頭的標識符都會被視為通用匹配符。
+
+但請注意，通常不推薦使用通用匹配符，因為它們會使程式碼變得脆弱。事實上，如果您要在 `User` 型別中添加一個新的構造函數，該函式在編譯時不會產生任何警告或錯誤，因為通用匹配符 `_` 會吞掉所有剩餘的構造函數。然而，請想像以下情況：
+
+```aiken
+type User {
+  LoggedInAsAdministrator { username: ByteArray }
+  LoggedIn { username: ByteArray }
+  Guest
+}
+```
+
+使用通用匹配符，`get_name` 會照常編譯，並會為以管理員身份登入的使用者返回 `"Guest user"`！因此，只有在別無他法時才使用通用匹配符。在許多情況下，顯式列出所有模式會更好。
+
+<Callout type="info">
+  解構時同樣可以使用通用匹配符，如果您只需要將特定欄位引入作用域。
+
+  ```aiken
+  let Dog(name, _cuteness, _age) = dog
+
+  // 等同於
+
+  let name = dog.name
+  ```
+</Callout>
+
+#### 多重模式 (Alternative patterns)
+
+為了避免在多個分支中重複相同的邏輯片段，Aiken 提供了一種使用管道符號 `|{:ak}` 同時處理多個模式的語法。當這些模式在作用域中引入具有相同名稱和相應型別的標識符時，這種方式尤其有效。
+
+```aiken
+fn get_name(user: User) -> ByteArray {
+  when user is {
+    LoggedInAsAdministrator { username } | LoggedIn { username } -> username
+    Guest -> "Guest user"
+  }
+}
+```
+
+#### 展開運算子 (Spread operator)
+
+同樣地，有時從構造函數中僅提取特定的具名欄位，甚至一個也不提取，是非常有用的。在這些情況下，Aiken 提供了展開運算子 `..{:ak}` 來表示忽略其餘任何內容。
+
+例如，假設我們在 `LoggedIn` 構造函數變體中添加了一個欄位 `days_of_activity: Int`。
+
+```aiken
+fn is_authorized(user: User) -> Bool {
+  when user is {
+    LoggedInAsAdministrator { .. } -> True
+    LoggedIn { days_of_activity, .. } -> days_of_activity > 30
+    Guest -> False
+  }
+}
+```
+
+在上面的函式中，我們授權任何管理員或任何活動天數至少為 30 天的登入使用者。展開運算子用於表示記錄的其他具名欄位被忽略。
+
+<Callout type="info">
+  展開運算子也適用於解構，如果您只需要將特定欄位引入作用域。
+
+  ```aiken
+  let Dog { name, .. } = dog
+
+  // 等同於
+
+  let name = dog.name
+  ```
+</Callout>
+
+#### 列表 (List)
+
+模式匹配也適用於列表，並具有其專屬語法。在 Aiken 中，列表是鏈結列表 (linked-lists)，因此它們實際上等同於具有兩個構造函數的自定義型別：要麼是一個空列表，要麼是一個值和另一個列表（可能為空）。
+
+在對列表進行匹配時，可以使用通用匹配符和展開運算子。此外，對於列表，展開運算子可以命名以顯式捕捉列表的其餘部分（尾部）。讓我們看一些例子：
+
+```aiken
+fn get_head(xs: List<a>) -> Option<a> {
+  when xs is {
+    [] -> None
+    [a, ..] -> Some(a)
+  }
+}
+
+fn is_empty(xs: List<a>) -> Bool {
+  when xs is {
+    [] -> True
+    [_, ..] -> False
+  }
+}
+
+fn get_tail(xs: List<a>) -> List<a> {
+  when xs is {
+    [] -> [] // 有待商榷
+    [_, ..tail] -> tail
+  }
+}
+```
+
+#### 巢狀模式 (Nested patterns)
+
+模式不僅限於型別結構的第一層。可以對任何複合型別進行任意深度的模式匹配。
+
+```aiken
+fn get_name_with_default(dog: Option<Dog>, default: ByteArray) -> ByteArray {
+  when dog is {
+    Some(Dog { name, .. }) -> name
+    _ -> default
+  }
+}
+```
+
+您還可以在記錄中的巢狀欄位上進行模式匹配。為此，請使用欄位標籤和 `:{:ak}` 運算子，如下所示：
+
+```aiken
+fn get_age_of_oscar(dog: Dog) -> Option<Int> {
+  when dog is {
+    Dog { name: "Oscar", age, ..} -> Some(age)
+    _ -> None
+  }
+}
+```
+
+#### 為子模式分配名稱
+
+有時在進行模式匹配時，我們希望在指定其形狀的同時為該值分配一個名稱。我們可以使用 `as{:ak}` 關鍵字來做到這一點。
+
+```aiken
+when xs is {
+  [[_, ..] as inner_list] -> inner_list
+  _other -> []
+}
+```
+
+## 更新自定義型別
+
+Aiken 提供了一種專用語法來更新自定義型別記錄中的某些欄位。
+
+```aiken
+type Person {
+  name: ByteArray,
+  shoe_size: Int,
+  age: Int,
+  is_happy: Bool,
+}
+
+fn have_birthday(person) {
+  // 今天是這個人的生日，所以增加其年齡並讓其開心
+  Person { ..person, age: person.age + 1, is_happy: True }
+}
+```
+
+更新語法使用初始記錄的值建立一個新記錄。它將給定的綁定替換為其新值。
+
+## 與 Data 的關係
+
+在執行時，自定義型別會變為 Plutus 不透明的 Data。在 Aiken 的型別系統中，`Data` 與任何使用者定義的型別相匹配（但不與任何基礎型別匹配）。
+
+### 向上轉型 (Upcasting)
+
+因此，可以將任何自定義型別轉換**為** `Data{:ak}`（即向上轉型）。這種隱式轉換對於與操作原始 `Data{:ak}` 的內建函式進行互動非常方便。任何接收 `Data{:ak}` 的函式都將自動支援任何自定義型別。
+
+```aiken
+type Datum {
+  count: Int,
+}
+
+let datum: Datum = Datum { count: 1 }
+
+// fn(Data) -> ByteArray
+builtin.serialise_data(datum)
+
+// 或者同樣地，透過提供標註。
+let as_data: Data = datum
+```
+
+### 向下轉型 (Downcasting)
+
+然而，將 `Data{:ak}` 提取**回**自定義型別（即向下轉型）需要使用 [`expect{:ak}`](./control-flow#expect) 或 [`if *pattern* is{:ak}`](./control-flow#if-is)，這將在[下一節：流程控制](./control-flow)中解釋。
+
+向上轉型總是可行且安全的，但向下轉型則不然，它可能會失敗。如何選擇處理失敗的方式決定了是使用 `expect{:ak}`（立即發出警告並失敗）還是 `if/is{:ak}`（優雅地退回）。
+
+總結如下：
+
+| 從 | 到 | 失敗時崩潰？ | 方式 |
+| --- | --- | --- | --- |
+| *任何自定義型別* | `Data{:ak}` | \- (不會失敗) | let 綁定 + 型別標註 |
+| `Data{:ak}` | *任何自定義型別* | 否 | [`if *pattern* is{:ak}`](./control-flow#if-is) |
+| `Data{:ak}` | *任何自定義型別* | 是 | [`expect{:ak}`](./control-flow#expect) |
+
+## 型別別名 (Type aliases)
+
+最後，還可以為型別定義別名。型別別名允許您建立一個與另一個型別完全相同的名稱，而無需任何額外資訊。
+
+```aiken
+type MyNumber = Int
+```
+
+別名完全可以互換，在執行時沒有任何區別。它們對於簡化型別特徵 (type signatures) 非常有用。
+
+```aiken
+type Person = (String, Int)
+
+fn create_person(name: String, age: Int) -> Person {
+  (name, age)
+}
+```
+
+<Callout type="info">
+雖然型別別名在執行時被完全抹除，但其資訊在型別檢查以及生成驗證器最終藍圖時會被保留。換句話說，型別別名也將出現在錯誤訊息和生成的文件中。
+</Callout>
+
+## 文件
+
+您可以使用以 `///{:ak}` 開頭的文件註解為任何資料型別定義和構造函數添加面向使用者的文件。Markdown 是受支援的，這段文本將包含在生成的 HTML 文件中。
+
+```aiken
+/// 一個**非常有用的**註解，告訴您這個型別代表：一個人。
+type Person {
+  /// 出生後經過的年數。
+  age: Int,
+  /// 別人為了吸引這個人的注意而喊出的詞
+  name: String,
+}
+```
+
+<Callout type="info">
+當常數定義作為模組文件導出時，型別定義會按字母順序（升序）進行排序。
+</Callout>
+
+## 自定義編碼
+
+有一種語法可用於控制自定義資料型別底層 `PlutusData` 表示形式的預期編碼。
+
+所有 Aiken 型別在底層都由具有 CBOR 編碼的 `PlutusData` 表示。Aiken 內建型別 `Data{:ak}` 正是如此。`Data{:ak}` 是一種表示某個值可以是 *任何* `PlutusData` 的方式。如果 `PlutusData` 本身是一個 Aiken 型別，它看起來會像這樣：
+
+```aiken
+type PlutusData {
+  Constr { tag: Int, fields: List<PlutusData> }
+  PlutusList(List<PlutusData>)
+  Map(List<(PlutusData, PlutusData)>)
+  I(Int)
+  B(ByteArray)
+}
+```
+
+請記住，這只是一個範例，以便您更好地想像底層發生的事情。實際建立這樣一個型別是徒勞的，但啟用 `when/is{:ak}` 對 `Data{:ak}` 進行模式匹配以手動拆分構造函數是我們可能在未來版本的 Aiken 中看到的內容，因為這需要在編譯器內部進行特殊處理。
+
+現在，考慮到 `PlutusData` 被用於表示所有自定義型別，讓我們先看一些常用的型別，並瞭解它們在底層是如何表示的。作為第一個例子，讓我們考慮 `Bool{:ak}` 型別，定義如下：
+
+```aiken
+type Bool {
+  False
+  True
+}
+```
+
+該型別將使用 `PlutusData` 的 `Constr{:ak}` 形式來表示。這意味著要構建一個代表 `Bool{:ak}` 的正確 `PlutusData` 載荷，您可以這樣做：
+
+**False**
+
+```aiken
+Constr { tag: 0, fields: [] }
+```
+
+**True**
+
+```aiken
+Constr { tag: 1, fields: [] }
+```
+
+<Callout type="info">
+  Aiken 帶有一些精巧的內建工具，可以直接查看資料型別的 CBOR 表示形式。欲瞭解更多資訊，請[查看此章節](./troubleshooting)。
+</Callout>
+
+最值得注意的是，`False{:ak}` 可以說成是「帶有標籤 (tag) **0** 的構造函數」，而 `True{:ak}` 可以說成是「帶有標籤 **1** 的構造函數」。這裡的關鍵點是，Aiken 中的所有構造函數都將由 `Constr{:ak}` 表示，標籤將根據定義處所寫的順序來決定。由於 `False{:ak}` 排在第一位，它的標籤自然為 **0**。
+
+Aiken `v1.1.19` 引入了控制標籤數子的能力。如下所示：
+
+```aiken
+type Bool {
+  @tag(1)
+  True
+  
+  @tag(0)
+  False
+}
+```
+
+這裡雖然微妙，但我們交換了兩個構造函數定義的順序，但保留了它們原有的標籤，這在往來轉換 `Data{:ak}` 時會被遵循。這解耦了型別的文本表示與其底層的編碼方式。大多數情況下，您應該依賴預設的標籤順序，但如果需要控制型別構造函數的標籤，是可以辦到的。
+
+現在是時候轉向型別名與型別本身相同的單一構造函數簡寫標記了。根據我們現在所知的，不難推斷出它們*必須*全部使用標籤 **0**，並包含一個或多個遞迴身為 `PlutusData` 的欄位。讓我們回顧之前的 `Datum{:ak}` 型別：
+
+```aiken
+type Datum {
+  signer: ByteArray,
+  count: Int
+}
+```
+
+通常，這在底層看起來像這樣的 `PlutusData`：
+
+```aiken
+Constr { tag: 0, fields: [B(#"aabbcc"), I(5)]  }
+```
+
+您也可以在這裡自由自定義標籤：
+
+```aiken
+@tag(9000)
+type Datum {
+  signer: ByteArray,
+  count: Int
+}
+```
+
+最後，當您擁有這種型別時，甚至可以跳過 `Constr{:ak}` 直而使用 `PlutusList{:ak}`，它不需要標籤，並且在許多情況下效能優於 `Constr{:ak}`，因為在存取內部欄位時不需要在底層呼叫 `un_constr_data{:ak}` 和 `snd_pair{:ak}`。
+
+```aiken
+@list
+type Datum {
+  signer: ByteArray,
+  count: Int
+}
+```
+
+生成的編碼如下：
+
+```aiken
+PlutusList([B(#"aabbcc"), I(5)])
+```
+
+> 「能力越大，責任越大。」 —— 班叔叔
+
+請盡量使用預設值，只有在您明確知道自己在做什麼時才使用這些高級功能。
