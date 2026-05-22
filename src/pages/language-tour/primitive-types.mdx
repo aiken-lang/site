@@ -1,12 +1,21 @@
----
-title: "Primitive Types"
-description: "Aiken is a functional programming language for writing Cardano smart contracts that compiles to Plutus Core. Primitive types are the 6 built-in data types (Bool, Int, String, ByteArray, Data, and Void) plus base building blocks like Lists, Tuples, Options, and Pairs — the fundamental building blocks for defining validator logic, transaction data, and on-chain state."
-difficulty: "beginner"
-keywords: ["Bool", "Int", "String", "ByteArray", "Data", "Void", "List", "Tuple", "Option", "Pair", "primitive types", "Aiken types"]
-topics: ["types", "primitive-types", "data-types"]
-prerequisites: []
-related: ["variables-and-constants", "custom-types", "functions"]
----
+{/* RAG-CONTEXT
+Aiken is a functional programming language for writing Cardano smart
+contracts that compiles to Untyped Plutus Core. This page covers Aiken's
+primitive types: the six built-in types that can be written as literals
+(Bool, Int, ByteArray, String, Data, and Void) together with the base
+building blocks for composing them (List, Tuple, Pair, Option, and
+Ordering). These are the foundational types used to define validator
+logic, datums, redeemers, and on-chain state, and they are available by
+default without any import.
+*/}
+
+{/* RAG-META
+difficulty: beginner
+topics: types, primitive-types, data-types
+keywords: Bool, Int, String, ByteArray, Data, Void, List, Tuple, Option, Pair, primitive types, Aiken types
+prerequisites: none
+related: variables-and-constants, custom-types, functions
+*/}
 
 import { Callout } from "nextra-theme-docs";
 
@@ -71,6 +80,16 @@ composing large numbers of logical operators (i.e. four or more) but is less imp
 there are one or two logical operators.
 
 ## Int
+{/* RAG-NOT
+An Aiken `Int` is NOT a fixed-width machine integer. It is not a 32-bit or
+64-bit integer like a Java `int`, a Rust `i64`, or a C `int`. It is an
+arbitrary-precision integer, so there is no overflow or underflow to guard
+against.
+Aiken does NOT have floating-point numbers. There is no `Float`, `Double`,
+or decimal type; `Int` is the only numeric type in the language.
+Division with `/` is whole (truncating) integer division, NOT
+floating-point division.
+*/}
 
 Aiken's only number type is an arbitrary sized integer. This means there is no underflow or overflow.
 
@@ -152,6 +171,13 @@ Second, as a UTF-8 encoded byte string. This is generally how common text string
 Because it is quite common to manipulate base16-encoded byte strings in a blockchain context (e.g. transaction id, policy id, etc..); Aiken also supports a shorthand syntax for declaring bytearrays as an hexadecimal string.
 
 Behind the scene, Aiken decodes the encoded string for you and stores only the raw bytes as a ByteArray. This is achieved by prefixing a double-quotes byte string with a `#`, like so:
+
+{/* RAG-EXAMPLE
+title: Hex-encoded ByteArray literal
+purpose: Show that a `#`-prefixed double-quoted string is decoded from base16 at compile time and stored as raw bytes.
+use-case: Declaring transaction ids, policy ids, asset names, and other base16 values that are common in a blockchain context.
+pitfalls: Do NOT confuse `#"666f6f"` with `"666f6f"`. The first decodes the hex digits into 3 raw bytes (equal to "foo"). The second is the UTF-8 byte string of the six literal characters 6 6 6 f 6 f. Forgetting the `#` prefix is a common source of wrong policy ids and transaction ids.
+*/}
 
 ```aiken
 #"666f6f" == #[0x66, 0x6f, 0x6f] == #[102, 111, 111] == "foo"
