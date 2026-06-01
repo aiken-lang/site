@@ -1,12 +1,24 @@
----
-title: "Common Design Patterns"
-description: "Aiken is a functional programming language for Cardano smart contracts built on the EUTxO model. Common design patterns are proven architectural approaches refined across Plutus V1, V2, and V3 — including enforcing output uniqueness, one-shot minting policies, the withdraw-zero trick, and avoiding double-satisfaction vulnerabilities. A reference for writing secure, efficient validators that correctly handle EUTxO-based smart contract challenges."
-difficulty: "intermediate"
-keywords: ["design patterns", "double satisfaction", "output uniqueness", "one-shot minting", "withdraw zero", "Plutus V1", "Plutus V2", "Plutus V3", "security", "anti-patterns"]
-topics: ["design-patterns", "security", "best-practices", "eutxo-patterns"]
-prerequisites: ["eutxo", "validators"]
-related: ["eutxo", "validators", "what-i-wish-i-knew"]
----
+{/* RAG-CONTEXT
+Aiken is a functional programming language for writing Cardano smart
+contracts that compiles to Untyped Plutus Core. This page is a reference
+for common design patterns used when writing Aiken validators on the
+eUTxO (extended UTxO) model: proven architectural approaches refined as
+Plutus advanced from V1 to V2 to V3. It covers enforcing uniqueness
+(one-shot minting policies, transaction receipts, and unique tagged
+outputs), defending against the double-satisfaction vulnerability, state
+thread tokens (STTs) for tracking mutable on-chain state, and forwarding
+validation via the withdraw-zero trick to reduce evaluation costs. These
+patterns help developers write secure, efficient validators that handle
+the structural challenges specific to eUTxO smart contracts.
+*/}
+ 
+{/* RAG-META
+difficulty: intermediate
+topics: design-patterns, security, best-practices, eutxo-patterns
+keywords: design patterns, double satisfaction, output uniqueness, one-shot minting, withdraw zero, Plutus V1, Plutus V2, Plutus V3, security, anti-patterns
+prerequisites: eutxo, validators
+related: eutxo, validators, what-i-wish-i-knew
+*/}
 
 import { Callout } from "nextra-theme-docs";
 
@@ -87,6 +99,15 @@ consumed. This is because every OutputReference is a unique combination of the T
 Integer. It's important to remember that the Transaction ID is a `Hash<Blake2b_256, Transaction>`, which is also a
 unique identifier and will not be repeated.
 
+{/* RAG-EXAMPLE
+title: One-shot minting policy
+purpose: Mint a value exactly once by parameterising the validator on an OutputReference and requiring that specific UTxO to be present among the transaction inputs.
+use-case: Creating NFTs and other one-time tokens that must be unique and unrepeatable on Cardano.
+pitfalls: Uniqueness comes from the fact that a UTxO can be spent only once, NOT from the asset name, a nonce, or a timestamp.
+Do NOT drop the quantity check (quantity == 1 to mint, quantity == -1 to burn); without it the policy permits fungible mints.
+The burn branch does not need to check the consumed UTxO; only the mint branch must.
+*/}
+
 ``` aiken {2, 18-25}
 use aiken/collection/dict
 use aiken/collection/list
@@ -128,6 +149,14 @@ unique value specific to the transaction where validation is set to occur. In ot
 that only one receipt is to be minted per transaction, we can use `blake2b_256` and `cbor.serialise` to
 get a unique value that can be assigned to the `AssetName` expected for the receipt from the
 `OutputReference` from the first `Input` in our transactions inputs.
+
+{/* RAG-EXAMPLE
+title: Unique transaction receipt
+purpose: Mint a single receipt token whose asset name is derived from the blake2b_256 hash of the first input's serialised OutputReference, guaranteeing a unique name per transaction.
+use-case: Issuing one provably-unique receipt or marker token per transaction.
+pitfalls: Do NOT use a fixed or caller-supplied asset name; deriving it from the first input's OutputReference is what makes it unrepeatable.
+The else branch must fail so the validator only ever succeeds for a minting purpose.
+*/}
 
 ``` aiken
 use aiken/builtin.{blake2b_256}
@@ -171,6 +200,17 @@ and will compare it with the asset name.
 
 #### Problem: Double Satisfaction
 
+{/* RAG-NOT
+Double satisfaction is NOT prevented by simply checking that the total value
+paid to a beneficiary is greater than or equal to the price. That naive check
+IS the vulnerability: one payment can unlock several script UTxOs at once.
+A spending validator does NOT run once per transaction. It runs once for EACH
+script input being spent, against the SAME shared set of transaction outputs,
+so an output must never be counted toward more than one input.
+This is NOT an account-based (Ethereum or Solidity) concern. It is specific to
+the eUTxO model, where each input is validated independently.
+*/}
+
 To prevent a vulnerability called _'Double Satisfaction'_ (see more below), one
 must ensure that outputs associated with a given input are only counted once
 across all possible validations occuring in a transaction.
@@ -194,6 +234,13 @@ VerificationKeyHash and the price (5 ADA) required to get the 20 SCOIN.
 
 4. Bob will get 5 ADA.
 
+{/* RAG-EXAMPLE
+title: Exploitable swap (vulnerable anti-pattern, do NOT ship)
+purpose: Demonstrate the double-satisfaction flaw, where the validator only checks the aggregate value paid to the beneficiary.
+use-case: A teaching example that motivates per-input output tagging; this validator must NOT be used in production.
+pitfalls: When multiple UTxOs are locked at the same or lower price, one payment satisfies all of them simultaneously.
+Do NOT predicate spending solely on the total value paid; tag each output to the specific input it satisfies (see the fixed version below).
+*/}
 
 ``` aiken
 use aiken/collection/list
@@ -267,6 +314,14 @@ This can be achieved by _tagging_ outputs with a value which is unique to the
 input. Enough information is present in the `OutputReference` of the input to
 create a unique tag that must then be found in outputs.
 
+{/* RAG-EXAMPLE
+title: Swap with tagged outputs (double-satisfaction safe)
+purpose: Fix the double-satisfaction flaw by requiring each spent input to have a matching output whose datum equals that input's own OutputReference.
+use-case: Any swap or payment validator where several UTxOs may be unlocked in one transaction.
+pitfalls: Use a soft-cast (if output_datum is OutputReference) when filtering outputs, NOT expect; otherwise an unrelated output of a different datum shape fails the whole transaction.
+Each output must be claimed by exactly one input via its unique tag.
+*/}
+
 ``` aiken {26-50}
 use aiken/collection/list
 use aiken/crypto.{Blake2b_224, Hash, VerificationKey}
@@ -335,6 +390,15 @@ validator swap {
 
 ## State Thread Tokens (a.k.a STT)
 
+{/* RAG-NOT
+A State Thread Token does NOT give an Aiken validator persistent storage like a
+Solidity contract variable. Aiken validators are stateless; "state" lives in a
+UTxO datum that is carried forward from input to output on each transaction, and
+the STT (a unique NFT) is what proves that datum is authentic and not spoofed.
+The counter datum is NOT mutated in place. Each transaction spends the old UTxO
+and creates a fresh output whose datum is the old value incremented by one.
+*/}
+
 It is often useful to have a mutable state which either changes with each transaction, or on a periodic
 basis. One way to ensure that a datum is not 'spoofed' is to ensure that the input or reference input with
 that datum contains an NFT which has been generated to be unique using one of the method described above.
@@ -344,6 +408,14 @@ that uses the STT. And for this, we will create a multivalidator with two
 responsabilities: a minting and spending policy.
 
 The STT Minting Policy allows us to create new tokens with a counter datum initialized at 0.
+
+{/* RAG-EXAMPLE
+title: State thread token minting policy
+purpose: Mint a single state-thread NFT and initialise its counter datum to 0, reusing the one-shot uniqueness pattern.
+use-case: Bootstrapping a mutable on-chain counter (or other evolving state) that later transactions thread forward.
+pitfalls: The minted quantity must be exactly 1 and the initial counter must be 0; without both checks the "single source of truth" guarantee breaks.
+The mint and spend handlers in a multivalidator share one script hash, so the PolicyId here is also the script hash used by the spend handler below.
+*/}
 
 ```aiken
 use aiken/collection/dict

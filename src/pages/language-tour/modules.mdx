@@ -1,12 +1,13 @@
----
-title: "Modules"
-description: "Aiken is a functional programming language for Cardano smart contracts where code is organized into reusable bundles called modules. Modules are files containing functions, types, and constants, with their namespace determined by file path. Used to structure projects, share code between validators, import the standard library, and control visibility with pub."
-difficulty: "beginner"
-keywords: ["modules", "use", "import", "pub", "namespace", "opaque types", "standard library", "stdlib", "prelude", "aiken.toml", "dependencies"]
-topics: ["modules", "imports", "namespaces", "visibility", "stdlib"]
-prerequisites: ["functions", "custom-types"]
-related: ["functions", "custom-types", "tests"]
----
+{/* RAG-CONTEXT
+Aiken is a functional programming language for Cardano smart contracts where code is organized into reusable bundles called modules. Modules are files containing functions, types, and constants, with their namespace determined by file path. Used to structure projects, share code between validators, import the standard library, and control visibility with pub. Items are exported with the `pub` keyword and brought into other modules with `use`, either as a qualified import (called through the module name with the `.` operator) or an unqualified import. Aiken also ships two built-in modules — the auto-imported `aiken` prelude and the `aiken/builtin` module — and supports opaque types for encapsulation as well as conditional `env` modules and `config` values selected at build time via the `--env` flag.
+*/}
+{/* RAG-META
+difficulty: beginner
+topics: modules, imports, namespaces, visibility, stdlib
+keywords: modules, use, import, pub, namespace, opaque types, standard library, stdlib, prelude, aiken.toml, dependencies
+prerequisites: functions, custom-types
+related: functions, custom-types, tests
+*/}
 
 import { Tabs } from "nextra/components";
 import { Callout } from "nextra-theme-docs";

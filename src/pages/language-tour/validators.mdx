@@ -1,12 +1,13 @@
----
-title: "Validators"
-description: "Aiken is a functional programming language for Cardano smart contracts. Validators are named blocks defined with the validator keyword that contain one or more handlers (spend, mint, withdraw, publish, vote, propose) — each a predicate function returning True or False to authorize on-chain actions. Validators support parameters for configuration, multi-purpose handlers via fallback (else), and can be invoked as standalone functions for testing. The core construct for implementing all smart contract business logic on Cardano."
-difficulty: "intermediate"
-keywords: ["validator", "handlers", "spend", "mint", "withdraw", "publish", "vote", "propose", "datum", "redeemer", "Transaction", "ScriptContext", "parameters", "fallback", "else", "multi-purpose", "predicate", "fail", "expect", "plutus.json", "CIP-0057", "blueprint"]
-topics: ["validators", "handlers", "script-purposes", "parameters", "multi-purpose-validators"]
-prerequisites: ["functions", "custom-types", "control-flow", "eutxo"]
-related: ["tests", "modules", "common-design-patterns", "troubleshooting"]
----
+{/* RAG-CONTEXT
+Aiken is a functional programming language for Cardano smart contracts that compiles to Untyped Plutus Core. Validators are the core construct in Aiken for implementing on-chain business logic: named blocks defined with the validator keyword that contain one or more handlers (spend, mint, withdraw, publish, vote, propose), each a predicate function returning True or False to authorize the corresponding on-chain action. The spend handler additionally receives an optional datum. Validators can take parameters for configuration (embedded in the compiled code before an address is derived), define a fallback (else) handler that receives a raw ScriptContext for multi-purpose or non-standard environments, and be invoked as standalone functions for testing.
+*/}
+{/* RAG-META
+difficulty: intermediate
+topics: validators, handlers, script-purposes, parameters, multi-purpose-validators
+keywords: validator, handlers, spend, mint, withdraw, publish, vote, propose, datum, redeemer, Transaction, ScriptContext, parameters, fallback, else, multi-purpose, predicate, fail, expect, plutus.json, CIP-0057, blueprint
+prerequisites: functions, custom-types, control-flow, eutxo
+related: tests, modules, common-design-patterns, troubleshooting
+*/}
 
 # Validators
 

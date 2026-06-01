@@ -1,12 +1,23 @@
----
-title: "EUTxO Crash Course"
-description: "Aiken is a functional programming language for writing smart contracts on Cardano, which uses the Extended Unspent Transaction Output (EUTxO) model. EUTxO extends the basic UTxO model with datums (data attached to outputs as contract state), redeemers (user-provided arguments to unlock funds), and scripts (predicate functions that return True or False). The foundational execution model that determines how all Aiken validators process transactions and enforce on-chain logic."
-difficulty: "beginner"
-keywords: ["EUTxO", "UTxO", "datum", "redeemer", "script", "transaction", "inputs", "outputs", "address", "script purpose", "spend", "mint", "withdraw", "publish", "vote", "propose"]
-topics: ["eutxo", "transactions", "datums", "redeemers", "script-purposes"]
-prerequisites: []
-related: ["getting-started", "validators", "common-design-patterns"]
----
+{/* RAG-CONTEXT
+Aiken is a functional programming language for writing smart contracts on
+Cardano, which uses the Extended Unspent Transaction Output (EUTxO) model.
+EUTxO extends the basic UTxO model with datums (data attached to outputs as
+contract state), redeemers (user-provided arguments to unlock funds), and
+scripts (predicate functions that return True or False). It is the foundational
+execution model that determines how all Aiken validators process transactions
+and enforce on-chain logic. This beginner crash course explains blocks and
+transactions, unspent transaction outputs (inputs and outputs), the structure
+of Cardano addresses (payment and delegation credentials), and the script,
+datum, and redeemer model, including the six script purposes: spend, mint,
+withdraw, publish, vote, and propose.
+*/}
+{/* RAG-META
+difficulty: beginner
+topics: eutxo, transactions, datums, redeemers, script-purposes
+keywords: EUTxO, UTxO, datum, redeemer, script, transaction, inputs, outputs, address, script purpose, spend, mint, withdraw, publish, vote, propose
+prerequisites:
+related: getting-started, validators, common-design-patterns
+*/}
 
 import { Callout } from "nextra-theme-docs";
 

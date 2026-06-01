@@ -1,12 +1,13 @@
----
-title: "Control Flow"
-description: "Aiken is a functional programming language for Cardano smart contracts that treats every block as an expression. Control flow is handled through if/else expressions, when/is pattern matching, the pipe operator, and recursion — there are no loops. Used to direct validator logic, destructure custom types, handle transaction scenarios, and compose operations."
-difficulty: "beginner"
-keywords: ["when", "is", "if", "else", "pattern matching", "pipe operator", "expect", "recursion", "expression blocks", "control flow", "no loops"]
-topics: ["control-flow", "pattern-matching", "when-is", "if-else", "pipe-operator", "recursion"]
-prerequisites: ["primitive-types", "custom-types"]
-related: ["functions", "custom-types", "troubleshooting"]
----
+{/* RAG-CONTEXT
+Aiken is a functional programming language for Cardano smart contracts that compiles to Untyped Plutus Core. Control flow in Aiken determines how validator logic is directed, and it differs from imperative languages: every block is an expression that returns the value of its final line, and the language has no loops. Flow is handled through if/else expressions, when/is pattern matching, the pipe operator (|>) for chaining function calls, and recursion in place of iteration. Aiken also provides fail and todo to halt evaluation, expect for non-exhaustive pattern matching and for casting opaque Data into a concrete custom type, and if/is for soft casting that falls back instead of failing loudly. Used to direct validator logic, destructure custom types, handle transaction scenarios, and compose operations.
+*/}
+{/* RAG-META
+difficulty: beginner
+topics: control-flow, pattern-matching, when-is, if-else, pipe-operator, recursion
+keywords: when, is, if, else, pattern matching, pipe operator, expect, recursion, expression blocks, control flow, no loops
+prerequisites: primitive-types, custom-types
+related: functions, custom-types, troubleshooting
+*/}
 
 import { Callout } from "nextra-theme-docs";
 
