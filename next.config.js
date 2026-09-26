@@ -3,6 +3,7 @@ const nextra = require("nextra");
 const { getHighlighter, BUNDLED_LANGUAGES } = require("shiki");
 
 const withNextra = nextra({
+  output: "export",
   theme: "nextra-theme-docs",
   themeConfig: "./theme.config.tsx",
   defaultShowCopyCode: true,
