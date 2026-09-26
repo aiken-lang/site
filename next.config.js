@@ -3,7 +3,6 @@ const nextra = require("nextra");
 const { getHighlighter, BUNDLED_LANGUAGES } = require("shiki");
 
 const withNextra = nextra({
-  output: "export",
   theme: "nextra-theme-docs",
   themeConfig: "./theme.config.tsx",
   defaultShowCopyCode: true,
@@ -34,17 +33,7 @@ const withNextra = nextra({
   },
 });
 
-module.exports = {
-  async redirects() {
-    return [
-      {
-        source: "/example--hello-world",
-        destination: "/example--hello-world/basics",
-        permanent: true,
-      },
-    ];
-  },
-  ...withNextra({
-    images: { unoptimized: true },
-  }),
-};
+module.exports = withNextra({
+  output: "export",
+  images: { unoptimized: true },
+});
