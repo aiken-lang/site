@@ -1,0 +1,18 @@
+import { Callout } from "nextra-theme-docs";
+
+# 无类型 Plutus 核心 (Untyped Plutus Core)
+
+Aiken 的一个关键特点是它如何帮助您操作「无类型 Plutus 核心」(Untyped Plutus Core，简称 UPLC)。UPLC 最终是代码在链上执行的格式。在 Cardano 智能合约方面，这几乎是您能接触到的最底层。但请注意，在链上，UPLC 代码为了简洁起见采用了二进制编码。
+
+了解 UPLC 的运作方式，并拥有正确的工具来除错 UPLC 程序，在开发 Cardano 合约时会非常有帮助。幸运的是，这正是 Aiken 可以协助您的部分。
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="/aiken-plutus-pipeline-dark.png" />
+  <img alt="Aiken <-> Plutus 编译流水线图" src="./aiken-plutus-pipeline-light.png" />
+</picture>
+
+<Callout type="info">
+虽然 UPLC 抹除了任何「显式」的类型概念，但函数、变量和常量仍然具有「隐式」类型，且解释器在遇到类型不匹配时会产生错误。
+
+为了简单起见，我们可能会提到内置函数的类型签名，例如 `addInteger`，原则上这仅在「有类型 Plutus 核心」(Typed Plutus Core) 中具有具体意义。因此，尽管它是「无类型」的，我们通常仍会认为 UPLC 程序具有隐式类型，就好像它们原本是「有类型」程序，只是类型被抹除了（事实上，它们确实就是如此）。
+</Callout>

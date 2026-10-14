@@ -1,0 +1,151 @@
+---
+title: "开始使用"
+description: "Aiken 是一种用于编写 Cardano 智能合约的函数式编程语言与工具链。开始使用涵盖了安装 aikup 版本管理器和 aiken CLI、使用 aiken new 搭建新项目、了解项目结构（aiken.toml、lib/、validators/），以及 aiken build、aiken check 和 aiken docs 等关键命令。这是新开发者设置环境并开始编写验证器的入口点。"
+difficulty: "beginner"
+keywords: ["开始使用", "安装", "aikup", "aiken new", "aiken build", "aiken check", "aiken docs", "aiken.toml", "项目结构", "设置", "stdlib", "标准函数库"]
+topics: ["getting-started", "installation", "project-setup", "cli"]
+---
+
+import { Callout } from "nextra-theme-docs";
+
+# 开始使用
+
+## 核对表
+
+这是一份帮助您开始使用 Aiken 的简单核对表。如果您不知道从哪里开始，可以参考它。
+
+<br />
+
+- [ ] 按照 [安装说明](/installation-instructions) 安装 `aikup` 和 `aiken`；
+- [ ] 按照下方说明创建一个您的第一个项目；
+- [ ] 查看 [标准函数库](https://aiken-lang.github.io/stdlib/)；
+- [ ] 完成 [「Hello, World!」教程的第一步](/example--hello-world/basics)；
+- [ ] 如果您不熟悉 eUTxO 模型（datums、redeemers 等），请阅读 [eUTxO 速成课程](/fundamentals/eutxo)；
+- [ ] 使用您最喜欢的前端函数库完成 [「Hello, World!」教程的端到端部分](/example--hello-world/end-to-end/pycardano)；
+- [ ] 查看 [Aiken 的 Awesome List](https://github.com/aiken-lang/awesome-aiken#readme) 并探索您感兴趣的教程、课程或项目；
+- [ ] 探索 [语言导览](/language-tour/primitive-types)；
+- [ ] 加入 [Discord 上的 #aiken 频道](https://discord.gg/ub6atE94v4) 并在 Twitter 上 [关注我们](https://twitter.com/aiken_eng)！
+
+想要更多？
+
+<br />
+
+- [ ] 尝试更复杂的示例，如 [「礼品卡」(Gift Card)](/example--gift-card)；
+- [ ] 尝试 [基于属性的测试](/language-tour/tests#property-based-test)；
+- [ ] 阅读关于我们刚开始接触 Cardano 时 [希望早点知道的事](/fundamentals/what-i-wish-i-knew)；
+- [ ] 学习 eUTxO 模型中的 [设计模式](https://github.com/Anastasia-Labs/design-patterns?tab=readme-ov-file#design-patterns)；
+
+## 创建新项目
+
+使用 `aiken new foo/bar` 创建新项目骨架，并按照项目根目录生成的 `README.md` 中的说明操作。成功后，您的项目结构大致如下：
+
+```
+.
+├── README.md
+├── aiken.toml
+├── lib
+│   └── bar
+└── validators
+```
+
+## 编译项目
+
+使用 `aiken build` 编译项目，使用 `aiken check` 仅进行类型检查并执行测试。
+
+如果您正在编写函数库，`aiken docs` 这是一个强大的实用程序，可以从类型、类型注释和注释中生成 HTML 文档。尽情使用它吧！
+
+最后，编译完成后，您可以查看 `aiken blueprint` 命令组，以生成地址、应用参数并将构建输出转换为各种格式。
+
+## 项目结构
+
+### 文件夹组织
+
+Aiken 项目将其源码分为两类：函数库代码和应用程序代码。函数库代码必须位于 `lib` 文件夹中，而应用程序代码（即链上验证器）位于 `validators` 文件夹中。
+
+编译后，编译器将生成一个 Plutus 蓝图 (`plutus.json`)，这是一个摘要项目内容的互操作文档。蓝图还包含项目中每个验证器的编译代码及其对应的哈希摘要，用于地址计算。
+
+### 配置
+
+项目根目录下有一个顶层 `aiken.toml` 文件，包含有关项目的元数据以及所需的依赖项。以下是项目配置示例（已附说明）：
+
+```toml filename="aiken.toml"
+# [选填 - 如果存在 'members']
+#
+# 项目名称，格式为 {组织}/{代码库}
+name = "foo/bar"
+
+# [选填 - 如果存在 'members']
+#
+# 项目版本，我们建议函数库使用语义化版本。不过，
+# 接受任何 UTF-8 字符串。
+version = "1.0.0"
+
+# [选填]
+#
+# 许可证名称。我们建议开源项目使用 Apache-2.0 或 MPL-2.0。
+licence = "Apache-2.0"
+
+# [选填]
+#
+# 对项目的简短说明。
+description = "下一代 DeFi 平台"
+
+# [选填]
+#
+# 寻找 Aiken 项目的文件夹列表。请参阅下方的「工作空间」。
+members = ["."]
+
+# [选填]
+#
+# 要在生成的文档中显示的项目结构化信息。
+[repository]
+platform = "github"   # 平台类型，目前仅支持 `github`。
+user = "aiken-lang"   # 该平台上的用户名或组织
+project = "stdlib"    # 该平台上的代码库或项目
+
+# [选填]
+#
+# 依赖项列表。避免手动编辑，请使用 `aiken packages` 来管理。
+[[dependencies]]
+source = "github"            # 平台类型，目前仅支持 `github`。
+name = "aiken-lang/stdlib"   # GitHub 项目，格式为 {组织}/{代码库}。
+version = "main"             # 版本，可以是 git 标签、分支名称或 git 提交哈希
+```
+
+### 工作空间
+
+<Callout type="warning">
+  此功能仍处于早期开发阶段，但逐步改进起来很简单，
+  因此我们提前将其以较不完整的方式发布，以获取一些反馈。
+</Callout>
+
+Aiken 对工作空间（又称 monorepo）有最基本的支持。这可以通过项目根目录 `aiken.toml` 文件中的 `members` 配置项来启用。
+
+```toml filename="myproject/aiken.toml"
+members = ["pkgs/my_library", "pkgs/my_validators"]
+```
+
+支持通配符 (Globs)，因此可以这样做：
+
+```toml filename="myproject/aiken.toml"
+members = ["pkgs/*"]
+```
+
+另请注意，当 `members` 存在时，其他配置项将被忽略。
+
+#### 注意事项
+
+- 目前尚不支持通过路径引用本地依赖项。
+- 依赖项目前尚未进行智能解析和缓存。
+  每个子项目都会获得自己的 `build/` 文件夹，目前会冗余地获取依赖项。
+- LSP 尚未感知此配置选项，表现可能会很奇怪。
+
+## 知名包与模块
+
+### Aiken 的 Prelude
+
+`prelude` 包含一组供所有 Aiken 项目「默认」使用的最小函数、构造函数和模块。您可以在 [aiken-lang/prelude](https://aiken-lang.github.io/prelude/) 以及本网站底部找到它。
+
+### Aiken 的标准函数库
+
+标准函数库（简称 `stdlib`）收集了在您的 Aiken 编程旅程中可能会用到的实用函数和数据结构。如果您需要一些示例来开始，它也是编写良好且测试完善的 Aiken 代码的绝佳参考。您可以在 [aiken-lang/stdlib](https://aiken-lang.github.io/stdlib/) 以及本网站底部找到它。

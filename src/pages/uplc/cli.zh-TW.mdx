@@ -1,0 +1,111 @@
+import { Callout } from "nextra-theme-docs";
+
+# 命令列工具 (CLI)
+
+## 評估 (Evaluation)
+
+讓我們考慮以下基礎程式：
+
+<p align="right">
+  <strong>program_1.uplc</strong>
+</p>
+
+```uplc
+(program
+  1.0.0
+  [ [ (builtin addInteger) (con integer 16) ] (con integer 26) ]
+)
+```
+
+我們可以使用 Aiken 的 CLI 評估此程式：
+
+```sh
+aiken uplc eval program_1.uplc
+```
+
+```json
+{
+  "result": "(con integer 42)",
+  "cpu": 321577,
+  "mem": 602
+}
+```
+
+輸出顯示了評估結果 (`42`) 以及該程式的執行成本（包括 CPU 和記憶體使用率）。
+
+請注意，該命令也接受參數。例如，如果我們將程式修改為接收參數的函式：
+
+<p align="right">
+  <strong>program_2.uplc</strong>
+</p>
+
+```uplc
+(program
+  1.0.0
+  (lam x [ [ (builtin addInteger) (con integer 16) ] x ])
+)
+```
+
+您可以接著透過在 `eval` 命令後附加參數，來讓 Aiken 在呼叫時提供參數：
+
+```sh
+aiken uplc eval program_2.uplc "(con integer 26)"
+```
+
+```json
+{
+  "result": "(con integer 42)",
+  "cpu": 390577,
+  "mem": 902
+}
+```
+
+## 格式化 (Formatting)
+
+由於手寫 UPLC 可能是一項繁瑣的任務，Aiken 提供了一種透過 `fmt` 命令自動格式化 UPLC 程式的快速方法。默認情況下，該命令會覆蓋輸入檔案，但您也可以使用 `--print` 僅將結果列印到 stdout。例如：
+
+```sh
+aiken uplc fmt program_2.uplc --print
+```
+
+```uplc
+(program
+  1.0.0
+  (lam x [ [ (builtin addInteger) (con integer 16) ] x ])
+)
+```
+
+## 與二進位編碼相互轉換
+
+到目前為止，我們一直使用高階語法來表示 UPLC 程式。然而，在實踐中，當 UPLC 程式提交到鏈上時，它們會被編碼為緊湊的二進位字串（使用 [flat](http://quid2.org/docs/Flat.pdf)）。
+
+Aiken 提供了透過 `encode` 和 `decode` 命令將高階 UPLC 程式轉換為低階 flat 編碼（或反之亦然）的工具。例如：
+
+```sh
+aiken uplc encode program_1.uplc --hex
+```
+
+```
+01000023370090100009
+```
+
+`encode` 命令將所有內容列印到 stdout，`--hex` 將位元組轉換為十六進位編碼字串，以便我們閱讀。
+
+<Callout type="info">
+ `aiken uplc encode program_1.uplc > program_1.flat`
+
+將原始 "flat" 位元組發送到名為 `program_1.flat` 的檔案中。
+</Callout>
+
+從那裡，可以使用 `decode` 從 flat 程式恢復 UPLC 高階語法：
+
+```sh
+aiken uplc decode program_1.flat
+```
+
+```uplc
+(program
+  1.0.0
+  [ [ (builtin addInteger) (con integer 16) ] (con integer 26) ]
+)
+```

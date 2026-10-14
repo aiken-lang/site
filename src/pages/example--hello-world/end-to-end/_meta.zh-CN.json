@@ -1,0 +1,5 @@
+{
+  "mesh": "使用 Mesh (TypeScript)",
+  "pycardano": "使用 PyCardano (Python)",
+  "cardano-cli": "使用 cardano-cli (CLI界面)"
+}

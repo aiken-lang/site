@@ -1,0 +1,183 @@
+---
+title: "希望早點知道的事"
+description: "Aiken 是一種用於 Cardano 智能合約的函數式程式語言。本頁面收集了關於 Cardano 生態系統的提示、陷阱和不易獲得的知識 —— 涵蓋可靠的文件來源、帳本特性、CBOR 序列化細節、原生腳本、獎勵帳戶、地址格式以及常見的除錯陷阱。透過揭示在 Cardano 上構建應用程式的非顯而易見細節，為開發者節省數小時的除錯時間。"
+difficulty: "intermediate"
+keywords: ["提示", "陷阱", "CBOR", "CDDL", "原生腳本", "地址", "獎勵帳戶", "腳本哈希", "帳本特性", "除錯", "Cardano 開發者入口網站"]
+topics: ["tips", "gotchas", "cardano-internals", "debugging", "addresses"]
+---
+
+import { Callout } from "nextra-theme-docs";
+
+<style>{`
+html.dark img.light {
+  display: none;
+}
+html.light img.dark {
+  display: none;
+}
+img.img-75 {
+  margin: 1rem auto;
+  width: 75%;
+}
+`}</style>
+
+# 探索 Cardano 時希望早點知道的事
+
+這份文件是一系列提示和秘密知識的集合，可能在您的 Cardano 旅程中有所幫助。有些可能對您永遠沒用，或者只在遙遠的未來有用。然而，我們希望如果能幫某人節省幾個小時的除錯時間或避免掉入無底洞，我們就完成了使命。
+
+## CBOR / CDDL
+
+Cardano 中幾乎所有需要序列化的內容都是使用一種稱為 [CBOR](https://www.rfc-editor.org/rfc/rfc8949) 的結構化二進位格式完成的。可以將其想像成二進位資料的 JSON。您不必成為 CBOR 專家才能在 Cardano 上工作，但瞭解其符號表示法對於排除底層問題非常有幫助。
+
+有兩個特定領域值得瞭解：
+
+- **CDDL**：它是 CBOR 的規格元語言 (specification meta-language)。它用於描述資料如何編碼為位元組。特別是，Cardano 帳本維護了[所有必須在鏈上序列化的 Cardano 物件的 CDDL 規格](https://github.com/IntersectMBO/cardano-ledger/blob/81548171f2cd336714bb0425640a6553c46aa09e/eras/babbage/test-suite/cddl-files/babbage.cddl)。例如，交易序列化完全在此文件中指定。此規格通常是許多其他工具的**唯一**真理來源。
+
+- **CBOR 診斷 (diagnostic)**：提供了一種更易於人類閱讀、類似 JSON 的語法，便於除錯。我們在[「常見問題排除」](/language-tour/troubleshooting#cbor-diagnostic)部分更詳細地解釋了 CBOR 診斷。
+
+除錯 CBOR 的一個知名工具是 [cbor.me](https://cbor.me)；此外還有許多各種語言編寫的命令行公用程式。
+
+## Byron 地址
+
+Cardano 有兩種地址，根據您問的人不同，它們有不同的名稱。在 Shelley 時代引入之前，地址的外觀與今天大不相同。
+
+例如：`Ae2tdPwUPEYz6ExfbWubiXPB6daUuhJxikMEb4eXRp5oKZBKZwrbJ2k7EZe`。
+
+我們稱這些地址為「引導地址 (Bootstrap addresses)」或簡稱為「Byron 地址」；與之相對的地址如果在可能產生歧義時，會被稱為「地址」或「Shelley 地址」。Byron 地址在今天被視為已棄用，您可能永遠不想使用它們。但是，您可能會遇到它們，因為某些遺留系統仍在使用它們。
+
+<Callout type="info">
+在包含 Plutus 腳本的交易中，**禁止**出現由 Byron 地址鎖定的輸出或對應於此類輸出的輸入！這意味著在驗證上下文中，鏈上驗證器永遠不應該遇到 Byron 地址。在 Alonzo 時代早期情況曾有所不同，但後來為了避免危險情況而進行了更改。
+</Callout>
+
+## 有效間隔 (Validity Intervals)
+
+您可能已經知道，Cardano 智慧合約的執行是完全確定性的。
+
+然而，這引出了一個有趣的問題：**如何處理時間？**
+
+獲取「當前時間」通常會破壞確定性，因為在不同時刻詢問同一個問題可能會得到不同的答案，從而導致不同的執行路徑。那麼如何在驗證交易的腳本中引入時間呢？
+
+Cardano 將交易驗證分為兩個階段，我們通常稱之為「第一階段驗證」和「第二階段驗證」。第一階段驗證是帳本對交易進行的結構性檢查。例如，這時帳本會驗證交易中引用的輸入是否有效、手續費和輸出的最低金額是否達標等。
+
+交易的可用功能之一是「有效間隔 (validity intervals)」，它定義了一個期限，在此期限之後到帳本可以認為交易有效。有效間隔由下限（選填）和上限（選填）組成，並在第一階段驗證期間進行驗證。也就是說，如果一項交易被聲明僅在 2030 年 1 月 5 日之後有效，那麼帳本只能在該日期之後提交並認為其有效。同樣，如果有效間隔定義了上限，那麼交易將留在記憶體池 (mempool) 中直到該日期。如果在指定日期前未能進入區塊，它將被清理。
+
+因此，開發者可以透過有效間隔在驗證器中引入時間概念。由於它們在第一階段進行檢查，驗證器可以假設它所驗證的交易處於指定的有效間隔內。因此，如果您需要確保某個動作僅在特定日期之後發生，您可以將該日期記錄為 datum，並檢查交易的下限是否大於該指定日期。
+
+有效間隔可以精確到一秒，允許腳本以極細的精度執行。然而，窄間隔意味著交易進入區塊可能會更困難。提醒一下，Cardano 區塊鏈平均每 20 秒產出一個區塊。區塊通常傳播很快，但在負載沉重時可能需要幾分鐘。
+
+## 序列化策略
+
+Cardano 上的物件沒有規範的序列化方式。雖然如前所述，核心物件確實有 CDDL 規格<sup><a class="nx-text-primary-600 nx-underline nx-decoration-from-font [text-underline-position:from-font]" href="#cddl-files">見下方</a></sup>，但該規格仍存在多種可能的解釋。例如，CDDL 規格無法表達 map 中的鍵應以什麼順序序列化，或者帶有預設值的選填欄位（例如選填的元素列表）是應該完全省略還是以空預設值指定。
+
+雖然有一些嘗試（如 [CIP-0021](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0021)）旨在達成規範序列化的共識，但目前的 Cardano 帳本並不提供任何此類保證。因此，在處理需要重新序列化的已反序列化物件時，推薦的策略是始終保留原始位元組，不要嘗試重新序列化任何內容。同時，解析器不應假設某種特定方式，而應準備好反序列化任何符合 CDDL 規格的可能表示。
+
+這意味著，除其他事項外，一項交易可能存在多種序列化方式，在嘗試重新計算物件的哈希時可能會導致令人驚訝的情況。
+
+#### CDDL 檔案
+
+| 時代 | CDDL 規格 |
+| --- | --- |
+| Byron | [byron.cddl](https://github.com/IntersectMBO/cardano-ledger/blob/92fd6688b3cce015abc46c133c68e6ea7baa6503/eras/byron/cddl-spec/byron.cddl) |
+| Shelley | [shelley.cddl](https://github.com/IntersectMBO/cardano-ledger/blob/92fd6688b3cce015abc46c133c68e6ea7baa6503/eras/shelley/impl/cddl-files/shelley.cddl) |
+| Allegra | [allegra.cddl](https://github.com/IntersectMBO/cardano-ledger/blob/92fd6688b3cce015abc46c133c68e6ea7baa6503/eras/allegra/impl/cddl-files/allegra.cddl) |
+| Mary | [mary.cddl](https://github.com/IntersectMBO/cardano-ledger/blob/92fd6688b3cce015abc46c133c68e6ea7baa6503/eras/mary/impl/cddl-files/mary.cddl) |
+| Alonzo | [alonzo.cddl](https://github.com/IntersectMBO/cardano-ledger/blob/92fd6688b3cce015abc46c133c68e6ea7baa6503/eras/alonzo/impl/cddl-files/alonzo.cddl) |
+| Babbage | [babbage.cddl](https://github.com/IntersectMBO/cardano-ledger/blob/92fd6688b3cce015abc46c133c68e6ea7baa6503/eras/babbage/impl/cddl-files/babbage.cddl) |
+| Conway | [conway.cddl](https://github.com/IntersectMBO/cardano-ledger/blob/92fd6688b3cce015abc46c133c68e6ea7baa6503/eras/conway/impl/cddl-files/conway.cddl) |
+
+## 哈希摘要
+
+Cardano 在整條鏈上幾乎只使用 **blake2b** 作為哈希演算法。說「幾乎」是因為在 Byron 時代的某些部分可以找到一些 SHA-256 的例子，但我們不在此贅述。
+
+許多被稱為 `id` 的東西都是某些序列化物件的哈希摘要。例如，權益池 ID 是權益池公開冷金鑰 (cold key) 的哈希摘要。交易 ID 是序列化交易體的哈希摘要值。依此類推。
+
+在 Cardano 上，哈希通常長度為 32 位元組（或 256 位元），**憑證（即金鑰或腳本）除外**，其長度為 28 位元組（或 224 位元）。這就是為什麼政策 ID (policy id) 只有 28 位元組長：政策 ID 是帶標記腳本 (tagged script) 的哈希摘要，而腳本可以用作憑證（即地址的一部分）。驗證金鑰的任何哈希摘要也是如此。
+
+## 政策 ID (Policy Id) 與語言標記
+
+政策 ID 是帶標記腳本的哈希摘要。「帶標記 (Tagged)」是這裡的關鍵詞。如果您嘗試僅透過對序列化腳本進行哈希處理來計算政策 ID，您可能會發現哈希是錯誤的而不知道原因。
+
+原始腳本並非其哈希摘要的精確原像 (pre-image)。在進行哈希處理之前，腳本會根據語言被冠以特定的辨別位元組。例如，任何原生腳本在哈希處理之前都會被冠以 `0x00` (`0b0000_0000`) 位元組。
+
+下表總結了所有辨別碼：
+
+| 語言 | 辨別位元組 |
+| --- | --- |
+| `Native` | `0x00` |
+| `Plutus V1` | `0x01` |
+| `Plutus V2` | `0x02` |
+| `Plutus V3` | `0x03` |
+
+後續版本的 Plutus 可能會遵循此模式。
+
+## 獎勵與提領
+
+Cardano 使用的共識演算法 Ouroboros 定義了一種激勵機制，讓利害關係人透過獎勵參與共識。您現在可能已經知道了。獎勵每隔一個週期 (epoch) 支付給將其權益（即 ADA 代幣）委託給代為產出區塊的權益池的委託者。然而，這些獎勵並非直接支付給利害關係人；否則這會導致網路在每個週期邊界都要支付所有獎勵。
+
+相反，Cardano 引入了一個受限的「帳戶 (account)」概念，類似於基於帳戶的帳本。然而，這個帳戶在很多方面都很獨特：
+
+- 它由某些權益憑證定義並由其擁有；
+- 它只能從協議接收獎勵，而不能從使用者定義的交易接收；
+- 它會被自動委託；
+
+透過發起提領 (withdrawal)（在交易中表現為特定欄位），可以從帳戶中提取資金。提領會將帳戶餘額設為 0，並為載有該提領的交易提供帳戶價值的虛擬份額，就好像它是同等價值的輸入一樣。然後該價值可以像對待任何輸入一樣，分配到一個或多個 UTxO 中。
+
+與帳戶相關聯的權益憑證也保護著提領。誰擁有權益憑證，誰就擁有從帳戶提領的權力。這意味著獎勵提領可以由腳本（也就是 Aiken 程式）來指揮。
+
+## 原生腳本 (Native Scripts)
+
+在功能齊全的 Plutus 腳本出現之前，Cardano 有一種簡約的腳本語言，通常被稱為「原生腳本 (Native Script)」或「第一階段腳本」。它至今依然存在，並為 Cardano 提供了簡單但實用的可程式化功能。原生腳本採用包含 6 個建構子的微型領域特定語言 (DSL) 形式：`key`、`all-of`、`any-of`、`n-of-m`、`after` 和 `before`。
+
+特別是，它們在定義由多個租戶擁有的多重簽名地址時非常方便。您可以在 [CIP-1854](https://github.com/cardano-foundation/CIPs/tree/master/CIP-1854#overview) 以及[正式帳本規格 (Formal Ledger Specification)」中的「圖 4：透過原生腳本實現多重簽名](https://github.com/input-output-hk/cardano-ledger/releases/latest/download/shelley-ledger.pdf)中找到更多關於原生腳本的資訊。
+
+## 「Clean」技巧：避免重放區塊
+
+有時，Cardano 節點會執行一次完整的鏈條重新驗證作為完整性檢查。它會掃描其本地檔案，並將區塊互相「重放 (replaying)」。在主網上，此過程可能需要多個小時，原則上主要由兩件事引起：
+
+1. 在節點非正常關閉（例如 SIGKILL 或斷電）後重啟；
+2. 帳本版本發生關鍵性變更。
+
+第一種情況的檢測有時有點笨拙，我們中不幸的人可能已經經歷過（有時是幾次）那令人厭惡的訊息：
+
+```
+Replayed block: slot 3844799 out of 112665654. Progress: 3.41%
+Replayed block: slot 3844783 out of 112665654. Progress: 3.42%
+...
+```
+
+事實證明，有一種方法可以跳過第一種重新驗證。實際上，在啟動時，節點會在資料庫資料夾的根目錄中尋找名為 `clean` 的空檔案。
+
+```
+node.db/
+├── clean              <------------ 就是這傢伙
+├── immutable
+├── ledger
+├── lock
+├── protocolMagicId
+└── volatile
+```
+
+當此檔案存在時，節點將不會重放區塊，除非它檢測到帳本發生關鍵變更（第二種情況），而這非常少見。因此，建立這樣一個檔案（例如 `touch node.db/clean`）就足以避免不必要的區塊重放。這是在使用本地節點進行開發時非常有用的技巧，但**絕對不應在生產環境中使用**（特別是對於 SPO）。
+
+## 交易延遲 vs 最終性 (Latency vs Finality)
+
+在像 Cardano 這樣的分布式系統中，「延遲 (latency)」和「最終性 (finality)」的概念經常被誤解（或互換）。然而，正確理解它們至關重要，特別是在交易方面。
+
+**延遲**是交易出現在區塊鏈（即某個區塊）中所需的時間。**最終性**是交易變得不可更改且永久所需的時間。為什麼會有區別？因為系統是分布式的！這意味著資訊只是「最終 (eventually)」真實。等待多久才算足夠取決於相關方和交易類型。
+
+很難給出一個確定的答案，因為最終性直接取決於系統中惡意權益的比例。不幸的是，惡意者不會在街上揮著手宣稱自己是惡意者。如果我們將惡意者的比例稱為 `ε` (`[0;0.5]`)，並考慮他們的研磨能力 (grinding power) `g`，我們會發現，在 Ouroboros Praos（目前的 Cardano 共識演算法）下，以區塊數量 (`x`) 計的**結算錯誤機率**由以下方程式給出：
+
+<img src="/settlement_error_probability.light.svg" class="light img-75" />
+<img src="/settlement_error_probability.dark.svg"  class="dark  img-75" />
+
+現在，`ε` 和 `g` 的合適值是多少很難說。關於研磨能力，`10^9` 到 `10^10` 範圍內的值是相當保守的。整個比特幣網路的研磨能力約為 `10^12`。因此，除非整個比特幣網路都在攻擊 Cardano，否則 `g` 可能小於 `10^12`。對於惡意者比例，作為經驗法則，最好查看最大權益池的總權益，以瞭解單一實體可以聚集多少力量。
+
+<img src="/settlement_error_probability.png" />
+
+對於敏感交易而言，一個不錯的建議是等待約 100-150 個區塊（30-50 分鐘），而對於小額支付，等待幾個區塊通常就足夠了。如果您想試驗這個方程式，可以查看[這個互動式計算器](https://www.geogebra.org/calculator/rjttcxk8)。
+
+## 開發者入口網站
+
+Cardano 上有大量可用資源。雖然有時有點難找。作為經驗法則（遺憾的是）：盡量避免 http://docs.cardano.org，因為它通常不準確、完全錯誤或遺漏了關鍵元素。
+
+另一方面，[Cardano 開發者入口網站 (Cardano Developer Portal)](https://developers.cardano.org/) 是進入許多生態系統工具和資源的不錯切入點。「建構者工具 (Builder Tools)」部分內容尤為豐富。它由社群維護、策劃並不斷發展。歡迎在那裡貢獻內容也歡迎提出問題！

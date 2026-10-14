@@ -1,0 +1,90 @@
+---
+title: "基準測試 (Benchmarks)"
+description: "Aiken 是一種用於撰寫 Cardano 智慧合約的函數式程式語言，鏈上執行成本（記憶體和 CPU）會直接影響交易費用。基準測試使用 bench 關鍵字和 Sampler 撰寫，Sampler 會生成越來越大的輸入以衡量成本如何隨之擴展。用於比較實作方式、識別效能瓶頸以及在主網部署前優化驗證器。"
+difficulty: "intermediate"
+keywords: ["bench", "基準測試", "Sampler", "執行成本", "記憶體", "CPU", "效能", "aiken bench", "優化", "交易費用"]
+topics: ["benchmarks", "performance", "execution-costs", "optimization"]
+---
+
+import { Callout } from "nextra-theme-docs";
+
+# 基準測試 (Benchmarks)
+
+Aiken 透過類似於 [基於屬性的測試](/language-tour/tests#property-based-test) 的語法提供內建的基準測試支援。基準測試允許您測量隨輸入複雜度增加而變化的執行成本（記憶體和 CPU）。
+
+## 撰寫基準測試
+
+要撰寫基準測試，請使用 `bench{:ak}` 關鍵字以及 `Sampler{:ak}`。`Sampler{:ak}` 接收一個大小 (size) 參數，並根據指定的增長模式（通常是常數或線性）生成越來越大的輸入。事實上，`Sampler{:ak}` 的定義如下：
+
+```aiken
+type Sampler<a> = fn(Int) -> Fuzzer<a>
+```
+
+因此，使用 [`aiken-lang/fuzz`](https://github.com/aiken-lang/fuzz) 套件可以很容易地從模糊測試器 (fuzzers) 構建採樣器 (samplers)，並以類似的方式使用。`Sampler{:ak}` 作為參數的一個特殊標註，使用 `via` 關鍵字引入。
+
+```aiken
+use aiken/fuzz
+use aiken/primitive/bytearray
+use aiken/primitive/int
+
+fn sample_bytearray(size: Int) -> Fuzzer<ByteArray> {
+  fuzz.bytearray_between(size * 128, size * 128)
+}
+
+bench bytearray_length(bytes: ByteArray via sample_bytearray) {
+  bytearray.length(bytes)
+}
+
+// 注意，您也可以省略 `: ByteArray` 型別標註
+bench bytearray_to_integer(bytes via sample_bytearray) {
+  int.from_bytearray_big_endian(bytes)
+}
+```
+
+<Callout emoji="✍️">
+  大小將從 `0` 線性增長到 `--max-size`（預設為 `30`）。隨後，由採樣器決定生成的數值應如何增長。例如，完全可以生成隨大小平方增長的數值：
+
+  ```aiken
+  fn sample_bytearray_quadratic(size: Int) -> Fuzzer<ByteArray> {
+    fuzz.bytearray_between(size * size, size * size)
+  }
+  ```
+
+  如上述 `sample_bytearray{:ak}` 所示，也可以進一步擴展大小，以確保基準測試捕捉到有趣的行為。
+</Callout>
+
+## 執行基準測試
+
+基準測試透過 `aiken bench` 命令收集。它們提供一份報告，顯示隨大小單調遞增而變化的執行成本（以抽象記憶體和 CPU 單位表示）。
+
+<img src="/benchmarks_bytearray_length.png" style={{margin: '1em auto'}} />
+
+<img src="/benchmarks_bytearray_to_integer.png" style={{margin: '1em auto'}} />
+
+### JSON 輸出
+
+預設情況下，`bench` 命令會在您的終端機生成繪圖圖表，因為它們能立即呈現視覺效果並幫助一目了然地發現行為模式。您也可以透過將標準輸出重定向到檔案來獲取用於繪圖的完整資料點集。
+
+```sh
+aiken bench > benchmarks.json
+```
+
+輸出是一個結構化的 JSON 檔案，包含您基準測試的所有結果。如果您想進行自己的分析，這會非常方便！
+
+### 過濾基準測試
+
+與測試類似，您可以使用常見的命令列選項執行特定的基準測試：
+
+```sh
+# 在特定模組中執行基準測試
+aiken bench -m "my_module"
+
+# 執行特定基準測試
+aiken bench -e -m "my_bench"
+```
+
+<Callout type="info">
+  在優化驗證器腳本時，基準測試特別有用，因為它們允許您測量不同輸入大小和複雜程度下的執行成本。
+</Callout>
+
+有關基準測試所基於的測試功能的更多資訊，請參見 [測試文件](/language-tour/tests)。

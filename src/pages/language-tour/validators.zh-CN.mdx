@@ -1,0 +1,220 @@
+---
+title: "验证器"
+description: "Aiken 是一种用于编写 Cardano 智能合约的函数式编程语言。验证器是使用 validator 关键字定义的具名块，包含一个或多个处理程序（spend、mint、withdraw、publish、vote、propose）—— 每个处理程序都是一个返回 True 或 False 的谓词函数，用于授权链上操作。验证器支持配置参数、通过后备程序 (else) 实现多用途处理，并可作为独立函数调用进行测试。是在 Cardano 上实现所有智能合约业务逻辑的核心架构。"
+difficulty: "intermediate"
+keywords: ["validator", "处理程序", "spend", "mint", "withdraw", "publish", "vote", "propose", "datum", "redeemer", "Transaction", "ScriptContext", "参数", "fallback", "else", "多用途", "谓词", "fail", "expect", "plutus.json", "CIP-0057", "blueprint"]
+topics: ["validators", "handlers", "script-purposes", "parameters", "multi-purpose-validators"]
+---
+
+import { Callout } from "nextra-theme-docs";
+
+# 验证器
+
+## 处理程序 (Handlers)
+
+在 Aiken 中，您可以使用 `validator` 关键字将某些函数提升为「验证处理程序」。
+
+```ak
+use cardano/assets.{PolicyId}
+use cardano/transaction.{Transaction}
+
+validator my_script {
+  mint(redeemer: MyRedeemer, policy_id: PolicyId, self: Transaction) {
+    todo @"在这里编写验证逻辑"
+  }
+}
+```
+
+如您所见，验证器是一个具名块，其中包含一个或多个处理程序。处理程序的名称必须与 Cardano 众所周知的用途 (purposes) 相匹配：
+
+- `mint`, `spend`, `withdraw`, `publish`, `vote` 或 `propose`。
+
+每个处理程序都是一个「谓词函数 (predicate function)」：它们必须返回 `True` 或 `False`。如果返回 `True`，则表示授权它们正在验证的操作。或者，为了表示失败，它们可以使用 [`fail{:ak}`](/language-tour/control-flow#fail--todo) 关键字或通过无效的 [`expect{:ak}`](/language-tour/control-flow#non-exhaustive-pattern-matching) 赋值来停止执行。
+
+除了 `spend` 处理程序外，每个处理程序都是一个正好接收三个参数的函数：
+
+- **redeemer**：用户定义的类型和值。
+- **target**：其类型取决于验证用途。
+- **transaction**：表示脚本执行上下文。
+
+`spend` 处理程序会多接收一个参数作为第一个参数，即可选的 datum（这也是一个用户定义的类型）。详见下文。
+
+<Callout type="info">
+Datum？Redeemer？如果您还不熟悉 eUTxO 模型，我们建议先阅读 [eUTxO 速成课程](/fundamentals/eutxo)。
+</Callout>
+
+事实上，处理程序的作用方式类似于对 [`ScriptContext{:ak}`](https://aiken-lang.github.io/stdlib/cardano/script_context.html#ScriptContext) 进行模式匹配；它们为您提取元素，同时确保验证器边界的安全性。为了方便起见，下表总结了不同的目标 (target) 类型及其在标准库中的对应定义：
+
+| 用途 (Purpose) | 目标 (Target) | 作用 |
+| --- | --- | --- |
+| `mint` | [`PolicyId{:ak}`](https://aiken-lang.github.io/stdlib/cardano/assets.html#PolicyId) | 铸造 / 销毁资产 |
+| `spend` | [`OutputReference{:ak}`](https://aiken-lang.github.io/stdlib/cardano/transaction.html#OutputReference) | 花费交易输出 |
+| `withdraw` | [`Credential{:ak}`](https://aiken-lang.github.io/stdlib/cardano/address.html#Credential) | 领取质押奖励 |
+| `publish` | [`Certificate{:ak}`](https://aiken-lang.github.io/stdlib/cardano/certificate.html#Certificate) | 发布委托证书 |
+| `vote` | [`Voter{:ak}`](https://aiken-lang.github.io/stdlib/cardano/governance.html#Voter) | 对治理提案进行投票 |
+| `propose` | [`ProposalProcedure{:ak}`](https://aiken-lang.github.io/stdlib/cardano/governance.html#ProposalProcedure) | 宪法护栏，在提交治理提案时执行 |
+
+让我们看看实战中的样子：
+
+```ak
+use cardano/address.{Credential}
+use cardano/assets.{PolicyId}
+use cardano/certificate.{Certificate}
+use cardano/governance.{ProposalProcedure, Voter}
+use cardano/transaction.{Transaction, OutputReference}
+
+validator my_script {
+  mint(redeemer: MyMintRedeemer, policy_id: PolicyId, self: Transaction) {
+    todo @"在这里编写铸造逻辑"
+  }
+
+  spend(datum: Option<MyDatum>, redeemer: MySpendRedeemer, utxo: OutputReference, self: Transaction) {
+    todo @"在这里编写花费逻辑"
+  }
+
+  withdraw(redeemer: MyWithdrawRedeemer, account: Credential, self: Transaction) {
+    todo @"在这里编写提款逻辑"
+  }
+
+  publish(redeemer: MyPublishRedeemer, certificate: Certificate, self: Transaction) {
+    todo @"在这里编写发布逻辑"
+  }
+
+  vote(redeemer: MyVoteRedeemer, voter: Voter, self: Transaction) {
+    todo @"在这里编写投票逻辑"
+  }
+
+  propose(redeemer: MyProposeRedeemer, proposal: ProposalProcedure, self: Transaction) {
+    todo @"在这里编写提案逻辑"
+  }
+}
+```
+
+<Callout type="info">
+  注意每个处理程序如何接收不同的 redeemer 类型，并且都将 `Transaction` 作为最后一个参数。
+</Callout>
+
+### 管理（可选）Datum
+
+Spend 处理程序包含一个额外的参数：（可选）datum，它可以在资产最初被锁定时与输出一起设置。因为无法强制规定 datum 必须存在（您无法阻止任何人将资产发送/锁定到您的验证器中），所以它总是产生一个 `Option<T>`，其中 `T` 是取决于合约的用户定义类型。
+
+尽管如此，如果您的合约要求必须存在 datum，那么使用 [`expect{:ak}`](/language-tour/control-flow#non-exhaustive-pattern-matching) 并在缺少 datum 时停止验证器的执行是非常直接的做法。
+
+```ak
+use cardano/transaction.{Transaction, OutputReference}
+
+validator my_script {
+  spend(datum_opt: Option<MyDatum>, redeemer: MyRedeemer, input: OutputReference, self: Transaction) {
+    expect Some(datum) = datum_opt
+    todo @"在这里编写验证逻辑"
+  }
+}
+```
+
+### 后备处理程序 (Fallback handler)
+
+敏锐的读者可能已经注意到，上述示例验证器是「非穷举的」，仅涵盖了六种用途中的一种。总是为所有用途定义处理程序可能会很繁琐，特别是如果您的应用程序不打算在这些上下文中使用。
+
+因此，一个特殊的处理程序可以作为后备 / 统揽处理，但有一个显著的区别：后备处理程序仅接收一个类型为 [`ScriptContext{:ak}`](https://aiken-lang.github.io/stdlib/cardano/script_context.html#ScriptContext) 的单一参数。作为智能合约开发者，您有责任断言脚本用途 (purposes) 并找回您的 redeemer 和/或 datum。
+
+```ak
+use cardano/assets.{PolicyId}
+use cardano/transaction.{Transaction, OutputReference}
+use cardano/script_context.{ScriptContext}
+
+validator my_multi_purpose_script {
+  mint(redeemer: MyRedeemer, policy_id: PolicyId, self: Transaction) {
+    todo @"在这里编写验证逻辑"
+  }
+
+  spend(datum_opt: Option<MyDatum>, redeemer: MyRedeemer, input: OutputReference, self: Transaction) {
+    expect Some(datum) = datum_opt
+    todo @"在这里编写验证逻辑"
+  }
+
+  else(_ctx: ScriptContext) {
+    fail @"不支持的用途 (purpose)"
+  }
+}
+```
+
+<Callout type="info">
+  也有一些情况您可能不想要 Aiken 提供的细粒度保护。例如，典型的应用场景是在使用 Plutus 虚拟机（如 Hydra）的 Layer-2 系统上编写验证器，但该系统可能具有不同的用途和/或脚本上下文。
+
+  后备处理程序对于这些情况非常方便，允许您定义和使用任意脚本上下文以匹配任何环境。从长远来看，可能会引入专门的语法来根据某些类型定义声明处理程序。
+</Callout>
+
+#### 默认后备
+
+当没有明确指定后备处理程序时，Aiken 默认会使用一个始终拒绝的验证器。
+
+```ak
+validator my_script {
+  else(_) {
+    fail
+  }
+}
+```
+
+## 参数 (Parameters)
+
+验证器本身可以接收「参数」，这些参数代表创建验证器实例时必须提供的配置元素。一旦提供，参数就会嵌入到编译后的验证器中，成为生成的代码的一部分。因此，在计算对应验证器的地址之前，必须先提供这些参数。
+
+验证器中的所有处理程序都可以访问这些参数，参数可以是任何可序列化（非不透明）的数据类型。例如，通常会使用 UTxO 引用来参数化验证器，以确保铸造策略 (minting policy) 执行的唯一性。在 mint 处理程序中，可以检查引用的 UTxO 是否被花费，从而确保该处理程序的执行唯一性（因为根据定义，UTxO 只能被花费一次）。非常方便！
+
+```ak filename="validators/my_script.ak"
+use aiken/collection/list
+use cardano/assets.{PolicyId}
+use cardano/transaction.{Transaction, OutputReference}
+
+validator my_script(utxo_ref: OutputReference) {
+  mint(redeemer: Data, policy_id: PolicyId, self: Transaction) {
+    expect list.any(
+      self.inputs,
+      fn (input) { input.output_reference == utxo_ref }
+    )
+    todo @"其余逻辑放在这里"
+  }
+}
+```
+
+## 调用处理程序
+
+处理程序是智能合约与外界互动的接口。然而，有时您可能希望将处理程序作为独立函数调用（例如为了测试）。
+
+Aiken 提供了一种方便的语法，类似于调用模块中的函数：
+
+`{验证器名称}.{处理程序名称}`
+
+调用结果是一个接收与处理程序相同参数的函数，并在前面加上来自验证器的任何参数。例如：
+
+```ak
+test return_true_when_utxo_ref_match() {
+  let utxo_ref = todo @"OutputReference"
+  let redeemer = todo @"Redeemer"
+  let policy_id = todo @"OutputReference"
+  let transaction = todo @"Transaction"
+  my_script.mint(utxo_ref, redeemer, policy_id, transaction)
+}
+```
+
+### 导入验证器
+
+如果您需要将测试拆分到不同的模块中，Aiken 允许导入「验证器」，但有一些限制：
+
+1. 只有「测试模块」可以导入验证器。如果不导出任何公共定义，则该模块被视为测试模块。
+2. 验证器不能作为非限定 (unqualified) 对象导入。必须作为限定导入 (qualified imports) 使用。
+
+因此，假设有上述验证器，我们可以想象编写一个测试模块如下：
+
+```ak
+use my_script
+
+test return_true_when_utxo_ref_match() {
+  let utxo_ref = todo @"OutputReference"
+  let redeemer = todo @"Redeemer"
+  let policy_id = todo @"OutputReference"
+  let transaction = todo @"Transaction"
+  my_script.my_script.mint(utxo_ref, redeemer, policy_id, transaction)
+}
+```

@@ -1,0 +1,219 @@
+---
+title: "测试"
+description: "Aiken 是一种用于编写 Cardano 智能合约的函数式编程语言，对单元测试和基于属性的测试提供一等公民支持。测试使用 test 关键字编写为返回 Bool 的具名函数，并在与链上使用的相同的 Plutus 虚拟机上执行。用于验证验证器逻辑、使用模糊测试器 (fuzzers) 执行基于属性的测试以及衡量执行成本。"
+difficulty: "intermediate"
+keywords: ["test", "单元测试", "基于属性的测试", "模糊测试器", "Fuzzer", "aiken check", "执行成本", "内存", "CPU", "测试验证器"]
+topics: ["tests", "unit-tests", "property-based-tests", "fuzzers"]
+---
+
+import { Callout } from "nextra-theme-docs";
+
+<style>{`
+@media(min-width: 600px) {
+  img {
+    max-width: 540px;
+  }
+}
+img {
+  margin-left: auto;
+  margin-right: auto;
+}
+`}</style>
+
+# 测试
+
+Aiken 对单元测试和基于属性的测试 (property-based tests) 提供了一等公民支持。这意味着您可以直接在 Aiken 中编写测试并随时执行。因此，工具集 (`aiken check`) 可以解析测试、收集测试、执行测试并显示包含（希望）有用的详细信息报告。
+
+## 单元测试
+
+### 编写单元测试
+
+要编写单元测试，请使用 `test` 关键字：
+
+```aiken
+test foo() {
+  1 + 1 == 2
+}
+```
+
+单元测试是一个不接收参数并返回布尔值的具名函数。更具体地说，如果测试返回 `True`，则被视为「有效」（即通过）。
+
+您可以在 Aiken 模块的任何位置编写测试，它们可以以同样的方式调用函数和使用常数。测试的一个令人兴奋之处在于，它们使用与链上执行合约相同的虚拟机。换句话说，它们是您可以在与生产环境代码相同的上下文中运行和推理的链上代码片段。
+
+### 单元测试报告
+
+让我们编写一个带有某些单元测试的简单函数作为例子。
+
+```aiken filename="lib/example.ak"
+fn add_one(n: Int) -> Int {
+  n + 1
+}
+
+test add_one_1() {
+  add_one(0) == 1
+}
+
+test add_one_2() {
+  add_one(-42) == -41
+}
+```
+
+在我们的项目中运行 `aiken check` 会得到以下报告：
+
+![](/language_tour_tests_fig_1.png)
+
+如您所见，报告按模块对测试进行分组，并为您提供了每个测试所需的内存和 CPU 执行单元。这意味着如果您需要尝试不同的方法并比较它们的执行成本，测试也可以作为基准测试 (benchmarks)。
+
+<Callout type="info">
+  测试可以任意复杂；与链上脚本不同，它们没有任何执行限制 —— 或者更准确地说，它们的限制足够大。
+</Callout>
+
+### 自动过滤差异 (Automatic diffing)
+
+Aiken 的测试运行器（试图）保持智能且提供帮助，特别是在测试失败时。如果测试失败，运行器将尽力提供有关出错原因的信息。如果您使用二元运算符（`==`、`>=`、`!=` 等）将测试编写为断言，这将特别有效。
+
+例如，让我们在上述示例中添加一个失败的测试：
+
+```aiken filename="lib/example.ak"
+// ... 文件其余部分保持不变
+test add_one_3() {
+  add_one(1) == 1
+}
+```
+
+![](/language_tour_tests_fig_2.png)
+
+太棒了！我们可以看到两个运算数的估值结果，测试运行器指出了问题所在。
+
+## 基于属性的测试 (Property-based test)
+
+### 简介
+
+Aiken 的独特优点之一是其集成了缩减 (shrinking) 功能的基于属性的测试框架。基于属性的测试是通过探索可能输入的领域并寻找一般行为而非特定案例来生成测试用例的艺术。
+
+例如，如果您考虑一个反转列表元素顺序的函数 `list.reverse`，它具有一个优良的属性：调用它两次会使列表恢复到其原始顺序。您可以通过生成随机列表样本并检查它们是否满足该属性来测试该函数。
+
+如果发现该属性的反例，框架会尝试将其简化为最小反例，以便更容易消化和推理。这是一个关键步骤，因为随机探索输入域可能会导致任意大的样本值，从而掩盖真正的问题。想象一个处理整数列表并在遇到负整数值时失败的函数。在此示例中，列表 `[12, 441, 0, 7863, -2, 1213]` 是一个有效的反例，但 `[-1]` 显然是一个更好的反例。它能让您更直接地精确锁定问题。
+
+在传统的基于属性的测试框架中，寻找较小的反例可能是繁琐的，这被称为「缩减 (shrinking)」。编写属性的开发者必须定义如何从初始值获得较小的反例。在 Aiken 中，框架集成并自动管理这一过程。
+
+### 编写属性
+
+基于属性的测试是带有一个指定 `Fuzzer` 参数的测试。模糊测试器 (fuzzer) 或生成器是一个抽象，它指定了如何从随机源生成（伪）随机值。
+
+我们提供 —— *并强烈建议使用* —— 一个核心模糊测试器库：[`aiken/fuzz`](https://github.com/aiken-lang/fuzz)。该库包含了宝贵的原语，代表您处理抽象伪随机性管理的繁琐工作，使编写模糊测试器变得轻松愉快。请尽情使用！
+
+```aiken
+use aiken/fuzz
+
+test prop_is_non_negative(n: Int via fuzz.int()) {
+  n >= 0
+}
+```
+
+`Fuzzer` 作为参数的一个特殊注解，使用 `via` 关键字引入，且必须是类型为 `Fuzzer<a>`（尽管 `a` 必须实例化为具体类型！）。在上述示例中，它的类型是 `Fuzzer<Int>`。因此，参数的类型与其模糊测试器所携带的类型之间存在直接关系！因此，参数的类型注解是完全可选的，因为它与模糊测试器是冗余的。
+
+#### 组合模糊测试器
+
+模糊测试器可以在 via 关键字之后直接行内组合：
+
+```aiken
+use aiken/fuzz
+
+test prop_list(xs: List<Int> via fuzz.list(fuzz.int())) {
+  todo
+}
+```
+
+它们也可以定义在单独的函数中并通过名称调用：
+
+```aiken
+use aiken/fuzz
+
+fn my_fuzzer() -> Fuzzer<List<Int>> {
+  fuzz.list(fuzz.int())
+}
+
+test prop_list(xs: List<Int> via my_fuzzer()) {
+  todo
+}
+```
+
+### 属性测试报告
+
+与单元测试类似，属性测试使用 `aiken check` 命令执行。它们提供一份报告，强调检查的随机样本数量，并在失败情况下提供简化的反例。例如，如果我们对上述处理整数的 `prop_is_non_negative` 运行测试，我们会得到以下结果：
+
+![](/language_tour_tests_fig_3.png)
+
+如您所见，该属性被 `int()` 模糊测试器生成的负值判定为无效。反例直接显示在测试报告中，以及在找到反例之前运行的测试次数。
+
+### 标签 (Labelling)
+
+通常，人们想评估随机游走是否探索了特定的路径。对于探索大型定义域空间的复杂生成器来说尤其如此。[`aiken/fuzz`](https://github.com/aiken-lang/fuzz) 库为此提供了「标签 (labels)」，框架会自动收集这些标签。测试成功后，它们在所有测试运行中的分布将显示在报告中。标签对于评估模糊测试器的正确性也很有用，我们强烈建议**测试您的模糊测试器**！基于属性测试的一个常见陷阱是，由于模糊测试器定义错误，属性实际上没有测试任何内容。例如，让我们检查 [`aiken/fuzz`](https://github.com/aiken-lang/fuzz) 库中的 `bool()` 模糊测试器：
+
+```aiken
+test prop_bool_distribution(predicate via fuzz.bool()) {
+  fuzz.label(
+    if predicate {
+      @"True"
+    } else {
+      @"False"
+    },
+  )
+
+  True
+}
+```
+
+我们可以看到，生成器在 `True` 和 `False` 之间基本是均匀分布的（呼！）。请注意，由于样本的随机性，分布不一定正好是 50%，但它会渐进地收敛于此。
+
+![](/language_tour_tests_fig_4.png)
+
+<Callout type="info">
+  请注意，我们在这里向 `check` 命令传递了额外的选项 `--max-success=1000`，以增加测试运行的次数并更好地观察随机样本。
+</Callout>
+
+## 测试失败情况
+
+有时，您需要断言特定的执行路径「可以失败」。这也被称为「预期的失败 (expected failure)」，是断言程序行为的一种有效方式。幸运的是，您也可以在 Aiken 中通过在测试名称后添加 `fail` 来实现此目的。例如：
+
+```aiken filename="lib/example.ak"
+use aiken/math
+
+test must_fail() fail {
+  expect Some(result) = math.sqrt(-42)
+  result == -1
+}
+```
+
+这里的 `fail` 关键字对单元测试和属性测试都有效，但属性测试有一点细微的区别。事实上，预期失败的属性测试仍会运行多次，且只有当属性的「所有运行」都失败时，才被视为成功。这对于编写非属性 (non-properties) 很有用，特别足如果它们在底层依赖于 `fail` 或 `expect` 来检查前提条件。换句话说，标记为 `fail` 的属性测试将在第一次成功估值時停止并被标记为失败。
+
+对于属性测试，还可以指定 `fail once`，以便运行属性直到它失败一次或达到最大尝试次数（默认为 100）。如果运行器找到了 100 个满足预期「至少失敗一次 (fail once)」的属性的测试，则整个测试被视为失败。换句话说，标记为 `fail once` 的属性测试将在第一次失败估值时停止并被标记为成功。如果没有评估失败，它将被标记为失败。
+
+## 运行特定测试
+
+`aiken check` 支持旗标，允许您运行项目中所有测试的子集。
+
+### 示例
+
+`aiken check -m "aiken/list"`
+
+这仅运行名为 `aiken/list` 的模块内的测试。
+
+---
+
+`aiken check -m "aiken/option.{flatten}"`
+
+这仅运行 `aiken/option` 模块中名称包含单词 `flatten` 的测试。
+
+---
+
+`aiken check -e -m "aiken/option.{flatten_1}"`
+
+您可以使用 `-e` 强制精确匹配。
+
+---
+
+`aiken check -e -m map_1`
+
+这仅运行整个项目巾与名称 `map_1` 精确匹配的测试。

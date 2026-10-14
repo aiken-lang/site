@@ -1,0 +1,318 @@
+import { Callout } from "nextra-theme-docs";
+
+# Hello, World! - 使用 cardano-cli
+
+## 本教學涵蓋內容
+
+<br/>
+
+- [x] 在 `Preview` 測試網上與驗證器互動；
+- [x] 使用 [cardano-cli][] 和 [cardano-node][]；
+- [x] 從 [Cardano Faucet](https://docs.cardano.org/cardano-testnet/tools/faucet) 獲取測試資金；
+- [x] 使用網頁版區塊瀏覽器，如 [CardanoScan][]。
+
+## 先決條件
+
+我們假設您已經按照 _Hello, World!_ 的 [入門步驟][First steps] 進行操作，因此已經安裝並可以使用 Aiken。我們還將使用 [cardano-cli][]，這是一個與正在運行的 [cardano-node][] 互動的命令列工具。我們假設您已經安裝了這兩個工具，並且在本地端運行著 `Preview` 網路的 `cardano-node`，且 `cardano-cli` 已添加至您的 `PATH` 中。
+
+<Callout type="info">
+  `cardano-cli` 和 `cardano-node` 通常打包在一起，並在安裝 cardano-node 時一併安裝。
+  安裝過程的細節超出了本教學的範圍，請參考 [開發者門戶 (Developer portal)](https://developers.cardano.org/docs/get-started/cardano-node/installing-cardano-node/) 文件以獲取詳細資訊。
+
+  我們還將使用另一個命令列工具 [cardano-address](https://github.com/IntersectMBO/cardano-addresses)，您也需要安裝它。
+</Callout>
+
+## 獲取資金
+
+在本教學中，我們將使用在 [入門步驟][First steps] 中構建的驗證器。但在開始之前，我們需要一些資金以及一對公/私鑰來持有這些資金。我們可以在命令列生成私鑰和地址：
+
+```sh
+cardano-cli address key-gen --verification-key-file me.vk --signing-key-file me.sk
+```
+
+這將建立兩個檔案：`me.vk` 和 `me.sk`，分別包含我們在本教學中將使用的公鑰和私鑰。
+從這些金鑰中，我們需要衍生出一個 bech32 格式的地址，並將其儲存在 `me.addr` 中：
+
+```sh
+cardano-cli conway address build --testnet-magic 2 --payment-verification-key-file me.vk | tee me.addr
+```
+
+這應該會輸出類似於以下的地址：
+
+```
+addr_test1vr69qqlwgw7jty8m2wqvyxytnntufxhcjjur44rqd3t4hfgfq2ne0
+```
+
+現在，我們可以前往 [Cardano 水龍頭 (Cardano faucet)](https://docs.cardano.org/cardano-testnet/tools/faucet)，將一些 `Preview` 網路的資金發送到我們新建立的地址（`me.addr` 內容）。
+
+<img src="/faucet_preview.webp" style={{margin: '1em auto', maxWidth: '700px'}} />
+
+👉 請確保選擇 _"Preview Testnet"_ 作為網路。
+
+請求成功後，資金將發送到我們的地址，我們應該會有一些可用的 UTxO。我們可以在命令列檢查：
+
+```sh {2}
+cardano-cli conway query utxo --address $(cat me.addr) --testnet-magic 2 --socket-path node.socket
+2178565983a3125c608f7dea381d5b70d064be6b21879de86d4765e8ad3361f1     0        10000000 lovelace + TxOutDatumNone
+```
+
+這假設 `cardano-node` 已經啟動，並在路徑 `node.socket` 暴露一個本地端通訊端 (socket)。
+
+## 使用合約
+
+現在我們有了資金，可以將它們鎖定在我們新建立的合約中。我們將使用 [cardano-cli][] 來構建、簽署並提交交易到我們本地端運行的 [cardano-node][]。
+
+### 設定
+
+首先，我們將使用 `aiken blueprint` 命令生成一個 [cardano-cli][] 可以理解格式的「腳本檔案」：
+
+```sh
+aiken blueprint convert > hello.script
+```
+
+<Callout type="info">
+  藍圖檔案 `plutus.json` 中的 `compiledCode` 欄位不能直接使用，因為 cardano-cli 使用包裝在簡單 `TextEnvelope` JSON 檔案中的 CBOR-in-CBOR 編碼。`aiken blueprint convert` 會正確地對腳本進行編碼。
+</Callout>
+
+從 `hello.script` 檔案中，我們可以計算出用於鎖定資金的腳本地址：
+
+```sh
+cardano-cli address build --testnet-magic 2 --payment-script-file hello.script | tee hello.addr
+```
+
+這應該會輸出一個看起來像 `addr_test1wqd988jgwwa5kjc2q4e03rrnrvqvlwz6c7wlyazymhd87mc2x3pjs` 的地址。
+
+### 將資金鎖定到合約中
+
+現在我們可以讀取驗證器，開始進行第一筆交易將資金鎖定到合約中。Datum 必須符合驗證器所預期的表示形式（如藍圖中所指定的），因此它是一個帶有單個位元組陣列欄位的構成函數。
+
+Datum 必須包含獲授權解鎖合約的金鑰的「公鑰雜湊 (public key hash)」。我們可以如下計算此公鑰雜湊：
+
+```sh
+cardano-cli conway address build --testnet-magic 2 --payment-verification-key-file test.vk \
+   | cardano-address address inspect \
+   | jq -r .spending_key_hash \
+   | tee me.hash
+```
+
+檔案 `me.hash` 應該包含以十六進位字串表示的雜湊值，例如 `f45003ee43bd2590fb5380c2188b9cd7c49af894b83ad4606c575ba5`。
+
+現在我們可以使用流行的 [jq][] 工具建立符合藍圖中 datum 架構的 JSON 檔案：
+
+```sh {2}
+jq -c '{constructor:0,fields:[{bytes:.}]}' < me.hash
+{"constructor":0,"fields":[{"bytes":"f45003ee43bd2590fb5380c2188b9cd7c49af894b83ad4606c575ba5"}]}
+```
+
+接著我們開始建構交易：
+
+```sh {3}
+cardano-cli conway transaction build \
+      --tx-in 2178565983a3125c608f7dea381d5b70d064be6b21879de86d4765e8ad3361f1#0 \
+      --tx-out $(cat hello.addr)+1100000 \
+      --tx-out-inline-datum-file datum.json \
+      --change-address $(cat me.addr) \
+      --socket-path node.socket --testnet-magic 2 \
+      --out-file tx.lock.raw
+```
+
+請注意，每個 UTxO 都需要一個最小 Ada 值，以防止用戶濫用系統提供的儲存能力。輸出中的 1100000 鎖定值是透過以較低的值（通常為 1000000）執行命令並根據報錯資訊中的最小 Ada 要求設定的。
+
+然後我們可以簽署它：
+
+```sh
+cardano-cli conway transaction sign --tx-file tx.lock.raw --out-file tx.lock.signed --signing-key-file test.sk
+```
+
+在提交交易之前，檢查並再次確認是個好主意：
+
+```sh
+cardano-cli debug transaction view --tx-file tx.signed
+```
+
+(輸出內容略，可參考英文原版細節)
+
+最後，我們可以將交易提交到本地節點。
+
+```sh
+cardano-cli conway transaction submit --tx-file tx.lock.signed --socket-path node.socket --testnet-magic 2
+```
+
+成功後應該會顯示訊息：
+
+```
+Transaction successfully submitted
+```
+
+<Callout type="info">
+  您正在運行的本地 [cardano-node][] 會根據其當前狀態驗證您的交易，然後再進行傳播，因此完全可以在不冒資金風險的情況下進行實驗（實際上，這一切都在 `Preview` 網路進行，它不使用真實的 Ada，因此沒有風險，但養成謹慎思考的習慣是好事）。
+</Callout>
+
+在此階段，您的資料夾看起來大約像這樣：
+
+```
+./hello_world
+│
+├── README.md
+├── aiken.toml
+├── plutus.json
+├── generate-credentials.py
+├── hello-world-lock.py
+├── hello.script
+├── hello.addr
+├── me.addr
+├── me.hash
+├── me.sk
+├── me.vk
+├── tx.lock.raw
+├── tx.lock.signed
+├── lib
+│   └── ...
+└── validators
+    └── hello-world.ak
+```
+
+### 從合約解鎖資金
+
+最後一步：我們現在想要花費被 `hello-world` 合約鎖定的 UTxO。
+
+要使交易有效，必須滿足兩個條件：
+
+- 必須提供 "Hello, World!" 作為 redeemer；並且
+- 必須由 datum 中引用的金鑰（即所有者）簽署。
+
+現在，讓我們添加解鎖合約資金的部分。我們需要鎖定交易的「交易識別碼 (Tx ID)」。
+
+交易識別碼（又稱交易雜湊）和對應的輸出索引（此處為 `0`）唯一地識別了目前鎖定資金的 UTxO（未花費交易輸出）。這就是我們即將解鎖的 UTxO。由於我們知道我們建立了一個單一的 UTxO，且交易識別碼是根據交易內容唯一衍生而來的，我們可以在本地簡計算此資訊：
+
+```sh
+cardano-cli conway transaction txid --tx-file tx.signed
+```
+
+這讓我們推斷出我們感興趣的 UTxO 是 `9609c8dd442e3d72023e09790263210dfb203bdb2a38e0796382976818e52675#0`（範例值）。
+我們還可以向 [cardano-node][] 查詢鎖定在特定地址的 UTxO：
+
+```sh
+cardano-cli conway query utxo --address $(cat hello.addr) --testnet-magic 2 --socket-path node.socket --output-json
+```
+
+這將產生類似以下的 JSON 結構：
+
+```json
+{
+    "9609c8dd442e3d72023e09790263210dfb203bdb2a38e0796382976818e52675#0": {
+        "address": "addr_test1wqd988jgwwa5kjc2q4e03rrnrvqvlwz6c7wlyazymhd87mc2x3pjs",
+        "datum": null,
+        "inlineDatum": {
+            "constructor": 0,
+            "fields": [
+                {
+                    "bytes": "f45003ee43bd2590fb5380c2188b9cd7c49af894b83ad4606c575ba5"
+                }
+            ]
+        },
+        "inlineDatumRaw": "...",
+        "inlineDatumhash": "...",
+        "referenceScript": null,
+        "value": {
+            "lovelace": 1100000
+        }
+    }
+}
+```
+
+我們驗證器的第一個要求是包含字串 `Hello, World!` 的 redeemer，所以讓我們構建對應的 JSON 檔案。
+
+```sh
+jq -c '{constructor:0,fields:[{bytes:.}]}' <<< "\"$(echo 'Hello, World!' | xxd -g1 | cut -d ' ' -f2-14  | tr -d ' ')\"" | tee redeemer.json
+```
+
+這將輸出 `redeemer.json` 檔案的內容，應該如下：
+
+```json
+{"constructor":0,"fields":[{"bytes":"48656c6c6f2c20576f726c6421"}]}
+```
+
+為了建構解鎖交易，我們需要從節點中提取目前的「協定參數 (protocol parameters)」：
+
+```sh
+cardano-cli conway query protocol-parameters --testnet-magic 1 --socket-path node.socket > pparams.json
+```
+
+<Callout type="warning">
+協定參數對於以下兩點是不可或缺的：
+
+1. 計算交易費用，
+2. 向交易添加相應的雜湊值以進行雙重檢查，避免 `PPViewHashesDontMatch` 錯誤。
+</Callout>
+
+由於我們將在沒有自動平衡和費用計算的情況下建構交易，我們需要提前計算執行驗證器所需的執行單元。幸運的是，`aiken check` 在執行時總會輸出這些資訊！
+
+```sh
+> aiken check
+    ...
+    ┍━ hello_world ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │ PASS [mem: 32451, cpu: 11921833] hello_world_example
+    │ · with traces
+    │ | redeemer: Hello, World!
+    ┕━━━━━━━━━━━━━━━━━━━━━━━ 1 tests | 1 passed | 0 failed
+```
+
+終於我們可以建構解鎖交易了：
+
+```sh
+cardano-cli conway transaction build-raw \
+  --tx-in 9609c8dd442e3d72023e09790263210dfb203bdb2a38e0796382976818e52675#1 \
+  --tx-in 9609c8dd442e3d72023e09790263210dfb203bdb2a38e0796382976818e52675#0 \
+  --tx-in-collateral 9609c8dd442e3d72023e09790263210dfb203bdb2a38e0796382976818e52675#1 \
+  --tx-in-script-file hello.script \
+  --tx-in-inline-datum-present \
+  --tx-in-redeemer-file redeemer.json \
+  --tx-in-execution-units '(12000000,34000)' \
+  --tx-out $(cat me.addr)+856000000 \
+  --fee 1000000 \
+  --protocol-params-file pparams.json \
+  --out-file tx.unlock.raw \
+  --required-signer me.sk
+```
+
+<Callout type="info">
+我們在這裡不能使用 `build` 命令，因為它會嘗試評估腳本以計算執行單元和交易費用，這將會失敗，因為交易尚未簽名，因此腳本將無法檢查交易的簽署者是否與其 datum 匹配。
+</Callout>
+
+`build-raw` 命令不會自動平衡和計算交易費用，因此我們需要執行兩次，以調整 `--fee` 參數的值和第二個輸出的值。
+
+要計算「精確」費用，請執行：
+
+```sh
+cardano-cli conway transaction calculate-min-fee --tx-body-file tx.unlock.raw --protocol-params-file pparams.json --witness-count 1
+```
+
+這應該會輸出一個 lovelaces 金額，例如 `198028 Lovelace`。使用此金額來調整找零輸出的數值和 `build-raw` 命令的 `--fee` 參數。
+
+<Callout type="warning">
+在極少數情況下，這些調整後的交易可能仍然沒有足夠的費用。在此情況下，請從調整後的交易體重新計算費用。
+</Callout>
+
+現在我們終於可以簽署並提交交易了：
+
+```sh
+cardano-cli conway transaction sign --tx-file tx.unlock.raw --out-file tx.unlock.signed --signing-key-file test.sk
+cardano-cli conway transaction submit --tx-file tx.unlock.signed --socket-path node.socket --testnet-magic 2
+```
+
+大功告成 🎉！
+
+我們可以透過查詢 [cardano-node][] 腳本地址的 UTxO 來檢查交易是否成功提交並執行了我們的 _Hello World_ 合約：
+
+```sh
+cardano-cli conway query utxo --address $(cat hello.addr) --testnet-magic 2 --socket-path node.socket --output-json
+```
+
+輸出應該為空。
+
+[cardano-cli]: https://github.com/IntersectMBO/cardano-cli
+[cardano-node]: https://github.com/IntersectMBO/cardano-node
+[jq]: https://jqlang.github.io
+[CardanoScan]: https://preview.cardanoscan.io
+[First steps]: /example--hello-world/basics

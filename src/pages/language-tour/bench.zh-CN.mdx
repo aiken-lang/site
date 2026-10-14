@@ -1,0 +1,90 @@
+---
+title: "基准测试 (Benchmarks)"
+description: "Aiken 是一种用于编写 Cardano 智能合约的函数式编程语言，链上执行成本（内存和 CPU）会直接影响交易费用。基准测试使用 bench 关键字和 Sampler 编写，Sampler 会生成越来越大的输入以衡量成本如何随之扩展。用于比较实现方式、识别性能瓶颈以及在主网部署前优化验证器。"
+difficulty: "intermediate"
+keywords: ["bench", "基准测试", "Sampler", "执行成本", "内存", "CPU", "性能", "aiken bench", "优化", "交易费用"]
+topics: ["benchmarks", "performance", "execution-costs", "optimization"]
+---
+
+import { Callout } from "nextra-theme-docs";
+
+# 基准测试 (Benchmarks)
+
+Aiken 通过类似于 [基于属性的测试](/language-tour/tests#property-based-test) 的语法提供内建的基准测试支持。基准测试允许您测量随输入复杂度增加而变化的执行成本（内存和 CPU）。
+
+## 编写基准测试
+
+要编写基准测试，请使用 `bench{:ak}` 关键字以及 `Sampler{:ak}`。`Sampler{:ak}` 接收一个大小 (size) 参数，并根据指定的增长模式（通常是常数或线性）生成越来越大的输入。事实上，`Sampler{:ak}` 的定义如下：
+
+```aiken
+type Sampler<a> = fn(Int) -> Fuzzer<a>
+```
+
+因此，使用 [`aiken-lang/fuzz`](https://github.com/aiken-lang/fuzz) 套件可以很容易地从模糊测试器 (fuzzers) 构建采样器 (samplers)，并以类似的方式使用。`Sampler{:ak}` 作为参数的一个特殊注解，使用 `via` 关键字引入。
+
+```aiken
+use aiken/fuzz
+use aiken/primitive/bytearray
+use aiken/primitive/int
+
+fn sample_bytearray(size: Int) -> Fuzzer<ByteArray> {
+  fuzz.bytearray_between(size * 128, size * 128)
+}
+
+bench bytearray_length(bytes: ByteArray via sample_bytearray) {
+  bytearray.length(bytes)
+}
+
+// 注意，您也可以省略 `: ByteArray` 类型注解
+bench bytearray_to_integer(bytes via sample_bytearray) {
+  int.from_bytearray_big_endian(bytes)
+}
+```
+
+<Callout emoji="✍️">
+  大小将从 `0` 线性增长到 `--max-size`（默认为 `30`）。随后，由采样器决定生成的数值应如何增长。例如，完全可以生成随大小平方增长的数值：
+
+  ```aiken
+  fn sample_bytearray_quadratic(size: Int) -> Fuzzer<ByteArray> {
+    fuzz.bytearray_between(size * size, size * size)
+  }
+  ```
+
+  如上述 `sample_bytearray{:ak}` 所示，也可以进一步扩展大小，以确保基准测试捕捉到有趣的行为。
+</Callout>
+
+## 运行基准测试
+
+基准测试通过 `aiken bench` 命令收集。它们提供一份报告，显示随大小单调递增而变化的执行成本（以抽象内存和 CPU 单位表示）。
+
+<img src="/benchmarks_bytearray_length.png" style={{margin: '1em auto'}} />
+
+<img src="/benchmarks_bytearray_to_integer.png" style={{margin: '1em auto'}} />
+
+### JSON 输出
+
+默认情况下，`bench` 命令会在您的终端生成绘图图表，因为它们能立即呈现视觉效果并帮助一目了然地发现行为模式。您也可以通过将标准输出重定向到文件来获取用于绘图的完整数据点集。
+
+```sh
+aiken bench > benchmarks.json
+```
+
+输出是一个结构化的 JSON 文件，包含您基准测试的所有结果。如果您想进行自己的分析，这会非常方便！
+
+### 过滤基准测试
+
+与测试类似，您可以使用常见的命令行选项运行特定的基准测试：
+
+```sh
+# 在特定模块中运行基准测试
+aiken bench -m "my_module"
+
+# 运行特定基准测试
+aiken bench -e -m "my_bench"
+```
+
+<Callout type="info">
+  在优化验证器脚本时，基准测试特别有用，因为它们允许您测量不同输入大小和复杂程度下的执行成本。
+</Callout>
+
+有关基准测试所基于的测试功能的更多信息，请参见 [测试文档](/language-tour/tests)。

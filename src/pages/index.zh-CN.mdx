@@ -1,0 +1,875 @@
+---
+title: 用于 Cardano 的现代智能合约平台
+---
+
+import Image from 'next/image';
+import { LightDarkIframe } from '../components/light-dark-iframe';
+import theCodeOfLife from '../../public/the-code-of-life.webp';
+import theFirstContact from '../../public/the-first-contact.webp';
+
+export const palette = {
+  dark: {
+    border: "#604185",
+    borderText: "#f2f2f2",
+    bullet: "#f0a5e7",
+    link: "#f0a5e7",
+    separator: "#292929",
+    text: "#f2f2f2",
+    window: "#1E2127",
+  },
+  light: {
+    border: "#604185",
+    borderText: "#f2f2f2",
+    bullet: "#f0a5e7",
+    link: "#f0a5e7",
+    separator: "#ededed",
+    text: "#000000",
+    window: "#1E2127",
+  }
+};
+
+export function icon(name, color) {
+  let svg;
+  switch(name) {
+    case 'carret':
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-right"><polyline points="9 18 15 12 9 6"></polyline></svg>`;
+      break;
+
+    case 'checkbox-checked':
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
+      break;
+
+    case 'checkbox-todo':
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-circle"><circle cx="12" cy="12" r="10"></circle></svg>`
+      break;
+
+    case 'icon-coffee':
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-coffee"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>`
+      break;
+
+    case 'icon-heart':
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-heart"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>`
+      break;
+
+    case 'icon-grid':
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-grid"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>`
+      break;
+
+    case 'icon-fast-forward':
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-fast-forward"><polygon points="13 19 22 12 13 5 13 19"></polygon><polygon points="2 19 11 12 2 5 2 19"></polygon></svg>`
+      break;
+
+    case 'icon-play':
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-play"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`
+      break;
+
+    case 'icon-package':
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-package"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"></line><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>`
+      break;
+
+    case 'icon-activity':
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-activity"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>`
+      break;
+
+    case 'icon-map':
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-map"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>`
+      break;
+
+    case 'icon-compass':
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-compass"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>`
+      break;
+
+    default:
+      throw new Error(`Unknown icon name: ${name}`);
+  }
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+<style>{`
+  :root {
+    --color-window-bg: ${palette.dark.window};
+    --font-title: 'Fira Mono', sans-serif;
+    --color-hr: ${palette.dark.separator};
+    --color-border: ${palette.dark.border};
+    --color-link: ${palette.dark.link};
+    --color-text: ${palette.dark.text};
+    --color-border-text: ${palette.dark.borderText};
+  }
+  html.light {
+    --color-window-bg: ${palette.light.window};
+    --color-hr: ${palette.light.separator};
+    --color-border: ${palette.light.border};
+    --color-link: ${palette.light.link};
+    --color-text: ${palette.light.text};
+    --color-border-text: ${palette.light.borderText};
+  }
+  section a, section a:visited,
+  main a, main a:visited {
+    color: var(--color-link);
+  }
+  details > summary {
+    cursor: pointer;
+  }
+  details > summary:hover {
+    color: var(--color-link);
+  }
+  details summary::-webkit-details-marker,
+  details summary::marker {
+    display: none;
+    content: '';
+  }
+  details summary > h3 {
+    font-weight: bold;
+    display: inline;
+    margin: 0;
+  }
+  details summary > h3::before {
+    display: inline-block;
+    content: '';
+    width: 20px;
+    height: 20px;
+    margin: 0 0.5rem -0.25rem 0;
+    background-repeat: no-repeat;
+    background-position: 50%;
+    background-image: url("${icon('carret', palette.dark.text)}");
+    transition: transform .15s;
+  }
+  html.light details summary > h3::before {
+    background-image: url("${icon('carret', palette.light.text)}");
+  }
+  details[open] summary > h3::before {
+    transform: rotate(90deg);
+  }
+  details + details {
+    margin-top: 1rem;
+  }
+  details > p {
+    padding: 1rem;
+  }
+  section ul,
+  main ul {
+    padding: 1rem;
+    list-style: none;
+  }
+  section ul > li::before,
+  main ul > li::before {
+    content: url("${icon('checkbox-checked', palette.dark.bullet)}");
+    padding-right: 0.5rem;
+    vertical-align: middle;
+  }
+  section ul > li.todo::before,
+  main ul > li.todo::before {
+    content: url("${icon('checkbox-todo', palette.dark.bullet)}");
+  }
+  li.icon-grid::before         { content: url("${icon('icon-grid', palette.dark.bullet)}"); }
+  li.icon-fast-forward::before { content: url("${icon('icon-fast-forward', palette.dark.bullet)}"); }
+  li.icon-coffee::before       { content: url("${icon('icon-coffee', palette.dark.bullet)}"); }
+  li.icon-heart::before        { content: url("${icon('icon-heart', palette.dark.bullet)}"); }
+  section ul > li + li,
+  main ul > li + li {
+    margin-top: 1rem;
+  }
+  @media(max-width: 700px) {
+    section ul,
+    main ul {
+      padding-left: 1rem;
+    }
+  }
+  header#landing {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
+  }
+  header#landing img {
+    width: auto;
+    max-height: 80vh;
+  }
+  header#landing h1 {
+    background: rgba(17,17,17,0.8);
+    border-radius: 0.5rem;
+    border: 2px solid var(--color-border);
+    color: var(--color-text);
+    font-family: var(--font-title);
+    font-weight: 500;
+    font-size: 1.5em;
+    margin: -5rem 1rem 0 1rem;
+    padding: 0.5rem 1rem;
+    position: relative;
+    text-align: center;
+    letter-spacing: -0.075em;
+  }
+  html.light header#landing h1 {
+    background: rgba(255, 255, 255, 0.8);
+  }
+  html.light header#landing h1 {
+    color: var(--color-border);
+  }
+  header > nav {
+    display: flex;
+    margin: 1rem auto;
+    justify-content: space-around;
+    padding: 0 1rem;
+  }
+  header > nav > a,
+  header > nav > a:visited {
+    background: var(--color-border);
+    color: var(--color-border-text);
+    border-radius: 0.5rem;
+    padding: 1rem 2rem;
+    text-decoration: none;
+    transition: opacity 0.3s;
+  }
+  header > nav > a:hover {
+    opacity: 0.7;
+  }
+  header > nav > a + a {
+    margin-left: 1rem;
+  }
+  @media(orientation: portrait) {
+    header#landing img {
+      max-height: none;
+      height: auto;
+      max-width: 100vw;
+    }
+  }
+  @media(max-width: 900px) {
+    header#landing h1 {
+      margin-top: -4rem;
+      font-size: 1.5em;
+    }
+    header > nav {
+      margin: 1rem auto;
+    }
+  }
+  @media(max-width: 750px) {
+    header#landing h1 {
+      font-size: 1.25em;
+    }
+  }
+  @media(max-width: 500px) {
+    header > nav > a,
+    header > nav > a:visited {
+      padding: 0.75rem 1rem;
+    }
+  }
+  @media(max-width: 440px) {
+    header > nav > a,
+    header > nav > a:visited {
+      font-size: 0.8em;
+    }
+  }
+  nav > a.playground::before {
+    content: url("${icon('icon-play', palette.dark.text)}");
+    position: relative;
+    top: 0.25rem;
+    margin-right: 0.25rem;
+  }
+  nav > a.get-started::before {
+    content: url("${icon('icon-compass', palette.dark.text)}");
+    position: relative;
+    top: 0.25rem;
+    margin-right: 0.25rem;
+  }
+  main {
+    max-width: 75vw;
+    display: flex;
+    margin: 5rem auto;
+    flex-direction: column;
+  }
+  main article + article {
+    margin-top: 5rem;
+  }
+  main article {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+  }
+  main article h2 {
+    font-weight: bold;
+    font-size: 1.5em;
+  }
+  main article div.window,
+  main article div.terminal {
+    background: var(--color-window-bg);
+    border-radius: 0.5rem;
+    box-shadow: 7px 7px 0px 1px var(--color-border);
+    padding-top: 2rem;
+    position: relative;
+    min-width: 45%;
+  }
+  main article > div#socials {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 55%;
+  }
+  main article > div#socials > * + * {
+    margin-top: 1rem;
+  }
+  main article pre {
+    margin: 0;
+    padding: 0;
+  }
+  main article div.window > pre,
+  main article div.terminal > pre.hljs {
+    border-radius: 0 0 0.5rem 0.5rem;
+  }
+  main article pre.hljs {
+    display:block;
+    border-radius: 0.5rem;
+    overflow-x:auto;
+  }
+  main article pre {
+    padding: 1rem;
+    line-height: 1.2em;
+  }
+  main article div.window::before {
+    content: attr(data-title);
+    font-size: 0.85rem;
+    position: absolute;
+    top: 0.5rem;
+    left: 1rem;
+    opacity: 0.8;
+    color: var(--color-border-text);
+  }
+  main article div.terminal::before {
+    content: '● ● ●';
+    font-size: 0.85rem;
+    position: absolute;
+    top: 0.5rem;
+    left: 1rem;
+    color: transparent;
+    background: -webkit-linear-gradient(left, #e74c3c, #e74c3c 33%, #f1c40f 33%, #f1c40f 66%, #2ecc71 66%, #2ecc71);
+    background-clip: text;
+    -webkit-background-clip: text;
+  }
+  main article#trusted-by {
+    display: flex;
+    flex-direction: column;
+  }
+  main article#trusted-by > div {
+    margin-top: 2rem;
+    display: flex;
+    gap: 3rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  main article#trusted-by img {
+    height: 3rem;
+    width: auto;
+  }
+  main article#trusted-by img.white {
+    filter: brightness(0) invert(1);
+  }
+  html.light main article#trusted-by img:not(.white) {
+    filter: invert(1);
+  }
+  html.light main article#trusted-by img.white {
+    filter: brightness(0) invert(0);
+  }
+  main article#trusted-by h2 {
+    text-align: center;
+  }
+  @media(max-width: 1000px) {
+    main {
+      max-width: 100vw;
+      padding: 0 2rem;
+      margin: 3rem auto;
+    }
+  }
+  @media(max-width: 700px) {
+    main {
+      max-width: 100vw;
+      padding: 0 1rem;
+    }
+    main article {
+      flex-direction: column;
+    }
+    main article h2 {
+      font-size: 1.25em;
+    }
+    main article > div + div {
+      margin-top: 1rem;
+    }
+    main article > div.window,
+    main article > div.terminal,
+    main article > div#socials {
+      width: 100%;
+      box-shadow: none;
+    }
+    main article + article {
+      margin-top: 3rem;
+    }
+  }
+  section#roadmap {
+    background-color: #604185;
+    background-image: url('${theFirstContact.src}');
+    background-repeat: no-repeat;
+    background-size: 100%;
+    color: var(--color-border-text);
+    display: flex;
+    flex-direction: column;
+    padding: 45vw 0 2rem 32vw;
+  }
+  section#roadmap h2,
+  section#faq h2 {
+    font-size: 1.5em;
+    font-weight: bold;
+    margin-bottom: 1rem;
+  }
+  section#roadmap h2 {
+    font-size: 2em;
+  }
+  @media(max-width: 700px) {
+    section#faq h2 {
+      font-size: 1.25em;
+    }
+    section#roadmap h2 {
+      font-size: 1.5em;
+    }
+    section#roadmap h3 > span {
+      display: none;
+    }
+  }
+  section#roadmap h3 > span {
+    font-size: 0.75em;
+    padding: 0 0.5rem;
+    font-variant: small-caps;
+  }
+  section#roadmap h3 > span + span {
+    padding-left: 0;
+  }
+  section#roadmap h3 {
+    font-size: 1.25em;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+  }
+  section#roadmap h3::before {
+    position: relative;
+    top: 0.25rem;
+    margin-right: 0.5rem;
+  }
+  section#roadmap h3.icon-package::before {
+    content: url("${icon('icon-package', palette.dark.text)}");
+  }
+  section#roadmap h3.icon-activity::before {
+    content: url("${icon('icon-activity', palette.dark.text)}");
+  }
+  section#roadmap h3.icon-map::before {
+    content: url("${icon('icon-map', palette.dark.text)}");
+  }
+  section#roadmap > div {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  section#roadmap article {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    margin-top: 1rem;
+  }
+  @media(max-width: 900px) {
+    section#roadmap {
+      padding: 47.5vw 2rem 2rem 2rem;
+    }
+    section#roadmap h2 {
+      padding-left: 30vw;
+      margin-bottom: 2.5rem;
+    }
+    section#roadmap article {
+      margin-top: 2rem;
+    }
+  }
+  @media(max-width: 700px) {
+    section#roadmap h2 {
+      margin: 0;
+    }
+    section#roadmap > div {
+      grid-template-columns: 1fr;
+    }
+  }
+  section#faq {
+    max-width: 75vw;
+    display: flex;
+    margin: 2rem auto;
+    flex-direction: column;
+  }
+  @media(max-width: 1000px) {
+    section#faq {
+      max-width: 100vw;
+      padding: 0 2rem;
+    }
+  }
+  @media(max-width: 700px) {
+    section#faq {
+      padding: 0 1rem;
+    }
+  }
+  #discord-button .icon {
+    width: 25px;
+    height: 25px;
+    margin-right: 15px;
+  }
+  #discord-button svg {
+    fill: white;
+  }
+  #discord-button a {
+    color: white;
+    font-weight: bold;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    padding: 10px 15px;
+    background-color: #7289da;
+    text-decoration: none;
+  }
+  #discord-button a:hover {
+    background-color: #6a7fc9;
+  }
+  .fadein1 {
+    opacity: 0;
+    animation: 10s infinite normal fadein1;
+  }
+  @keyframes fadein1 {
+      0% {opacity: 0;}
+     10% {opacity: 0;}
+     20% {opacity: 1;}
+     99% {opacity: 1;}
+    100% {opacity: 0;}
+  }
+  .fadein2 {
+    opacity: 0;
+    animation: 10s infinite normal fadein2;
+  }
+  @keyframes fadein2 {
+      0% {opacity: 0;}
+     20% {opacity: 0;}
+     25% {opacity: 1;}
+     99% {opacity: 1;}
+    100% {opacity: 0;}
+  }
+  .fadein3 {
+    opacity: 0;
+    animation: 10s infinite normal fadein3;
+  }
+  @keyframes fadein3 {
+      0% {opacity: 0;}
+     25% {opacity: 0;}
+     30% {opacity: 1;}
+     99% {opacity: 1;}
+    100% {opacity: 0;}
+  }
+  @keyframes jump-shake {
+    0% { transform: translateX(0) }
+    5% { transform: translateY(-9px) }
+    7% { transform: translateY(-9px) rotate(17deg) }
+    11% { transform: translateY(-9px) rotate(-17deg) }
+    13% { transform: translateY(-9px) rotate(17deg) }
+    15% { transform: translateY(-9px) rotate(-17deg) }
+    20% { transform: translateY(0) rotate(0) }
+    20.5% { transform: translateX(0) }
+    100% { transform: translateX(0) }
+  }
+  .shake {
+    animation: 4s infinite normal jump-shake;
+  }
+`}</style>
+
+export const aikenCodeExample = `<span class="hljs-keyword">validator </span>hello_world <span class="hljs-keyword">{</span>
+  <span class="hljs-function"><span class="hljs-title function_">spend</span></span><span class="hljs-title function_ invoke__">(</span>数据、赎回者、输入、自身<span class="hljs-title function_ invoke__">)</span> <span class="hljs-keyword">{</span>
+    <span class="hljs-keyword">expect</span> <span class="hljs-type">某些</span><span class="hljs-type">（</span><span class="hljs-type">数据</span> <span class="hljs-keyword">{</span> 拥有者 <span class="hljs-keyword">}</span><span class="hljs-type">)</span> <span class="operator">=</span> 数据
+
+    <span class="hljs-keyword">let</span></span> 必须说你好 <span class="hljs-operator">=</span>
+      赎回者 <span class="hljs-operator">==</span> <span class="hljs-string">"Hello, World!"</span>
+
+    <span class="hljs-keyword"><span class="hljs-keyword">let</span></span> 必须签署 <span class="hljs-operator">=</span>
+      列表<span class="hljs-operator">。</span><span class="hljs-title function_ invoke__">拥有</span><span class="hljs-title function_ invoke__">(</span>self<span class="hljs-operator">.</span>extra_signatories, owner<span class="hljs-title function_ invoke__">)</span>
+
+    must_say_hello<span class="hljs-operator">?</span> <span class="hljs-operator">&amp;&amp;</span> 必须签署<span class="hljs-operator">?</span>
+  <span class="hljs-keyword">}</span>
+<span class="hljs-keyword">}</span>`;
+
+
+export const aikenErrorExample = `<strong>Error:</strong> <span class="hljs-error">err::aiken::check::unknown_record_field</span>
+
+<span class="hljs-error">×</span> 在尝试理解您的代码时...
+<span class="hljs-error">╰─▶</span> 我在类型为 <span class="hljs-title function_">'Transaction'</span> 的记录中寻找字段 <span class="hljs-title">'extra_signatures'</span>，但没有找到。
+
+   ╭─[<span class="hljs-title">examples/hello_world/validators/hello_world.ak:18:1</span>]
+<span class="hljs-line-number">18</span> │   let must_be_signed =
+<span class="hljs-line-number">19</span> │     list.has(
+<span class="hljs-line-number">20</span> │       context.transaction.extra_signatures,
+   ·       <span class="hljs-operator">────────────────────────────────────</span>
+<span class="hljs-line-number">21</span> │       datum.owner
+<span class="hljs-line-number">22</span> │     )
+   ╰─────────────────────────────────────────────────────
+
+<span class="hljs-title">说明</span>： <i>您指 <span class="hljs-title function_">'extra_signatories'</span> 吗？</i>`;
+
+
+export const aikenTestResultExample = `<span class="hljs-keyword"><strong>Compiling</strong></span> aiken-lang/stdlib 2.0.0
+  <span class="fadein1"><span class="hljs-keyword"><strong>测试</strong></span>请提供您想要翻译的 Aiken 文件内容。</span>
+
+<span class="fadein2">┍━<span class="hljs-title"><strong>aiken/option</strong></span> ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │ <span class="hljs-string">通过</span> [<span class="hljs-title function_">内存:</span>   5099, <span class="hljs-title function_">CPU:</span>   1884852] <span class="hljs-title">or_else_1</span>
+    │ <span class="hljs-string">通过</span> [<span class="hljs-title function_">内存:</span>   5963, <span class="hljs-title function_">CPU:</span>   3091855] <span class="hljs-title">map_1</span>
+    │ <span class="hljs-string">通过</span> [<span class="hljs-title function_">内存:</span>  11985, <span class="hljs-title function_">CPU:</span>   5076974] <span class="hljs-title">map_2</span>
+    │ <span class="hljs-string">通过</span> [<span class="hljs-title function_">内存:</span>   6863, <span class="hljs-title function_">CPU:</span>   3298855] <span class="hljs-title">and_then_1</span>
+    │ <span class="hljs-string">通过</span> [<span class="hljs-title function_">内存:</span>  14187, <span class="hljs-title function_">CPU:</span>   5872937] <span class="hljs-title">and_then_2</span>
+    │ <span class="hljs-string">通过</span> [<span class="hljs-title function_">内存:</span>  11657, <span class="hljs-title function_">CPU:</span>   4918544] <span class="hljs-title">and_then_3</span>
+    ┕━━━━━━━━━━━━━━ <strong>13 个测试</strong> | <span class="hljs-string"><strong>13 个通过</strong></span> | <span class="hljs-error"><strong>0 失败</strong></span></span>
+
+  <span class="fadein3"><span class="hljs-keyword"><strong>摘要</strong></span> 0 个错误， 0 个警告</span>`;
+
+<link rel="stylesheet" href="/css/highlightjs-theme.css"/>
+
+<header id="landing">
+  <Image src={theCodeOfLife} alt="Credit: © Hurcastock! - https://www.hurcastock.com" loading="eager" />
+  <h1>用于 Cardano 的现代智能合约平台</h1>
+  <nav>
+    <a className="playground" target="_blank" href="https://play.aiken-lang.org">游乐场</a>
+    <a className="stdlib" target="_blank" href="https://aiken-lang.github.io/stdlib">❯_ 标准函数库</a>
+    <a className="get-started" href="/fundamentals/getting-started">开始使用</a>
+  </nav>
+</header>
+
+<main>
+  <article>
+    <div>
+      <h2>一种纯函数式编程语言</h2>
+      <ul>
+        <li>小巧且易于学习</li>
+        <li>具备强类型推论的强静态类型系统</li>
+        <li>一等函数与表达式，引用透明性</li>
+        <li>自定义类型、递归、模块、泛型...</li>
+        <li>模块、导入与包管理器</li>
+      </ul>
+    </div>
+    <div className="window" data-title="hello_world.ak">
+      <pre className="hljs" dangerouslySetInnerHTML={{ __html: aikenCodeExample }}></pre>
+    </div>
+  </article>
+
+  <article>
+    <div>
+      <h2>一个现代化的开发环境</h2>
+      <ul>
+        <li>零配置，单一强大工具</li>
+        <li>快速且友好的反馈，并提供有助益的错误诊断</li>
+        <li>语言服务器协议 (LSP) 与自动格式化</li>
+        <li>易于制作且美观的函数库文档</li>
+        <li>编辑器集成 (VSCode, NeoVim, Emacs, Zed...)</li>
+        <li>Tree-sitter 支持</li>
+      </ul>
+    </div>
+    <div className="terminal">
+      <pre className="hljs" dangerouslySetInnerHTML={{ __html: aikenErrorExample }}></pre>
+    </div>
+  </article>
+
+  <article>
+    <div>
+      <h2>用于处理 Plutus 的工具包</h2>
+      <ul>
+        <li>内置单元测试框架</li>
+        <li>具有集成缩减功能的属性测试框架</li>
+        <li>将 UPLC 类型具象化（reification）为 Aiken 类型</li>
+        <li>功能齐全的 Plutus 解释器与反汇编器</li>
+        <li>执行成本评估与追踪报告</li>
+        <li>底层脚本参数注入</li>
+      </ul>
+    </div>
+    <div className="terminal">
+      <pre className="hljs" dangerouslySetInnerHTML={{ __html: aikenTestResultExample }}></pre>
+    </div>
+  </article>
+
+  <article>
+    <div>
+      <h2>一个真正开源的生态系统</h2>
+      <ul>
+        <li>使用 Rust 编写，采用 <i>Apache-2.0</i></li>
+        <li>来自 Cardano 社区的 200 多位贡献者</li>
+        <li><a target="_blank" href="https://github.com/aiken-lang/aiken/issues/947">开放贡献流程</a> 并附有明确指南</li>
+        <li>提供完整的端到端示例文档</li>
+        <li>由...发起<a target="_blank" href="https://txpipe.io">TxPipe</a>，由以下机构培育：<a target="_blank" href="https://cardanofoundation.org/">Cardano 基金会</a>，由以下内容提升：<a target="_blank" href="https://pragma.io">PRAGMA</a></li>
+      </ul>
+    </div>
+    <div id="socials">
+      <LightDarkIframe
+        src={{
+          dark: "https://cardanosolutions.github.io/github-buttons/github-btn.html?user=aiken-lang&repo=aiken&type=star&count=true&size=large&title=aiken-lang%2Faiken&background=%23111111",
+          light: "https://cardanosolutions.github.io/github-buttons/github-btn.html?user=aiken-lang&repo=aiken&type=star&count=true&size=large&title=aiken-lang%2Faiken&background=%23FFFFFF",
+        }}
+        frameBorder="0"
+        scrolling="0"
+        width="260"
+        height="30"
+        title="GitHub"
+      ></LightDarkIframe>
+
+      <div id="discord-button">
+        <a href="https://discord.gg/ub6atE94v4" target="_blank">
+          <div className="icon">
+            <svg className="shake" id="icon-discord" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 245 240">
+              <path className="st0" d="M104.4 103.9c-5.7 0-10.2 5-10.2 11.1s4.6 11.1 10.2 11.1c5.7 0 10.2-5 10.2-11.1.1-6.1-4.5-11.1-10.2-11.1zM140.9 103.9c-5.7 0-10.2 5-10.2 11.1s4.6 11.1 10.2 11.1c5.7 0 10.2-5 10.2-11.1s-4.5-11.1-10.2-11.1z" />
+              <path className="st0" d="M189.5 20h-134C44.2 20 35 29.2 35 40.6v135.2c0 11.4 9.2 20.6 20.5 20.6h113.4l-5.3-18.5 12.8 11.9 12.1 11.2 21.5 19V40.6c0-11.4-9.2-20.6-20.5-20.6zm-38.6 130.6s-3.6-4.3-6.6-8.1c13.1-3.7 18.1-11.9 18.1-11.9-4.1 2.7-8 4.6-11.5 5.9-5 2.1-9.8 3.5-14.5 4.3-9.6 1.8-18.4 1.3-25.9-.1-5.7-1.1-10.6-2.7-14.7-4.3-2.3-.9-4.8-2-7.3-3.4-.3-.2-.6-.3-.9-.5-.2-.1-.3-.2-.4-.3-1.8-1-2.8-1.7-2.8-1.7s4.8 8 17.5 11.8c-3 3.8-6.7 8.3-6.7 8.3-22.1-.7-30.5-15.2-30.5-15.2 0-32.2 14.4-58.3 14.4-58.3 14.4-10.8 28.1-10.5 28.1-10.5l1 1.2c-18 5.2-26.3 13.1-26.3 13.1s2.2-1.2 5.9-2.9c10.7-4.7 19.2-6 22.7-6.3.6-.1 1.1-.2 1.7-.2 6.1-.8 13-1 20.2-.2 9.5 1.1 19.7 3.9 30.1 9.6 0 0-7.9-7.5-24.9-12.7l1.4-1.6s13.7-.3 28.1 10.5c0 0 14.4 26.1 14.4 58.3 0 0-8.5 14.5-30.6 15.2z" />
+            </svg>
+          </div>
+          <span>加入 Discord</span>
+        </a>
+      </div>
+    </div>
+  </article>
+
+  <article id="trusted-by">
+    <h2>深受以下开发者信赖</h2>
+    <div>
+      <img src="/companies/minswap.svg" alt="MinSwap" />
+      <img src="/companies/jpg-store.svg" alt="jpg.store" />
+      <img src="/companies/sundae-labs.svg" alt="Sundae Labs" />
+      <img src="/companies/cardano-foundation.svg" alt="Cardano Foundation" />
+      <img src="/companies/txpipe.svg" alt="TxPipe" className="white"/>
+      <img src="/companies/iohk.svg" alt="Input Output HK" className="white"/>
+      <img src="/companies/lenfi.svg" alt="Lenfi" className="white" />
+      <img src="/companies/butane.webp" alt="Butane" className="white" />
+      <img src="/companies/book.png" alt="Book.io" className="white" />
+    </div>
+  </article>
+</main>
+
+<section id="roadmap">
+  <h2>路线图</h2>
+  <div>
+    <article>
+      <h3 className="icon-package">最近已送达<span> ― </span><span>查看<a href="https://github.com/aiken-lang/aiken/blob/main/CHANGELOG.md#changelog">完整更新日志</a></span></h3>
+      <ul>
+        <li>Plutus V3 支持（语言与虚拟机），以及 Plutus V3 交易评估</li>
+        <li>新标准函数库 v2 ― 请参阅 <a target="_blank" href="https://aiken-lang.github.io/stdlib/">aiken-lang/stdlib</a></li>
+        <li>条件式环境与配置模块</li>
+        <li>软转型（又称 <code>if/is</code> 语法）</li>
+        <li>强化的常量</li>
+        <li>具有内置 CBOR 诊断功能的变长参数追踪 (Variadic traces)</li>
+      </ul>
+    </article>
+
+    <article>
+      <h3 className="icon-activity">目前正在进行<span> ― </span><span>查看 <a href="https://github.com/orgs/aiken-lang/projects/2">项目追踪</a></span></h3>
+      <ul>
+        <li className="todo">额外的 LSP 快速修复</li>
+        <li className="todo">支持 mono-repo ― 请参阅 <a href="https://github.com/aiken-lang/aiken/issues/951">aiken-lang/aiken#951</a></li>
+        <li className="todo">生态系统包注册与搜索工具</li>
+      </ul>
+    </article>
+
+    <article>
+      <h3 className="icon-map">未来步骤与想法<span> ― </span><span>查看 <a href="https://github.com/aiken-lang/aiken/discussions">进行中的讨论</a></span></h3>
+      <ul>
+        <li className="todo">代码覆盖率工具 ― 请参阅 <a href="https://github.com/aiken-lang/aiken/discussions/933">aiken-lang/aiken#933</a></li>
+        <li className="todo">更激进的 UPLC 优化</li>
+        <li className="todo">一流的零知识证明支持</li>
+        <li className="todo">Layer-2 内置支持 ― 请参阅 <a href="https://github.com/aiken-lang/aiken/discussions/976">aiken-lang/aiken#976</a></li>
+      </ul>
+    </article>
+  </div>
+</section>
+
+<section id="faq">
+  <h2>常见问题集</h2>
+
+  <details open>
+    <summary><h3>什么是 Aiken？</h3></summary>
+    <p>
+      Aiken 是一门现代化的 <strong>编程语言与工具组，用于开发
+      智能合约</strong> 于 <a href="https://cardano.org/"
+      target="_blank">Cardano</a> 区块链上。它致力于提升稳健性
+      与开发者体验。
+      <br/>
+      Aiken 从许多现代语言中汲取灵感，例如 Gleam、Rust
+      与 Elm，这些语言以友好的错误消息与整体
+      卓越的开发者体验而闻名。我们相信 Cardano 值得拥有一门具备这些功能的专属
+      语言，并与社区共同公开开发。
+    </p>
+  </details>
+
+  <details>
+    <summary><h3>为什么要建立另一个智能合约平台？</h3></summary>
+    <p>
+      我们热爱函数式编程。然而，我们不禁认为现有的
+      Haskell 框架在开发者体验方面<i>不太理想</i>，并觉得我们可以对此做出改进。
+      因此，我们在构建 Aiken 时，制定了一套始终铭记在心的共同目标：
+    </p>
+    <ul>
+      <li className="icon-coffee">编写智能合约应该要 <strong>简单且
+      安全</strong>。您应该能够在几分钟而非几天内上手，并快速建立对链上代码符合预期运作的信心。</li>
+
+      <li className="icon-heart">我们追求完整且令人愉悦的体验。现代化的
+      区块链值得拥有一套现代化的智能合约工具组。<strong>您应该
+      在编写合约时感到
+      高效且顺手。</strong> 这包括
+      编辑器集成（如 LSP 和 tree-sitter）、美观的错误
+      消息、快速且直观的测试反馈循环，以及易于产出的
+      文档。</li>
+
+      <li className="icon-fast-forward">我们希望<strong>尽可能减少配置</strong>。它应该开箱即用，并与社区建立合理的、具备明确观点的惯例。</li>
+
+      <li className="icon-grid">我们希望采用<strong>模块化设计</strong>，这样就可以根据需要挑选组件。就像 Unix
+      哲学一样。Aiken 只是宏大蓝图中的一部分；虽然我们
+      坚信它是一个很棒的工具，但我们希望鼓励其他方法
+      并尽可能地支持互操作性。 </li>
+    </ul>
+  </details>
+
+  <details>
+    <summary><h3>我以为 Cardano 智能合约必须用 Haskell 编写？</h3></summary>
+    <p>
+      这是一个常见的误解。目前的 Cardano 节点实现确实是用 Haskell 编写的。节点内置用于执行智能合约的虚拟机也是用 Haskell 实现的。但这并不代表智能合约虚拟机执行的是 Haskell。
+      <br/>
+      该虚拟机是一个语言解释器，用于执行一种称为 <i>「无类型 Plutus 核心」(Untyped Plutus Core)</i>（简称 <code>UPLC</code>），通常简称为 <i>「Plutus」</i>。
+      <br/>
+      然而，UPLC 并非开发者需要手写的语言。相反地，它是一个编译目标（就像全球信息网的 WebAssembly）。奇怪的是，直到最近，唯一能从高阶语法产生 UPLC 的既定框架称为 <i>「Plutus-Tx」</i>，且恰好是一个 Haskell 框架。
+      <br/>
+      Aiken 通过提供一个能直接编译为 UPLC 的现代化框架，改变了游戏规则。
+    </p>
+  </details>
+
+  <details>
+    <summary><h3>我可以使用 Aiken 编写链下/后端代码吗？</h3></summary>
+    <p>
+      我们的主要目标是改善 Cardano 区块链的
+      <strong>智能合约开发体验</strong>。通过将 Aiken 开发为一种
+      专用语言，我们可以使其功能更符合链上开发的
+      实际需求。
+      <br/>
+      我们希望保持该语言的简洁与易于管理。在去中心化
+      架构中，智能合约带来了巨大的挑战，单一缺陷就可能演变成
+      数百万美元的金融漏洞。此外，
+      链上代码通常仅占整个 DApp 源代码的一小部分。
+      虽然编写合约应尽可能简单直接，但
+      智能合约应针对审查、审计和静态
+      分析进行优化。
+      <br/>
+      因此，Aiken <strong>并非</strong> 旨在成为一种通用
+      语言。相反，它专注于 Cardano，并致力于提供一套高质量的
+      工具组，以便自信地开发可靠的智能合约。
+    </p>
+  </details>
+
+  <details>
+    <summary><h3>是否有任何项目正在使用 Aiken？我可以在哪里找到它们？</h3></summary>
+    <p>
+      我们维护着一份 <a target="_blank" href="https://github.com/aiken-lang/awesome-aiken#readme">精选列表</a>
+      ，收录了使用 Aiken 构建或基于 Aiken 的项目与资源。此列表包含
+      **我们已知**的资源。
+      <br/>
+      如果您有很棒的项目尚未列入，但希望将其展示出来，请随时
+      提交 Pull Request 并介绍一下自己！
+    </p>
+  </details>
+
+</section>

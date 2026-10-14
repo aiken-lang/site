@@ -1,0 +1,421 @@
+---
+title: "常用設計模式"
+description: "Aiken 是一種用於在 eUTxO 模型上構建 Cardano 智慧合約的函數式程式語言。常用設計模式是經過 Plutus V1、V2 和 V3 不斷完善的成熟架構方法 —— 包括強制輸出唯一性、一次性鑄造策略、提領零額技巧以及避免雙重滿足漏洞。這是編寫安全、高效驗證器的參考，可正確處理基於 eUTxO 的智慧合約挑戰。"
+difficulty: "intermediate"
+keywords: ["設計模式", "雙重滿足", "輸出唯一性", "一次性鑄造", "提領零額", "Plutus V1", "Plutus V2", "Plutus V3", "安全", "反模式"]
+topics: ["design-patterns", "security", "best-practices", "eutxo-patterns"]
+---
+
+import { Callout } from "nextra-theme-docs";
+
+# 常用設計模式
+
+隨著 Plutus 從 V1 演進到 V2，再到現在的 V3，許多設計模式得到了完善和啟用。本文旨在成為這些設計模式和實作的非詳盡參考。
+
+## 強制唯一性
+
+在許多情況下，強制策略、資產名稱或新輸出的唯一性非常有用。
+
+### 「一次性」(One-Shot) 鑄造策略
+
+驗證器使用 `OutputReference` 作為參數，鑄造驗證器強制要求交易的輸入中必須包含對應的 `UTxO`。透過這樣做，可以確保鑄造策略只會被驗證一次且僅此一次（因為根據定義，未花費的交易輸出只能被花費一次）。在某些設計中，此邏輯僅用於贖回者的一個子集，以允許更具彈性的鑄造策略。
+
+讓我們來看一個範例。
+
+NFT（非同質化代幣）可以使用一次性鑄造策略來建立，該策略確保每個鑄造的價值都透過花費交易輸入中提供的特定 UTxO 來進行驗證。此鑄造策略使用 OutputReference 作為驗證器參數來確認交易花費了該 UTxO。此外，該策略保證僅鑄造一個代幣，從而確保 NFT 的唯一性。
+
+首先將 OutputReference 定義為參數，並根據贖回者中提供的值將動作類型設置為鑄造或燒毀代幣。
+
+```aiken
+use cardano/transaction.{OutputReference, Transaction}
+use cardano/assets.{PolicyId}
+
+pub type Action {
+  Minting
+  Burning
+}
+
+validator one_shot(utxo_ref: OutputReference) {
+  mint(redeemer: Action, policy_id: PolicyId, self: Transaction) {
+      todo @"mint and burn"
+    }
+  }
+
+```
+
+驗證器必須處理鑄造/燒毀操作，並確保僅鑄造一個價值；否則將失敗。
+
+```aiken {1, 12-17}
+use aiken/collection/dict
+use cardano/transaction.{OutputReference, Transaction}
+use cardano/assets.{PolicyId}
+
+pub type Action {
+  Minting
+  Burning
+}
+
+validator one_shot(utxo_ref: OutputReference) {
+  mint(redeemer: Action, policy_id: PolicyId, self: Transaction) {
+      // 檢查是否僅存在一個鑄造資產，否則失敗
+      expect [Pair(_asset_name, quantity)] = self.mint
+        |> assets.tokens(policy_id)
+        |> dict.to_pairs()
+
+      todo @"Check if output is consumed"
+    }
+  }
+
+```
+
+為了強制唯一性，我們需要確保驗證器參數中定義為 OutputReference 的 UTxO 被消耗。這是因為每個 OutputReference 都是交易 ID 和輸出索引整數的唯一組合。請記住，交易 ID 是 `Hash<Blake2b_256, Transaction>`，它也是一個唯一標識符，不會重複。
+
+```aiken {2, 18-25}
+use aiken/collection/dict
+use aiken/collection/list
+use cardano/transaction.{OutputReference, Transaction}
+use cardano/assets.{PolicyId}
+
+pub type Action {
+  Minting
+  Burning
+}
+
+validator one_shot(utxo_ref: OutputReference) {
+  mint(redeemer: Action, policy_id: PolicyId, self: Transaction) {
+      // 檢查是否僅存在一個鑄造資產，否則失敗
+      expect [Pair(_asset_name, quantity)] = self.mint
+        |> assets.tokens(policy_id)
+        |> dict.to_pairs()
+
+      let Transaction{inputs, mint , ..} = self
+
+      // 檢查指定的 UTxO 引用 (utxo_ref) 是否被任何輸入消耗
+      let is_output_consumed = list.any(inputs, fn(input) { input.output_reference == utxo_ref })
+
+      when redeemer is {
+        Minting ->
+          is_output_consumed? && (quantity == 1)?
+
+        Burning -> (quantity == -1)? // 燒毀時不需要檢查輸出是否被消耗
+      }
+    }
+  }
+
+```
+
+### 收據 (Receipts)
+
+驗證器可以透過要求資產名稱為設定進行驗證的交易特定的任何唯一值，來為該交易鑄造唯一的收據。換句話說，如果我們強制要求每筆交易僅鑄造一份收據，我們可以使用 `blake2b_256` 和 `cbor.serialise` 從交易輸入中第一個 `Input` 的 `OutputReference` 獲取一個唯一值，並將其分配給收據預期的 `AssetName`。
+
+```aiken
+use aiken/builtin.{blake2b_256}
+use aiken/cbor
+use aiken/collection/dict
+use aiken/collection/list
+use cardano/assets.{PolicyId}
+use cardano/transaction.{Transaction}
+
+validator receipt {
+  // 此驗證器預期一個鑄造交易
+  mint(_r: Data, policy_id: PolicyId, self: Transaction) {
+    let Transaction { inputs, mint, .. } = self
+
+    // 選擇第一個輸入，並將其輸出引用和索引連接起來
+    // 以生成預期的代幣名稱
+    expect Some(first_input) = list.at(inputs, 0)
+    expect [Pair(asset_name, quantity)] =
+      mint |> assets.tokens(policy_id) |> dict.to_pairs()
+
+    let expected_token_name =
+      first_input.output_reference
+        |> cbor.serialise
+        |> blake2b_256
+
+    // 將資產名稱與第一個 utxo 輸出引用進行比較
+    asset_name == expected_token_name && quantity == 1
+  }
+
+  // 如果交易不是為了鑄造，驗證器將失敗。
+  else(_) {
+    fail
+  }
+}
+```
+
+我們可以使用此驗證器為交易鑄造唯一的收據。它將獲取第一個 UTxO 引用並將其與資產名稱進行比較。
+
+### 唯一輸出
+
+#### 問題：雙重滿足 (Double Satisfaction)
+
+為了防止一種稱為「雙重滿足」的漏洞（詳見下文），必須確保與給定輸入相關聯的輸出在交易中發生的所有可能驗證中僅被計算一次。
+
+在 eUTxO 模型中，一個常見的反模式是將花費建立在特定於給定輸入的邏輯之上，而沒有確保對應輸出的唯一性。
+
+讓我們看一個簡短的例子：Bob 想賣出 20 個 SCOIN，並希望至少得到 5 個 ADA 作為回報；合約會要求Alice至少付 5 個 ADA 給 Bob。
+
+逐步交換過程：
+
+1. Bob 將 20 個 SCOIN 發送到驗證器，其中包含他的 VerificationKeyHash 和獲得 20 個 SCOIN 所需的價格 (5 ADA) 的 datum。
+
+2. Alice 發起一筆新交易，獲取這 20 個 SCOIN 並向 Bob 支付 5 個 ADA。
+
+3. Alice 得到 20 個 SCOIN。
+
+4. Bob 得到 5 個 ADA。
+
+```aiken
+use aiken/collection/list
+use aiken/crypto.{Blake2b_224, Hash, VerificationKey}
+use cardano/address
+use cardano/assets.{lovelace_of, merge}
+use cardano/transaction.{Output, OutputReference, Transaction}
+
+type VerificationKeyHash =
+  Hash<Blake2b_224, VerificationKey>
+
+pub type DatumSwap {
+  beneficiary: VerificationKeyHash,
+  price: Int,
+}
+
+validator exploitable_swap {
+  spend(
+    optional_datum: Option<DatumSwap>,
+    _redeemer: Data,
+    _own_ref: OutputReference,
+    self: Transaction,
+  ) {
+    expect Some(datum) = optional_datum
+
+    let beneficiary = address.from_verification_key(datum.beneficiary)
+
+    let user_outputs =
+      list.filter(
+        self.outputs,
+        fn(output) { output.address == beneficiary },
+      )
+
+    let value_paid =
+      list.foldl(
+        user_outputs,
+        assets.zero,
+        fn(output, total) { merge(output.value, total) },
+      )
+
+    (lovelace_of(value_paid) >= datum.price)?
+  }
+}
+```
+
+到目前為止，一切都很好。但如果驗證器中鎖定了一些價格相近的 UTxO 呢？
+
+Bob 想賣出 20 個 XCOIN 和 20 個 SCOIN，並且希望每個 UTxO 至少獲得 10 個 ADA 作為回報；合約會要求向 Bob 支付至少 10 個 ADA。現在 Alice 來了，並在同一筆交易中向 Bob 支付了 10 個 ADA，她同時取走了 20 個 SCOIN 和 20 個 XCOIN，因為合約只確保向 Bob 支付至少 10 個 ADA。
+
+因此，對於相同的輸入，此驗證器可能會被滿足兩次，任何人只需支付一次費用，就可以取走所有價格相同或更低的 UTxO。
+
+#### 解決方案：標記輸出
+
+我們能做什麼？我們必須確保每個輸入都有一個唯一對應的輸出用於支付，或者將花費腳本中任何輸入的邏輯建立在與 dApp 業務邏輯相關的所有輸入和輸出之上。
+
+此外，我們必須記住，驗證器中的程式碼將為我們嘗試花費的驗證器所鎖定的每一個 UTxO 執行。因此，我們必須確保輸出不會在驗證器的多次執行中（針對每個輸入驗證）被多次計算。
+
+這可以透過使用對輸入而言唯一的值來「標記 (tagging)」輸出來達成。輸入的 `OutputReference` 中存在足夠的資訊來建立一個唯一的標記，然後必須在輸出中找到該標記。
+
+```aiken {26-50}
+use aiken/collection/list
+use aiken/crypto.{Blake2b_224, Hash, VerificationKey}
+use cardano/address
+use cardano/assets.{lovelace_of, merge}
+use cardano/transaction.{InlineDatum, Output, OutputReference, Transaction}
+
+type VerificationKeyHash =
+  Hash<Blake2b_224, VerificationKey>
+
+pub type DatumSwap {
+  beneficiary: VerificationKeyHash,
+  price: Int,
+}
+
+validator swap {
+  spend(
+    optional_datum: Option<DatumSwap>,
+    _redeemer: Data,
+    own_ref: OutputReference,
+    self: Transaction,
+  ) {
+    expect Some(datum) = optional_datum
+
+    let beneficiary = address.from_verification_key(datum.beneficiary)
+
+    // 我們將獲取所有 datum 等於我們正在驗證的 UTxO 輸入引用的 UTxO 輸出。
+    // 我們必須記住，這段程式碼將為我們嘗試解鎖的驗證器地址所鎖定的
+    // 每個 UTxO 執行。
+    let user_outputs_restricted =
+      list.filter(
+        self.outputs,
+        fn(output) {
+          when output.datum is {
+            InlineDatum(output_datum) ->
+              // 這裡我們使用 soft-cast 而不是 expect，因為交易可能
+              // 仍包含我們選擇忽略的其他種類的輸出。
+              // 在這裡使用 expect 會導致任何不具備該特定形狀的 datum 之
+              // 輸出使整筆交易被拒絕。
+              if output_datum is OutputReference {
+                and {
+                  output.address == beneficiary,
+                  own_ref == output_datum,
+                }
+              } else {
+                False
+              }
+            _ -> False
+          }
+        },
+      )
+
+    // 我們加總所有輸出值，並檢查支付的金額是否大於或等於
+    // 賣家要求的價格。
+    let value_paid =
+      list.foldl(
+        user_outputs_restricted,
+        assets.zero,
+        fn(n, acc) { merge(n.value, acc) },
+      )
+
+    (lovelace_of(value_paid) >= datum.price)?
+  }
+}
+```
+
+## 狀態執行緒代幣 (State Thread Tokens，亦稱 STT)
+
+擁有一個隨每筆交易或定期更改的可變狀態通常很有用。確保一個 datum 不被「欺騙」的一種方法是，確保具有該 datum 的輸入或參考輸入包含一個 NFT，該 NFT 使用上述方法之一生成且是唯一的。
+
+在這個範例中，我們將建立一個 STT，用於追蹤使用該 STT 的每筆交易的總和。為此，我們將建立一個具有兩個職責的多驗證器 (multivalidator)：鑄造和花費策略。
+
+STT 鑄造策略允許我們建立初始化計數器為 0 的新代幣。
+
+```aiken
+use aiken/collection/dict
+use aiken/collection/list
+use cardano/address.{Script}
+use cardano/assets.{PolicyId, policies}
+use cardano/transaction.{InlineDatum, OutputReference, Transaction}
+use config
+
+validator counter_stt(utxo_ref: OutputReference) {
+  mint(_redeemer: Data, policy_id: PolicyId, self: Transaction) {
+    let Transaction { inputs, outputs, mint, .. } = self
+
+    expect [Pair(_asset_name, quantity)] =
+      mint |> assets.tokens(policy_id) |> dict.to_pairs()
+
+    let is_output_consumed =
+      list.any(inputs, fn(input) { input.output_reference == utxo_ref })
+
+    expect Some(nft_output) =
+      list.find(
+        outputs,
+        fn(output) { list.has(policies(output.value), policy_id) },
+      )
+    expect InlineDatum(datum) = nft_output.datum
+    expect counter: Int = datum
+    is_output_consumed? && (1 == quantity)? && counter == 0
+  }
+  // "建立花費部分以處理 STT"
+}
+```
+
+以下是驗證器中確保每筆交易遞增計數器值的部分：
+
+- 檢查交易是否由操作員簽名。
+- 獲取 `ScriptHash{:ak}` 以識別 NFT，這與 `PolicyId{:ak}` 相同。
+- 檢查是否存在輸入 NFT 且具有帶整數的 datum。
+- 檢查是否存在輸出且具有帶整數的 datum。
+- 檢查輸出 datum 是否等於輸入 datum + 1。
+
+```aiken
+validator counter_stt(utxo_ref: OutputReference) {
+
+  // 鑄造代碼...
+
+  spend(
+    _optional_datum: Option<Data>,
+    _redeemer: Data,
+    own_ref: OutputReference,
+    self: Transaction,
+  ) {
+    let Transaction { inputs, outputs, .. } = self
+
+    // 從此驗證器獲取腳本哈希。請注意，由於 `mint` 處理程式
+    // 定義為同一個驗證器的一部分，它們共享相同的哈希摘要。
+    // 因此，我們的 `payment_credential` 同時也是我們的 STT
+    // 鑄造策略。
+    expect Some(own_input) =
+      list.find(inputs, fn(input) { input.output_reference == own_ref })
+    expect Script(own_script_hash) = own_input.output.address.payment_credential
+
+    // 檢查交易是否由操作員簽名。
+    let is_signed_by_operator =
+      list.has(self.extra_signatories, config.operator)
+
+    // 一個輸入應該持有 STT，且格式符合預期。
+    expect Some(stt_input) =
+      list.find(
+        inputs,
+        fn(input) { list.has(policies(input.output.value), own_script_hash) },
+      )
+    expect InlineDatum(input_datum) = stt_input.output.datum
+    expect counter_input: Int = input_datum
+
+    // STT 必須被轉發到一個輸出
+    expect Some(stt_output) =
+      list.find(
+        outputs,
+        fn(output) { list.has(policies(output.value), own_script_hash) },
+      )
+    expect InlineDatum(output_datum) = stt_output.datum
+    expect counter_output: Int = output_datum
+    expect stt_input.output.address == stt_output.address
+
+    // 最終驗證
+    is_signed_by_operator? && (counter_output == counter_input + 1)?
+  }
+}
+```
+
+<Callout type="info">
+需要指出的一件重要事情是，我們是從配置中獲取操作員 (operator) 的值，該值來自 aiken.toml 檔案的 `config` 部分：
+
+``` toml
+[config.default.operator]
+encoding = "hex"
+bytes = "00000000000000000000000000000000000000000000000000000000"
+```
+</Callout>
+
+## 轉發驗證與其他提領技巧
+
+透過強制從特定的給定腳本進行提領，我們可以有效地將驗證「轉發 (forward)」到正在以 `withdraw` 腳本用途進行評估的此腳本中。這是有可能的，特別是因為隨時可以提領 0 lovelace 的金額。
+
+我們可以利用這一點讓一個腳本成為一個或多個本身由更簡單腳本鎖定的 UTxO 的擁有者。我們不再按照通常的方式確保擁有者的 PKH 存在於所需的簽署人中，而是使用一個將驗證轉發到交易中也存在的另一個單一腳本的小腳本。
+
+透過在花費驗證器中使用此技巧，我們可以減少授權多個花費時帶來的開銷。事實上，我們無需多次執行同一組邏輯（每個輸入各執行一次），而只需針對提領腳本執行一次。由於驗證器可以存取整個交易作為上下文（無論其執行用途為何），因此大多數情況下這都是可行的。
+
+現在有許多投入生產的 dApp 正在使用此方法，以最佳化評估預算並獲得更高的效率。
+
+## 進一步瞭解
+
+### Anastasia Labs 的設計模式
+
+> https://github.com/Anastasia-Labs/design-patterns
+
+一個旨在抽象化一些較直觀且較不为人知的 eUTxO 設計模式的函式庫，使其更易於被開發者使用。
+
+### Plutonomicon
+
+> https://github.com/Plutonomicon/plutonomicon
+
+由開發者主導的、關於 Plutus 智慧合約平台之「實踐」指南。

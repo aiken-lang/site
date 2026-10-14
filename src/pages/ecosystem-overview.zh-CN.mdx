@@ -1,0 +1,109 @@
+---
+title: "生态系统概览"
+description: "Aiken 是一种用于 Cardano 智能合约的函数式编程语言，可编译为无类型 Plutus 核心 (UPLC)。本概览比较了编写 Cardano 验证器的其他替代语言——包括 PlutusTx (基于 Haskell)、OpShin (基于 Python)、Helios (基于 JavaScript) 和 Plu-ts (基于 TypeScript)——并明确指出所有语言最终都编译为 UPLC。帮助开发者了解 Aiken 如何与其他 Cardano 开发工具协同工作。"
+difficulty: "beginner"
+keywords: ["ecosystem", "PlutusTx", "OpShin", "Helios", "Plu-ts", "UPLC", "Untyped Plutus Core", "Haskell", "comparison", "smart contract languages", "Cardano"]
+topics: ["ecosystem", "language-comparison", "plutustx", "opshin", "helios"]
+prerequisites: []
+related: ["getting-started", "eutxo"]
+---
+
+# 生态系统概览
+
+在 Cardano 社区中，用于编写智能合约的替代语言生态系统正蓬勃发展。因此，人们自然会问这些语言之间的区别，以及在特定案例中应该使用哪种语言。对于 Cardano 上智能合约编写的实际运作方式，也存在很大的误解。在本文中，我们将列出一些主要替代方案及其异同。在深入讨论之前，让我们先探讨这个误解，以便大家能达成共识。
+
+## 常见误解
+
+**Cardano 使用 Haskell 编写智能合约**
+
+这**并不**完全正确。
+
+主要的 Cardano 节点实现确实恰好是用 Haskell 编写的。节点中内置的用于执行智能合约的虚拟机当然也是用 Haskell 实现的。**但**这并不意味着智能合约虚拟机执行的是 Haskell 本身。Aiken 实际上拥有一个用 Rust 编写且功能完整的 [虚拟机](https://github.com/aiken-lang/aiken/blob/main/crates/uplc/src/machine.rs#L63)。
+
+那么到底发生了什么事？实际执行的是什么？
+
+其实有一种叫做 [无类型 Plutus 核心 (Untyped Plutus Core)](./uplc.md) 的东西，它是智能合约的最低阶表示形式，而虚拟机实际执行的是这种低阶表示形式。因此，与大众认知相反，它实际上与 Haskell 没有必然的耦合关系。有了这份认知，我们现在可以提出另一个问题：
+
+**那么当我编写 Plutus 时，我是在写什么？**
+
+在实际应用中，Plutus 通常指以下三者之一：
+
+1. _Plutus Core_：由 Cardano 虚拟机执行的低阶解释代码。
+2. _PlutusTx_：一个 Haskell 框架，通过 GHC 插件将代码编译为 Plutus Core。
+3. _Plutus 平台 (Plutus Platform)_：更广泛地包括 _Plutus Core_、_PlutusTx_ 以及围绕 _Plutus Core_ 开发的大多数工具。
+
+大多数时候，当人们说 _Plutus_ 时，指的其实是 _PlutusTx_，这导致了大众普遍认为 Plutus 实际上就是 Haskell。
+
+由于 _PlutusTx_ 是作为 GHC 插件构建的，您甚至可以为其使用 cabal 等 Haskell 工具。即便如此，您在技术上并非在编写 Haskell。使用 _PlutusTx_ 编写的代码会被插件接收并转换为 _无类型 Plutus 核心_。本质上，它接收 Haskell 的中间表示（GHC Core），并将其转换为无类型 Plutus 核心。这样做的结果是不需要编写新的解析器和类型检查器。您最终得到的是一种看起来和感觉都像 Haskell 的嵌入式语言，但目标执行环境并非 GHC。
+
+## 替代方案
+
+既然解决了这个误解，应该就能明白如何创建其他最终编译为无类型 Plutus 核心的新语言。目前的替代方案范围从全新的语言到嵌入式领域特定语言（简称 eDSL）。以下是主要的名录：
+
+- [Aiken](https://github.com/aiken-lang/aiken)
+- [opshin](https://github.com/OpShin/opshin)
+- [Helios](https://github.com/Hyperion-BT/Helios)
+- [Plutarch](https://github.com/Plutonomicon/plutarch-plutus)
+- [plu-ts](https://github.com/HarmonicLabs/plu-ts)
+- [Scalus](https://github.com/nau/scalus)
+
+这些项目的创建者彼此认识并保持着公开的交流。
+
+### Aiken
+
+Aiken 是一门全新的语言，拥有自己的语法和编译器。它不是 Rust。编译器虽然恰好是用 Rust 编写的，但它不是 Rust。Aiken 不仅是一门新语言的编译器，我们还以一种方式开发了所有内容，使得我们在 Rust 中创建的所有函数库都可以被那些对进行更多底层操作感兴趣的人重复使用。其中一个例子是 [Lucid](https://github.com/spacebudz/lucid)，它使用 Aiken 的 [uplc](https://crates.io/crates/uplc) 包在提交前评估交易，以便在不使用节点、ogmios 或 blockfrost 的情况下计算确切的赎回者 ExUnits。
+
+作为一门语言，Aiken 是具备静态类型与类型推论的纯函数式语言。这意味着大多数时候编译器足够聪明，不需要您标注就能知道某种信息的类型。它还允许您创建类似于记录（records）和枚举（enums）的自定义类型。它没有高阶类型（higher-kinded types）或类型类（typeclasses），因为 Aiken 追求简洁。编写智能合约可能很繁琐，因此我们认为语言应该保持简单，以避免愚蠢的错误。
+
+链上脚本的规模和范围通常较小（与当今编写的其他应用程序相比），因此不需要像解决更困难问题的通用语言那样具备那么多功能。
+
+话虽如此，如果发现某些功能对开发者极其有用，Aiken 以后可能会引入更复杂的语言特性（例如类型类/特性）。
+
+### OpShin
+
+OpShin 允许您使用 100% 有效但受限的 Python3 编写智能合约。由于它使用标准 Python，您拥有在 Python 上开发的所有功能，包括广泛的编辑器支持、语言服务器、Linter、测试框架和验证工具。它实现了自己的类型系统，并在编译时检查类型是否正确。
+
+作为其开发的一部分，[uplc](https://github.com/OpShin/uplc) 和 [pluto](https://github.com/OpShin/pluthon) 的 Python 包已经外部化，可供任何想要在 Python 中构建 UPLC 工具（例如优化器）的人使用。
+
+### Helios
+
+Helios 也是一门全新的语言。一个显著的实现差异是它的编译器是由 [单个无依赖项的 JavaScript 文件](https://github.com/Hyperion-BT/Helios/blob/main/helios.js) 编写的。根据创建者的说法，其意图是使编译器实现更易于审计。
+
+作为一门语言，Helios 也是纯函数式的，但类型推论有限。它也支持类似于记录和枚举的自定义类型。
+
+另一件有趣的事情是，由于编译器是单个 JavaScript 文件，因此在 JavaScript 项目中调用 Helios 变得非常容易。
+
+### Plutarch
+
+Plutarch **不是**一门新语言。您可以将其视为使用 Haskell 创建智能合约的 eDSL。在某些方面，Plutarch 正是 PlutusTx 本应有的样子。它不涉及 <a href="https://wiki.haskell.org/Template_Haskell">Template Haskell</a>。
+
+由于 Plutarch 只是 Haskell，您可以使用所有可用的功能。类型推论、类型类、高阶类型等等。
+
+### plu-ts
+
+plu-ts **不是**一门新语言。您可以将其视为使用 TypeScript 创建智能合约的 eDSL。因此，它在概念上比 Aiken 或 Helios 更接近 Plutarch。
+
+它实现了自己的类型系统，并在编译时（JS 运行时）检查类型是否正确。
+
+### Scalus
+
+Plutus 的 Scala 实现。
+
+Scalus 是一组用于处理可在 JVM 和 JavaScript 上运行的 Cardano 无类型 Plutus 核心的函数库。这包括：
+
+- 无类型 Plutus 核心 (UPLC) 数据类型和函数
+- Flat、CBOR、JSON 序列化
+- 包括执行成本计算在内的 CEK UPLC 评估机
+- UPLC 解析器和美化打印器
+- 类型安全的 UPLC 表达式构建器，类似于 Plutarch
+- 从 Scala 代码生成 UPLC 代码的宏，类似于 PlutusTx 但更简单
+
+## 您应该使用哪一个？
+
+只有您自己能决定哪一个最符合您的需求。每一个在设计和实现上都做出了不同的决策。Aiken 和 Helios 处于**新语言**的光谱一端，而 Plutarch 和 plu-ts 处于 eDSL 一端。Plutarch 拥有表现力最强的类型系统，而 Aiken 的类型介于 Plutarch 和 Helios 之间。
+
+嵌入式 DSL 的优点在于它们与链下代码无缝集成，并且通常允许重复使用已在宿主语言上运行的现有工具。
+
+新语言的优点在于它们直接在编译器中包含针对 Cardano 智能合约专属的检查和功能。虽然它们要求重新创建大量工具，但它们也提供了机会来解决各种语言中现有工具的缺陷。
+
+哪一个最适合您的案例由您决定。作为 Aiken 背后维护者，我们在提供不偏不倚的答案方面无法做到完全中立。我们鼓励您查阅文档、设计决策和整体项目，以做出明智的决定。

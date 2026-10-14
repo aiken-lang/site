@@ -1,0 +1,69 @@
+{
+  "index": {
+    "title": "Aiken",
+    "type": "page",
+    "display": "hidden",
+    "theme": {
+      "layout": "raw"
+    }
+  },
+  "user-manual": {
+    "title": "文件",
+    "type": "page",
+    "href": "/installation-instructions"
+  },
+  "stdlib": {
+    "title": "標準函式庫",
+    "type": "page",
+    "href": "https://aiken-lang.github.io/stdlib/"
+  },
+  "playground": {
+    "title": "遊樂場",
+    "type": "page",
+    "href": "https://play.aiken-lang.org"
+  },
+  "about": {
+    "title": "關於",
+    "type": "page",
+    "href": "/credits"
+  },
+  "-- Basics --": {
+    "type": "separator",
+    "title": "基礎"
+  },
+  "installation-instructions": "安裝",
+  "fundamentals": "基礎觀念",
+  "language-tour": "語言導覽",
+  "-- Examples --": {
+    "type": "separator",
+    "title": "範例"
+  },
+  "example--hello-world": "Hello, World!",
+  "example--vesting": "歸屬合約",
+  "example--gift-card": "禮物卡",
+  "-- Advanced --": {
+    "type": "separator",
+    "title": "進階"
+  },
+  "optimizing-programs": "程式優化",
+  "uplc": "無型別 Plutus 核心",
+  "-- Appendix --": {
+    "type": "separator",
+    "title": "附錄"
+  },
+  "ecosystem-overview": "生態系統概覽",
+  "resources": "資源",
+  "glossary": "詞彙表",
+  "faq": "常見問題集",
+  "credits": {
+    "title": "關於",
+    "display": "hidden",
+    "theme": {
+      "breadcrumb": false,
+      "footer": true,
+      "sidebar": false,
+      "toc": false,
+      "pagination": false
+    }
+  }
+}

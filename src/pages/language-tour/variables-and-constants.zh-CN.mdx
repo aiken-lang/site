@@ -1,0 +1,74 @@
+---
+title: "变量与常数"
+description: "Aiken 是一种用于编写 Cardano 智能合约的函数式编程语言，其中所有值默认都是不可变的。变量在函数内部使用 let 绑定声明，而常数则在模块层级使用 const 声明，并在编译时被完全评估。用于在验证器逻辑和不同模块之间存储和引用值。"
+difficulty: "beginner"
+keywords: ["let", "const", "变量", "常数", "不可变", "绑定", "遮蔽", "类型注解"]
+topics: ["variables", "constants", "let-bindings", "immutability"]
+---
+
+import { Callout } from "nextra-theme-docs";
+
+# 变量与常数
+
+## 变量 / let 绑定 (let-bindings)
+
+Aiken 使用 let 绑定来声明变量。可以使用关键字 `let` 为一个值命名。名称可以被后面的 let 绑定重复使用。
+
+分配给 let 绑定的值是不可变的，但是新的绑定可以「遮蔽 (shadow)」之前的绑定。
+
+```aiken
+let x = 1
+let y = x
+let x = 2
+
+y + x == 3
+```
+
+## 模块常数
+
+在 Aiken 模块的最顶层是不允许使用 let 绑定的。然而，Aiken 提供了模块常数，作为在 Aiken 项目的多个地方使用某些固定值的一种方式。
+
+```aiken
+const start_year = 2101
+const end_year = 2111
+```
+
+与 Aiken 中的所有值一样，模块常数也是不可变的。它们不能被用作全局可变状态。当引用一个常数时，其值会被编译器内联 (inline)，因此它们可以用在任何你本来可以编写字面量的地方（例如 when 表达式、if/else 表达式...）。我们在讨论流程控制时会看到相关示例。
+
+常数在 Aiken 中非常强大。它们可以持有（几乎）任何 Aiken 表达式，并且完全在**编译时估值**。换句话说，你可以写类似这样的代码：
+
+```aiken
+const summer = "Summer"
+const autumn = "Autumn"
+const winter = "Winter"
+const spring = "Spring"
+const seasons = [summer, autumn, winter, spring]
+```
+
+<Callout type="info">
+  常数可以引用其他标识符，例如函数和其他常数，但有一个限制：常数不能引用在文件中其*之后*定义的其他常数。因此，不存在递归或互递归常数。
+</Callout>
+
+## 类型注解
+
+可以为变量和常数提供类型注解。这些注解可以作为文档，或者用于提供比编译器推断出的类型更具体的类型。
+
+```aiken
+const name: ByteArray = "Aiken"
+const size: Int = 100
+
+let result: Bool = 14 > 42
+```
+
+## 文档
+
+你可以使用以 `///{:ak}` 开头的文档注释，为任何常数定义添加面向用户的文档。文档注释支持 Markdown，并且这段文本将包含在生成的 HTML 文档中。
+
+```aiken
+/// 超过时间，单位为**秒**。
+const timeout: Int = 60
+```
+
+<Callout type="info">
+当常数定义作为模块文档导出时，它们会按字母顺序（升序）进行排序。
+</Callout>

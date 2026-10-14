@@ -1,0 +1,312 @@
+import { Callout } from "nextra-theme-docs";
+
+# Hello, World!
+
+讓他在 10 分鐘內在 Cardano 上撰寫並執行一個智慧合約。是的，您沒看錯。
+
+<Callout type="info">
+  您可以在 [Aiken 的主倉庫](https://github.com/aiken-lang/aiken/tree/main/examples/hello_world) 中找到支援本教學的程式碼。
+</Callout>
+
+## 本教學涵蓋內容
+
+<br />
+
+- [x] 撰寫基礎的 Aiken 驗證器；
+- [x] 使用 Aiken 撰寫並執行測試；
+- [x] 智慧合約疑難排解。
+
+<Callout type="info" emoji="📘">
+  遇到不熟悉的語法或概念時，請隨時參考 [語言導覽](/language-tour/primitive-types) 以獲取詳細資訊和更多示例。
+</Callout>
+
+## 先決條件
+
+我們將使用 Aiken 來撰寫腳本，因此請確保已安裝命令列工具，否則請參閱 [安裝說明](/installation-instructions)。
+
+## 專案腳手架 (Scaffolding)
+
+首先，讓我們建立一個新的 Aiken 專案：
+
+```
+aiken new aiken-lang/hello-world
+cd hello-world
+```
+
+此命令會搭建一個 Aiken 專案腳手架。具體來說，它會建立 `lib` 和 `validators` 資料夾，您可以在其中放置 Aiken 原始程式碼檔案。
+
+```
+├── aiken.toml
+├── env
+├── lib
+├── README.md
+└── validators
+    └── placeholder.ak
+```
+
+## 使用標準庫
+
+我們將使用 [標準庫](https://aiken-lang.github.io/stdlib) 來撰寫驗證器。幸運的是，`aiken new` 已自動為我們的 `aiken.toml` 添加了標準庫。它看起來大約像這樣：
+
+```toml filename="aiken.toml"
+name = "aiken-lang/hello-world"
+version = "0.0.0"
+compiler = "v1.1.21"
+plutus = "v3"
+license = "Apache-2.0"
+description = "Aiken contracts for project 'aiken-lang/hello-world'"
+
+[repository]
+user = 'aiken-lang'
+project = 'hello-world'
+platform = 'github'
+
+[[dependencies]]
+name = "aiken-lang/stdlib"
+version = "v3.0.0"
+source = "github"
+
+[config]
+```
+
+現在，執行 `aiken check`，我們應該會看到正在下載依賴項。這不應該花太長時間。
+
+```
+❯ aiken check
+    Compiling aiken-lang/hello-world 0.0.0 (.)
+    Resolving dependencies
+    Resolving aiken-lang/hello-world
+      Fetched 1 package in 0.07s from cache
+    Compiling aiken-lang/stdlib v3.0.0 (./build/packages/aiken-lang-stdlib)
+   Collecting all tests scenarios across all modules
+              ⚠ <redacted>
+      Summary 0 errors, 6 warnings
+```
+
+我們已簡略了上述命令輸出的警告。預設情況下，`aiken new` 會為所有 [驗證處理程序](/language-tour/validators#handlers) 生成一個預留模板。TODO 會在 Aiken 中生成警告，以便在大型程式碼庫中作為提醒。在這裡，我們才剛剛開始，不需要任何模板。因此我們可以將其刪除：
+
+```bash
+rm validators/placeholder.ak
+```
+
+## 我們的第一個驗證器
+
+讓我們將第一個驗證器撰寫為 `validators/hello_world.ak`：
+
+```aiken filename="validators/hello_world.ak"
+use aiken/collection/list
+use aiken/crypto.{VerificationKeyHash}
+use cardano/script_context.{ScriptContext}
+use cardano/transaction.{OutputReference, Transaction}
+
+pub type Datum {
+  owner: VerificationKeyHash,
+}
+
+pub type Redeemer {
+  msg: ByteArray,
+}
+
+validator hello_world {
+  spend(
+    datum: Option<Datum>,
+    redeemer: Redeemer,
+    _own_ref: OutputReference,
+    self: Transaction,
+  ) {
+    expect Some(Datum { owner }) = datum
+    let must_say_hello = redeemer.msg == "Hello, World!"
+    let must_be_signed = list.has(self.extra_signatories, owner)
+    must_say_hello && must_be_signed
+  }
+
+   else(_ctx: ScriptContext) {
+     False
+  }
+}
+```
+
+我們的第一個驗證器雖然初級，但已經有很多值得探討的地方了。
+
+1. 它在 datum 中尋找驗證金鑰雜湊 (`owner`)，並在 redeemer 中尋找訊息 (`msg`)。請記住，在 eUTxO 模型中，**datum** 是在合約中**鎖定資金時**設定的，因此可以視為配置資訊。在這裡，我們將指明合約的所有者，並要求他們提供簽名才能解鎖資金 —— 這與典型的非腳本地址的工作方式非常相似。
+
+2. 此外，因為沒有合適的 "Hello, World!" 就稱不上是 "Hello, World!"，我們的小合約還要求在 redeemer 中（即從合約花費時）傳遞這條完全相同的訊息（作為 UTF-8 編碼的位元組陣列）。
+
+現在是建構我們第一個合約的時候了！
+
+```
+aiken build
+```
+
+此命令會在專案根目錄生成一個 [CIP-0057 Plutus 藍圖](https://github.com/cardano-foundation/CIPs/pull/258)，檔名為 `plutus.json`。此藍圖描述了您的鏈上合約及其二進制介面。具體來說，它包含了將由帳本執行的生成鏈上程式碼，以及可用於構建地址的驗證器的雜湊值。
+
+此格式與框架無關，旨在促進工具之間的互操作性。藍圖已完全整合到 Aiken 中，它可以根據您的型別定義和註解自動生成。
+
+讓我們看看驗證器的實戰效果！
+
+## 添加追蹤 (Traces)
+
+從某種意義上說，驗證器無非就是「謂詞 (predicates)」。謂詞是一個返回布林值的函式。它指明操作是否被允許。在這裡，我們正在撰寫一個 `spend` 驗證器，它控制誰被允許花費被它鎖定的資金。驗證器的疑難排解很快就會變得困難，因為它們給出的唯一真實輸出就是「是」或「否」。為了應對這一點，您可以向驗證器添加「追蹤 (traces)」。追蹤是特殊的命令，告訴帳本 —— 或任何正在執行驗證器的系統 —— 在遇到這些命令時收集訊息。失敗時，它會噴出遇到的訊息，從而提供程式執行的追蹤路徑。
+
+所以讓我們添加一些追蹤。
+
+```aiken filename="validators/hello_world.ak" {3, 21, 29}
+use aiken/collection/list
+use aiken/crypto.{VerificationKeyHash}
+use aiken/primitive/string
+use cardano/script_context.{ScriptContext}
+use cardano/transaction.{OutputReference, Transaction}
+
+pub type Datum {
+  owner: VerificationKeyHash,
+}
+
+pub type Redeemer {
+  msg: ByteArray,
+}
+
+validator hello_world {
+  spend(
+    datum: Option<Datum>,
+    redeemer: Redeemer,
+    _own_ref: OutputReference,
+    self: Transaction,
+  ) {
+    trace @"redeemer": string.from_bytearray(redeemer.msg)
+
+    expect Some(Datum { owner }) = datum
+
+    let must_say_hello = redeemer.msg == "Hello, World!"
+
+    let must_be_signed = list.has(self.extra_signatories, owner)
+
+    must_say_hello? && must_be_signed?
+  }
+
+   else(_ctx: ScriptContext) {
+     False
+  }
+}
+```
+
+在這裡我們做了兩處改動：
+
+1. 我們使用 `trace` 關鍵字添加了一條手動訊息。該訊息即為傳遞給 redeemer 的內容。透過這點，我們可以檢查驗證器看到的數值是否為預期值。
+
+2. 請注意我們還在每個表達式 `must_say_hello` 和 `must_be_signed` 的末尾添加了一個問號 `?`。這就是我們所說的 `trace-if-false` 運算子，對於除錯非常有用。只有當該運算子附加的表達式評估結果為 `False` 時，它才會產生追蹤。這鼓勵了一種將驗證器構建為各項要求之與 (conjunction) 或或 (disjunction) 的方法。在執行不成功時，所有未透過的要求都會留下追蹤！
+
+為了看到這些追蹤，我們需要撰寫一個簡短的測試。
+
+## 撰寫測試
+
+Aiken 內建了對測試的支援！正如您稍後將看到的，測試也可以作為基準測試，因為它們會顯示執行所需的精確記憶體和步驟執行單元。它們還會為我們收集追蹤。讓我們撰寫一個執行我們驗證器的簡單測試。測試是不接收參數並返回布林值的函式。但與普通函式不同，它們使用關鍵字 `test` 標註。我們將需要一個 datum、一個 redeemer 和一個指令碼上下文，以及更多的導入 (imports)：
+
+```aiken filename="validators/hello_world.ak" {3-21}
+// ... 程式碼其餘部分保持不變
+
+test hello_world_example() {
+  let datum =
+    Datum { owner: #"00000000000000000000000000000000000000000000000000000000" }
+
+  let redeemer = Redeemer { msg: "Aiken Rocks!" }
+
+  let placeholder_utxo = OutputReference { transaction_id: "", output_index: 0 }
+
+  hello_world.spend(
+    Some(datum),
+    redeemer,
+    placeholder_utxo,
+    transaction.placeholder,
+  )
+}
+```
+
+在這裡，我們有了一個測試！一個失敗的測試，但我們會讓它通過的，別擔心。但首先，讓我們執行它。只需執行 `aiken check`：
+
+```
+❯ aiken check
+        
+  ┍━ hello_world ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  │ FAIL [mem: 11387, cpu: 4370671] hello_world_example
+  │ · with traces
+  │ | redeemer: Aiken Rocks!
+  │ | must_say_hello ? False
+  ┕━━━━━━━━━━━━━━━━━━━━━━ 1 tests | 0 passed | 1 failed
+```
+
+這個輸出已經非常有用。我們可以看到在驗證器中添加的 `trace`，它噴回了 redeemer 中的 `msg`。接著，我們看到了 `?` 運算子在起作用。它顯示了一條追蹤訊息，因為謂詞 `must_say_hello` 返回了 `False`。請注意，此處未顯示另一個謂詞 `must_be_signed`，因為 Aiken 確保按順序逐一檢查條件。由於第一個條件已經失敗，整個表達式立即短路返回 `False`。
+
+讓我們解決這個問題，並確保我們說的是 `Hello, World!`。
+
+```aiken filename="validators/hello_world.ak" {5}
+test hello_world_example() {
+  let datum =
+    Datum { owner: #"00000000000000000000000000000000000000000000000000000000" }
+
+  let redeemer = Redeemer { msg: "Hello, World!" }
+
+  let placeholder_utxo = OutputReference { transaction_id: "", output_index: 0 }
+
+  hello_world.spend(
+    Some(datum),
+    redeemer,
+    placeholder_utxo,
+    transaction.placeholder,
+  )
+}
+```
+
+現在，我們可以再次執行 `aiken check`：
+
+```
+❯ aiken check
+        
+  ┍━ hello_world ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  │ FAIL [mem: 18729, cpu: 7160240] hello_world_example
+  │ · with traces
+  │ | redeemer: Hello, World!
+  │ | must_be_signed ? False
+  ┕━━━━━━━━━━━━━━━━━━━━━━ 1 tests | 0 passed | 1 failed
+```
+
+正如預期的那樣，它再次失敗，但我們取得了進展。請注意 `mem` 和 `cpu` 執行單元比第一次執行時略高。現在，我們已進入評估驗證器要求之第二部分的階段：`must_be_signed`。要滿足第二個要求，我們需要將測試所有者添加到交易的額外簽署者中。如下所示：
+
+```aiken filename="validators/hello_world.ak" {15}
+// ...程式碼其餘部分保持不變
+
+test hello_world_example() {
+  let datum =
+    Datum { owner: #"00000000000000000000000000000000000000000000000000000000" }
+
+  let redeemer = Redeemer { msg: "Hello, World!" }
+
+  let placeholder_utxo = OutputReference { transaction_id: "", output_index: 0 }
+
+  hello_world.spend(
+    Some(datum),
+    redeemer,
+    placeholder_utxo,
+    Transaction { ..transaction.placeholder, extra_signatories: [datum.owner] },
+  )
+}
+```
+
+這應該能解決問題。請注意，在此階段，我們並不提供任何實際簽名。這是因為我們沒有執行任何帳本第一階段 (phase-1) 的驗證。然而，在執行智慧合約之前，帳本將驗證交易內容是否有效。具體來說，它會驗證任何 `extra_signatories` 在交易中是否具有對應的有效簽名。在這裡，我們可以只使用我們的預留驗證金鑰！
+
+```
+❯ aiken check
+        
+  ┍━ hello_world ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  │ PASS [mem: 32451, cpu: 11921833] hello_world_example
+  │ · with traces
+  │ | redeemer: Hello, World!
+  ┕━━━━━━━━━━━━━━━━━━━━━━━ 1 tests | 1 passed | 0 failed
+```
+
+成功了！我們得到了 `Hello, World!` 追蹤，且沒有任何失敗 🎉！恭喜，您做到了。當然，這個特定測試本身並非真的非常有趣。但在實踐中，驗證器會更加複雜且層次分明。我們鼓勵您將驗證器拆分為多個小函式，每個函式一次只做一件事，並獨立測試這些函式。
+
+<Callout type="warning">
+  追蹤會給驗證器的執行增加一些額外開銷。這就是為什麼當您建構驗證器時，Aiken 預設會「抹除」所有追蹤。如需在最終驗證器中保留它們，請在建構時使用 `--trace-level verbose` 選項。相反地，`check` 命令預設會「保留」追蹤，因為大多時候這正是您想要的。如果您需要基準測試一個沒有追蹤的執行情況，可以在執行測試時隨時傳遞 `--trace-level silent` 旗標以移除所有追蹤。
+</Callout>
+
+您現在已準備好進入下一步，嘗試結合真實交易來執行這套端到端流程！令人興奮，不是嗎？
