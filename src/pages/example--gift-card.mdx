@@ -128,7 +128,7 @@ will perform. This validator can be used to mint and then burn an NFT.
 use cardano/assets.{PolicyId}
 use cardano/transaction.{OutputReference, Transaction} as tx
 
-type Action {
+pub type Action {
   CheckMint
   CheckBurn
 }
@@ -160,7 +160,7 @@ use aiken/collection/dict
 use cardano/assets.{PolicyId}
 use cardano/transaction.{OutputReference, Transaction} as tx
 
-type Action {
+pub type Action {
   CheckMint
   CheckBurn
 }
@@ -199,7 +199,7 @@ use aiken/collection/list
 use cardano/assets.{PolicyId}
 use cardano/transaction.{OutputReference, Transaction} as tx
 
-type Action {
+pub type Action {
   CheckMint
   CheckBurn
 }
@@ -251,7 +251,7 @@ use aiken/collection/list
 use cardano/assets.{PolicyId}
 use cardano/transaction.{OutputReference, Transaction} as tx
 
-type Action {
+pub type Action {
   CheckMint
   CheckBurn
 }
@@ -794,18 +794,18 @@ export function applyParams(
   ]);
 
   const policyId = validatorToScriptHash({
-    type: "PlutusV2",
+    type: "PlutusV3",
     script: giftCard,
   });
 
   const lockAddress = validatorToAddress("Preprod", {
-    type: "PlutusV2",
+    type: "PlutusV3",
     script: giftCard,
   });
 
   return {
-    redeem: { type: "PlutusV2", script: applyDoubleCborEncoding(giftCard) },
-    giftCard: { type: "PlutusV2", script: applyDoubleCborEncoding(giftCard) },
+    redeem: { type: "PlutusV3", script: applyDoubleCborEncoding(giftCard) },
+    giftCard: { type: "PlutusV3", script: applyDoubleCborEncoding(giftCard) },
     policyId,
     lockAddress,
   };
